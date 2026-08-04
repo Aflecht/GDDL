@@ -1,0 +1,42 @@
+// Fixture: init_nested_uninitialized_dotted_path
+// Rule under test: GDDL Spec v4 §7, §12 phase 8 -- extends the group's existing
+// single-fixture coverage (init_uninitialized_only_caught_at_export.gddl, which only
+// ever tests a TOP-LEVEL uninitialized field) to a genuinely nested case. Confirms
+// phase 8 reports the full dotted path to the missing field (e.g. `object.inner.value`)
+// at real nesting depth, not just a bare top-level field name -- a compiler that only
+// tracks "which top-level field is incomplete" without threading the path through
+// nested struct resolution could plausibly report something less specific (e.g. just
+// `object`, or just `value` with no path context) instead of the precise dotted
+// location.
+
+define Inner
+	value = u32
+
+define Object
+	inner = Inner
+
+define Container
+	object = Object
+
+Container Holder
+	object
+		inner
+			// value: never touched anywhere. Container is not `delete`, so this must
+			// fail at phase 8 (Container has nothing else to set -- `object` is its
+			// only field, and `object.inner.value` is the only leaf ever reachable).
+
+// UPDATE (new concept, not known when this fixture was written): GDDL Spec v4 §12.1
+// defines warnings -- non-blocking diagnostics distinct from errors. The first defined
+// warning is exactly what `inner` below does: a bare struct-field entry with zero
+// children (§6.4). This fixture is expected to be the first one in the corpus carrying
+// a warning alongside its phase-8 error, once re-captured. Not restructuring the
+// "Expected" comment below to guess at the warning's exact reported shape -- see
+// GOLDEN_FORMAT.md's "Pending schema extension" note for why.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error / incomplete against Holder: missing field reported as the full
+//   dotted path `object.inner.value`, not just `value` or just `object`. Phase 8
+//   (Final Validation), matching the established pattern from
+//   init_uninitialized_only_caught_at_export.gddl.
+//   Also expected (see note above): a warning against `inner` for being a bare
+//   struct-field entry with zero children -- exact reported shape not predicted here.

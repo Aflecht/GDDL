@@ -1,0 +1,42 @@
+// Fixture: nested_replace_basic
+// Rule under test: GDDL Spec v4 §6.4 — `field = SourceInstance` (replace-then-modify),
+// isolated at a single nesting level, with no other rule interactions.
+//
+// Proves the three-step sequence explicitly:
+//   1. Discard whatever `payload` currently holds (nothing yet, first use).
+//   2. Copy all data from the named source instance into `payload`.
+//   3. Execute the following indented statements against that fresh copy.
+//
+// This fixture intentionally uses two different delete-template sources (Base, Alt)
+// with overlapping field names but different values, so a wrong implementation that
+// accidentally keeps stale data from the wrong source, or defaults a field instead of
+// copying it, produces an observably different result.
+
+define Payload
+	a = u32
+	b = u32
+
+define Container
+	payload = Payload
+
+Payload Base delete
+	a = 1
+	b = 2
+
+Payload Alt delete
+	a = 10
+	b = 20
+
+Container Holder
+	payload = Base
+		a = 5
+		// b not mentioned: copied from Base as part of the replace step, value stays 2
+
+Container Holder_From_Alt
+	payload = Alt
+		a = 999
+		// b not mentioned: copied from Alt as part of the replace step, value stays 20
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Holder.payload            == { a: 5,   b: 2  }
+//   Holder_From_Alt.payload   == { a: 999, b: 20 }

@@ -1,0 +1,32 @@
+// Fixture: indentation_deep_nesting_valid
+// Rule under test: GDDL Spec v4 §3 -- consistent indentation at nesting depth beyond
+// what's currently covered (existing tabs/spaces-only fixtures go two levels deep).
+// Five levels of struct-typed field composition, single consistent indentation
+// character (tabs) throughout the entire file, confirming the parser/resolver handles
+// deeper nesting correctly, not just the shallow cases already exercised elsewhere.
+
+define Level5
+	value = u32
+
+define Level4
+	level5 = Level5
+
+define Level3
+	level4 = Level4
+
+define Level2
+	level3 = Level3
+
+define Level1
+	level2 = Level2
+
+Level1 Deep
+	level2
+		level3
+			level4
+				level5
+					value = 42
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Deep.level2.level3.level4.level5.value == 42

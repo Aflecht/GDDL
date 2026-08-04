@@ -1,0 +1,41 @@
+// Fixture: nested_bare_scalar_field_error
+// Rule under test: resolved by lead session (previously flagged as underspecified).
+// Bare `field` (no `=`) syntax means "enter the field's existing scope, touch only what's
+// listed" (§6.4). That meaning presupposes a scope to enter. Scalar-typed fields have no
+// scope -- there is nothing to enter -- so writing a scalar field in bare form is a
+// compile-time error.
+//
+// Phasing note (relayed from lead session, worth keeping in Compiler Core too): this is
+// a PHASE 5 (Validate, per §12) error, not a parse-time one. The parser alone cannot
+// distinguish "bare struct-typed field" from "bare scalar-typed field" -- both are
+// syntactically identical (a field name, no `=`, followed by an indented block). The
+// distinction only becomes checkable once field types are known, which happens at
+// Register (phase 4) and is checked at Validate (phase 5). This fixture's error should
+// therefore surface as a validation-stage error, not a parser/syntax-stage error --
+// worth confirming Compiler Core's error actually lands in that phase and not earlier.
+
+define Payload
+	a = u32
+	b = u32
+
+define Container
+	payload = Payload
+	label   = u32
+
+Container Container_Seed delete
+	payload
+		a = 1
+		b = 2
+	label = 10
+
+Container Holder = Container_Seed
+	label
+		// INVALID: label is scalar (u32) -- there is no scope here to enter.
+		// Expected: compile error at phase 5 (Validate), not phase 3 (Parse).
+		anything = 5
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error, reported against Holder's `label` statement.
+//   Error should be attributable to phase 5 (type validation: bare-field form requires
+//   a struct-typed field; `label` is scalar), NOT phase 3 (parsing succeeds -- the
+//   bare-field-with-indented-block shape is syntactically well-formed on its own).

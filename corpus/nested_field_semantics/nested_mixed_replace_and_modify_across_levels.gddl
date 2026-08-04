@@ -1,0 +1,58 @@
+// Fixture: nested_mixed_replace_and_modify_across_levels
+// Rule under test: GDDL Spec v4 §6.4 + §6.5 -- mixing replace-then-modify and
+// modify-only at DIFFERENT levels within the same instance, in the opposite ordering
+// from nested_level2_replace_sibling_level1_untouched.gddl (that fixture: modify-only
+// outer, replace inner. This fixture: replace outer, modify-only inner). Together the
+// two fixtures cover both orderings of the interaction, not just one.
+//
+// The key thing this proves: once `branch` is fully replaced with `L1Alt`, the
+// subsequent bare `level2` entry modifies THAT fresh copy's nested struct -- not any
+// stale state from `branch`'s previous value (`L1Base`/`L2Base`). This is the same
+// no-merge principle as nested_replace_discards_prior_modify.gddl, but exercised across
+// a level boundary instead of within a single field.
+
+define Level2
+	x = u32
+	y = u32
+
+define Level1
+	level2 = Level2
+	z      = u32
+
+define Container
+	branch = Level1
+
+Level2 L2Base delete
+	x = 1
+	y = 2
+
+Level1 L1Base delete
+	level2 = L2Base
+	z      = 100
+
+Level2 L2Alt delete
+	x = 10
+	y = 20
+
+Level1 L1Alt delete
+	level2 = L2Alt
+	z      = 500
+
+Container Seed delete
+	branch = L1Base
+
+Container Holder = Seed
+	branch = L1Alt
+		level2
+			y = 777
+			// x untouched here -- must come from the FRESH L1Alt.level2 copy (L2Alt,
+			// x = 10), not from branch's old state (L1Base/L2Base, x = 1). This is
+			// the no-merge proof for this fixture.
+		// z untouched inside branch's override block -> inherited from L1Alt (500),
+		// not from Seed.branch.z (100) -- branch was fully replaced, not modified.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Holder.branch == { level2: { x: 10, y: 777 }, z: 500 }
+//   NOT { level2: { x: 1, y: 777 }, z: 100 } -- that result would indicate stale data
+//   from branch's pre-replace state leaking through, which is exactly the merge-mode
+//   failure this fixture exists to catch across a level boundary.

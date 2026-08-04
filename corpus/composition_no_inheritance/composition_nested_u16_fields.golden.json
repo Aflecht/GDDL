@@ -1,0 +1,29 @@
+{
+  "fixture": "composition_nested_u16_fields.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-28",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Hero": {
+        "status": "ok",
+        "resolved": {
+          "stats": {
+            "hp": 60000,
+            "mp": 12000
+          },
+          "equipment": {
+            "weapon_power": 500
+          },
+          "level": 42
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

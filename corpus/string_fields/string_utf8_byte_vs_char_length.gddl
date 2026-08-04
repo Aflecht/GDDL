@@ -1,0 +1,36 @@
+// Fixture: string_utf8_byte_vs_char_length
+// Rule under test: GDDL Spec v4 (String Length Enforcement) -- "length is measured as
+// the byte length of the UTF-8-encoded text, not a character count." Confirms
+// enforcement counts BYTES specifically, not characters, in both directions --
+// accepting a case where byte count is at the limit despite a mismatched char count,
+// and rejecting a case where char count alone would look safe but byte count isn't.
+//
+// `é` (U+00E9) encodes to 2 UTF-8 bytes. Both test values below rely on this directly
+// rather than an approximation.
+
+define Item
+	name = string 6
+	// max content = 5 bytes (N-1)
+
+Item AtByteLimitMultibyte
+	name = "café"
+	// 4 CHARACTERS (c, a, f, é), but 5 BYTES (c=1, a=1, f=1, é=2 -> 1+1+1+2=5).
+	// Exactly at the 5-byte limit. Must be accepted -- proves multi-byte characters
+	// are counted correctly (by bytes) even right at the boundary, not rejected just
+	// for containing a non-ASCII character.
+
+Item OverByteLimitFewChars
+	name = "ééé"
+	// Only 3 CHARACTERS -- well under any character-based limit of 5 -- but 6 BYTES
+	// (3 x 2 bytes each), one byte OVER the 5-byte limit. Must be REJECTED. This is
+	// the case that actually distinguishes byte-counting from char-counting: a
+	// char-counting implementation would incorrectly ACCEPT this (3 < 5), since it
+	// looks short by character count alone. ERROR expected.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   AtByteLimitMultibyte.name == "café" (5 bytes, accepted)
+//   OverByteLimitFewChars: compile error against field `name` -- value exceeds the
+//   maximum content length (5 bytes) for `string 6`, despite being only 3 characters.
+//   If a reference implementation instead ACCEPTS this instance, that indicates
+//   length is being measured by character count rather than byte count -- exactly
+//   the backwards implementation this fixture exists to catch.

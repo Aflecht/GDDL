@@ -1,0 +1,56 @@
+// Fixture: composition_nested_u16_fields
+// Rule under test: GDDL Spec v4 §5.2-§5.3 (composition) combined with `u16`-typed
+// fields at multiple nesting levels. Straightforward language-level composition
+// coverage on its own terms -- but ALSO the specific gap that motivated building it:
+// no existing Z80 export test exercises composition or a `u16` field end-to-end on
+// real toolchains (only a single flat `u8` field has been validated so far on that
+// target). See the note below on this fixture's two separate, deliberately
+// non-merged uses.
+//
+// DUAL PURPOSE, TWO SEPARATE CHANNELS (not one shared artifact):
+//   1. Golden-locked in THIS corpus, under normal discipline -- genuinely useful,
+//      target-independent front-end regression material, full stop. This corpus's
+//      schema has no concept of an export target and correctly shouldn't grow one;
+//      Compiler Core maintains its own separate `export_z80_test/`,
+//      `export_cpp_test/`, etc. for that concern.
+//   2. The SAME source handed to Compiler Core, but flagged for placement under
+//      `export_z80_test/` and validation via all three Z80 renderers on real
+//      toolchains (SjASMPlus, `z88dk` assembly, `z88dk` C/`zsdcc`) -- NOT for a
+//      golden-lock entry there. That's the part this corpus's schema can't and
+//      shouldn't capture.
+//
+// Deliberately excludes string fields -- Z80 string storage semantics are an open
+// design question not yet settled, and this fixture doesn't depend on that being
+// resolved. Values chosen to exercise the FULL 16-bit width (well above 255)
+// specifically so a Z80 renderer that incorrectly assumed 8-bit storage, or
+// mishandled byte order for a wider value, would produce an observably wrong result
+// rather than one that happens to work by coincidence.
+
+define Stats
+	hp = u16
+	mp = u16
+
+define Equipment
+	weapon_power = u16
+
+define Character
+	stats     = Stats
+	equipment = Equipment
+	level     = u16
+
+Character Hero
+	stats
+		hp = 60000
+		mp = 12000
+	equipment
+		weapon_power = 500
+	level = 42
+
+// Expected (prediction, pending golden output from Compiler Core reference run --
+// this is the language-level resolution prediction only; Z80 export-target
+// correctness is a separate concern validated through Compiler Core's own
+// `export_z80_test/`, not captured here):
+//   Compiles cleanly, no error.
+//   Hero.stats     == { hp: 60000, mp: 12000 }
+//   Hero.equipment == { weapon_power: 500 }
+//   Hero.level     == 42

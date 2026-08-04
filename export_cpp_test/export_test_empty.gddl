@@ -1,0 +1,7 @@
+define Object
+	something1	= u32
+	something2	= u32
+
+Object OnlyOneDeleteTemplate delete
+	something1 = 1
+	something2 = 2

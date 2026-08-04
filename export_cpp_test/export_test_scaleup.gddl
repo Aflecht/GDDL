@@ -1,0 +1,49 @@
+identifier ActionAttack
+	melee_weapon	= "Standard attack done with a melee weapon"
+	ranged_weapon	= "Standard attack done with a ranged weapon"
+
+identifier Element
+	fire		= "Elemental fire damage type"
+	ice		= "Elemental ice damage type"
+	lightning	= "Elemental lightning damage type"
+	poison		= "Elemental poison damage type"
+
+define Object
+	something1	= u32
+	something2	= u32
+
+define Item
+	object		= Object
+	weight		= u32
+	element		= Element
+
+Object DefaultObject
+	something1 = 0
+	something2 = 0
+
+Object HeavyObject
+	something1 = 100
+	something2 = 50
+
+Object LightObject = HeavyObject
+	something1 = 5
+
+Object BaseObject
+	something1 = 10
+	something2 = 20
+
+Item ItemViaFullReplace
+	object = BaseObject
+	weight = 5
+	element = Element.fire
+
+Item ItemViaBareModify
+	object
+		something1 = 99
+		something2 = 100
+	weight = 7
+	element = Element.ice
+
+Item ItemCopy = ItemViaFullReplace
+	weight = 50
+	element = Element.lightning

@@ -1,0 +1,27 @@
+// Fixture: indentation_mixed_tabs_spaces_error
+// Rule under test: GDDL Spec v4 §3 -- "Only one type of indentation character can be
+// used inside a single data structure's scope. If more than one type of indentation
+// character is found inside a data structure definition / instantiation, the tool must
+// generate an error." Negative-path companion to the two positive fixtures. This file
+// mixes a tab-indented statement and a space-indented statement within the SAME scope
+// (Creature's field list) -- not across different, independently-indented scopes, which
+// would not violate the rule.
+//
+// The mixing is deliberate and exact: `hitpoints` below is indented with one literal
+// tab character; `mana`, in the same scope, is indented with four literal space
+// characters instead. (This distinction is invisible in a typical text viewer -- the
+// raw bytes are what matter here, not visual alignment.)
+
+define Creature
+	hitpoints = u32
+    mana = u32
+
+// ERROR: `hitpoints` above is tab-indented; `mana` is space-indented; both are in
+// Creature's same top-level scope. This must be a compile error, not a warning and
+// not silently tolerated by treating tabs and spaces as visually equivalent.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error: mixed indentation characters within a single scope (Creature's
+//   field-list scope), reported at phase 3 (Parse) per §12 -- this is caught during
+//   parsing/indentation-structure analysis, before any type registration or resolution
+//   would even begin.

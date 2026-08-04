@@ -1,0 +1,45 @@
+// Fixture: string_escaped_trailing_backslash
+// Rule under test: GDDL Spec v4, String Literal Escaping -- `\\` inside
+// a string literal resolves to a single literal backslash character.
+//
+// This is deliberately the TRAILING-backslash case (value ends in `\`,
+// source ends in `\\` immediately before the closing quote) rather than
+// a mid-string backslash, because that's the one case the spec itself
+// cites as the whole reason `\\` needs to exist: "a string that happens
+// to end in one (e.g. a Windows-style path fragment) becomes ambiguous
+// with the sequence that precedes the closing quote." A mid-string `\\`
+// (more content follows before the real terminator) is a strictly
+// easier case for the tokenizer and doesn't exercise the actual
+// ambiguity this fixture is about.
+//
+// This exact case was found BROKEN during implementation of the escape
+// feature: both quote-boundary-detection sites in parser.py (the
+// preprocessor and split_top_level_equals) used a naive single-character
+// lookback (`s[i-1] != "\\"`) to decide whether a `"` was escaped. That
+// check cannot distinguish "one backslash before this quote" (escaped,
+// correct) from "two backslashes before this quote" (a COMPLETE `\\`
+// pair, NOT escaped) -- it misidentified the real closing quote here as
+// still-escaped and kept scanning, producing "unterminated string
+// literal" for a source line that should parse cleanly. Fixed by
+// replacing the lookback with proper backslash-run PARITY counting
+// (even count, including zero, means the quote is a real boundary; odd
+// count means the last backslash is unpaired and actively escapes it)
+// -- the standard resolution for this exact ambiguity, applied at both
+// sites. This fixture golden-locks the corrected behavior.
+
+define Item
+	path = string 40
+
+Item WindowsPath
+	path = "C:\\Users\\"
+
+// Expected:
+//   Compiles cleanly, no error. Source content between the quotes is
+//   `C:\\Users\\` (11 characters: C, :, \, \, U, s, e, r, s, \, \),
+//   which unescapes to 9 bytes of actual content (each `\\` pair
+//   collapses to one literal `\`), comfortably under `string 40`'s
+//   39-byte capacity.
+//   WindowsPath.path == the literal 9-character sequence
+//   `C:\Users\` -- ending in a SINGLE trailing backslash, not two.
+//   Character-by-character: ['C',':','\\','U','s','e','r','s','\\']
+//   -- 9 elements.

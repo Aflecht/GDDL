@@ -1,0 +1,43 @@
+// Fixture: delete_chain_partial_completion_at_each_generation
+// Rule under test: GDDL Spec v4 §6.6 -- companion to delete_multi_generation_chain.gddl,
+// testing a different shape of the same rule group: instead of one field left
+// untouched across a pure passthrough chain, THREE fields each get filled in at a
+// DIFFERENT generation, with each intermediate `delete` generation still legitimately
+// incomplete (not all three fields set yet) until the final real instance closes the
+// last gap. Confirms partial completion carries forward correctly across `delete`
+// generations, not just total incompleteness.
+//
+// Same combined-header grammar as delete_multi_generation_chain.gddl applies here too
+// (`Type Name = Source delete`, trailing `delete`) -- confirmed correct, see that
+// fixture's header comment for the full resolution.
+
+define Stats
+	hp = u32
+	mp = u32
+	xp = u32
+
+Stats Gen1 delete
+	hp = 100
+	// mp, xp both uninitialized
+
+Stats Gen2 = Gen1 delete
+	mp = 50
+	// hp inherited (100); xp still uninitialized. Still incomplete -- still fine,
+	// still `delete`.
+
+Stats Gen3 = Gen2 delete
+	// no new statements -- pure passthrough. hp=100, mp=50 both carried forward
+	// untouched; xp still uninitialized. Still `delete`, still fine.
+
+Stats RealFinal = Gen3
+	xp = 999
+	// closes the LAST remaining gap, left open since Gen1. RealFinal is not `delete`,
+	// so it must fully resolve -- and now, after three generations of partial fill, it
+	// does.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Gen1, Gen2, Gen3: not present in exported output (all three `delete`).
+//   RealFinal.hp == 100 (set at generation 1, carried through unchanged)
+//   RealFinal.mp == 50  (set at generation 2, carried through unchanged)
+//   RealFinal.xp == 999 (set at generation 4 / RealFinal itself, closing the last gap)

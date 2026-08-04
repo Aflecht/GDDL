@@ -1,0 +1,40 @@
+// Fixture: numeric_range_float_boundary_overflow
+// Rule under test: GDDL Spec v4 §5 -- numeric range enforcement, float case, "applies
+// to floats overflowing to infinity too." Merged fixture (per explicit resolution --
+// float range and float overflow are the SAME phenomenon, not two distinct concepts:
+// for a float, the only way to be out-of-range for a given width is for the magnitude
+// to exceed what that width can finitely represent, which manifests exactly as the
+// value becoming infinite when coerced to that width). A separate "float boundary"
+// fixture and a separate "float overflow" fixture would test the identical mechanism
+// twice under different names -- this single fixture covers both.
+//
+// The rejecting case is deliberately produced by COMPUTATION (multiplying a
+// near-max-valid value further) rather than a hand-picked, suspiciously-round
+// out-of-range literal -- demonstrating genuine overflow, not just "the compiler
+// rejects big numbers on sight."
+
+define Stats
+	value = f32
+
+Stats NearMaxValid
+	value = 3.4e38
+	// near f32's max finite magnitude (~3.4028235e38) but safely within range --
+	// must be accepted.
+
+Stats Overflow
+	value = 3.4e38
+	value * 10
+	// multiplying a near-max-valid f32 value by 10 pushes its magnitude well past
+	// what f32 can finitely represent -- the result is mathematically infinite once
+	// coerced to f32's range. ERROR expected: rejected as overflow, NOT silently
+	// stored as `inf`.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   NearMaxValid.value == 3.4e38 (or the nearest exact f32 representation thereof)
+//   Overflow: compile error against field `value` -- out of range for `f32`
+//     (magnitude exceeds finite representable range, i.e. would become infinite).
+//     Phase 6, check "numeric_range". If a reference implementation instead silently
+//     stores `inf` (or some sentinel) here, that's exactly the failure mode this
+//     fixture exists to catch -- the spec explicitly rules out silent
+//     wrapping/clamping, and infinity-on-overflow is named as an explicit case of
+//     that, not an exception to it.

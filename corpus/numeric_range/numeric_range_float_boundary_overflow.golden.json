@@ -1,0 +1,8 @@
+{
+  "fixture": "numeric_range_float_boundary_overflow.gddl",
+  "capture_status": "pending",
+  "blocked_reason": null,
+  "captured_at": null,
+  "compiler_core_version": null,
+  "output": null
+}

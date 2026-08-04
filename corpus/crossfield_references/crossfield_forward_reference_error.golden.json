@@ -1,0 +1,21 @@
+{
+  "fixture": "crossfield_forward_reference_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Broken": {
+        "status": "error",
+        "phase": 6,
+        "check": "uninitialized_read",
+        "line": 15,
+        "message": "line 15: 'weight' is read before being initialized -- reading an uninitialized field is always a compile-time error, delete-marked instances included"
+      }
+    }
+  }
+}

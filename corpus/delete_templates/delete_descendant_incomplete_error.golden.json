@@ -1,0 +1,39 @@
+{
+  "fixture": "delete_descendant_incomplete_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "StatsTemplate": {
+        "status": "delete",
+        "resolved": {
+          "hp": 100,
+          "mp": {
+            "__uninitialized__": true
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "StatsIncomplete": {
+        "status": "incomplete",
+        "phase": 8,
+        "check": "final_completeness",
+        "missing_fields": [
+          "mp"
+        ],
+        "resolved": {
+          "hp": 200,
+          "mp": {
+            "__uninitialized__": true
+          }
+        }
+      }
+    }
+  }
+}

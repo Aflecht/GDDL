@@ -1,0 +1,21 @@
+// Fixture: crossfield_basic_reference
+// Rule under test: GDDL Spec v4 §6.7 -- an expression may reference the current value
+// of any other field in the current instance's own scope, not only the field being
+// assigned. Isolated flat-field case, no nesting, no forward-reference wrinkle -- the
+// simplest possible positive instance of the rule, to serve as the baseline the other
+// fixtures in this group build on.
+
+define Item
+	weight       = u32
+	count        = u32
+	total_weight = u32
+
+Item Sword
+	weight       = 12
+	count        = 4
+	total_weight = weight * count
+	// references two other fields in this same instance's own scope, both already
+	// initialized by the time this line executes
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Sword.total_weight == 48

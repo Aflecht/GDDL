@@ -1,0 +1,21 @@
+{
+  "fixture": "string_escape_invalid_sequence.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-31",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "BadEscape": {
+        "status": "error",
+        "phase": 6,
+        "check": "string_escape",
+        "line": 15,
+        "message": "line 15: 'text': invalid escape sequence '\\n' in string literal -- only \\\" (literal quote) and \\\\ (literal backslash) are valid; any other character after a backslash is a compile-time error, not a passthrough (spec: String Literal Escaping)"
+      }
+    }
+  }
+}

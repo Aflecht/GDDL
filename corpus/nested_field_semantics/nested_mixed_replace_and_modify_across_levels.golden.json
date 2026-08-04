@@ -1,0 +1,84 @@
+{
+  "fixture": "nested_mixed_replace_and_modify_across_levels.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "L2Base": {
+        "status": "delete",
+        "resolved": {
+          "x": 1,
+          "y": 2
+        },
+        "phase": null,
+        "check": null
+      },
+      "L1Base": {
+        "status": "delete",
+        "resolved": {
+          "level2": {
+            "x": 1,
+            "y": 2
+          },
+          "z": 100
+        },
+        "phase": null,
+        "check": null
+      },
+      "L2Alt": {
+        "status": "delete",
+        "resolved": {
+          "x": 10,
+          "y": 20
+        },
+        "phase": null,
+        "check": null
+      },
+      "L1Alt": {
+        "status": "delete",
+        "resolved": {
+          "level2": {
+            "x": 10,
+            "y": 20
+          },
+          "z": 500
+        },
+        "phase": null,
+        "check": null
+      },
+      "Seed": {
+        "status": "delete",
+        "resolved": {
+          "branch": {
+            "level2": {
+              "x": 1,
+              "y": 2
+            },
+            "z": 100
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "Holder": {
+        "status": "ok",
+        "resolved": {
+          "branch": {
+            "level2": {
+              "x": 10,
+              "y": 777
+            },
+            "z": 500
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

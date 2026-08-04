@@ -1,0 +1,32 @@
+// Fixture: composition_same_type_reused_multiple_fields
+// Rule under test: GDDL Spec v4 §5.2-§5.3 -- composition, breadth case. The existing
+// group fixture (composition_multi_level.gddl) tests composition DEPTH (A contains B
+// contains C, three levels down one path). This fixture tests composition BREADTH:
+// the same `define` type (`Point`) reused as the field type for TWO SEPARATE sibling
+// fields (`start`, `end`) within one structure, confirming each instantiation resolves
+// independently with no interference between them -- e.g. a buggy implementation that
+// caches or shares state keyed only by type name, rather than by field identity, could
+// plausibly let one `Point` instance's values leak into the other.
+
+define Point
+	x = u32
+	y = u32
+
+define Line
+	start = Point
+	end   = Point
+
+Line Segment
+	start
+		x = 1
+		y = 2
+	end
+		x = 10
+		y = 20
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Segment.start == { x: 1, y: 2 }
+//   Segment.end   == { x: 10, y: 20 }
+//   Each `Point` instantiation must hold its own independent values -- no bleed-through
+//   between `start` and `end` despite both being the exact same underlying type.

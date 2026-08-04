@@ -1,0 +1,15 @@
+{
+  "fixture": "op_statement_leading_operator_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parse_error",
+    "error": {
+      "phase": 3,
+      "line": 20,
+      "message": "line 20: statement does not begin with a valid field identifier (found '*') -- no legal statement shape (assign 'field = expr', op-statement 'field op expr', or bare 'field') matches this line"
+    }
+  }
+}

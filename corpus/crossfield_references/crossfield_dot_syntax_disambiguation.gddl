@@ -1,0 +1,41 @@
+// Fixture: crossfield_dot_syntax_disambiguation
+// Rule under test: GDDL Spec v4 §6.7 -- "Nested fields use the same dot syntax as
+// identifier domain access (object.weight); which meaning applies is resolved by type
+// context (current-scope field checked first, then identifier domain)." This fixture
+// puts both forms in the same instance scope simultaneously, so a single golden output
+// confirms neither shadows or breaks the other.
+//
+// `object.weight` is a nested struct-field cross-field reference (§6.7) -- `object` is
+// a field name in Creature's own scope.
+// `ActionAttack.melee_weapon` is an identifier domain access (§4.1) -- `ActionAttack`
+// is not a field name anywhere in Creature's scope, so it resolves as a domain
+// reference instead, per the stated resolution order (current-scope field checked
+// first, then identifier domain).
+
+define Object
+	weight = u32
+
+identifier ActionAttack
+	melee_weapon  = "Standard attack done with a melee weapon"
+	ranged_weapon = "Standard attack done with a ranged weapon"
+
+define Creature
+	object           = Object
+	attack           = ActionAttack
+	effective_weight = u32
+
+Creature Warrior
+	object
+		weight = 20
+	attack           = ActionAttack.melee_weapon
+	effective_weight = object.weight
+	// `object.weight`: current-scope field reference, since `object` is a field
+	// declared on Creature. Not an identifier domain access -- there is no domain
+	// named `object`.
+	// `ActionAttack.melee_weapon` (above): identifier domain access, since
+	// `ActionAttack` is not a field name in Creature's scope.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Warrior.attack           == ActionAttack.melee_weapon (logical ID)
+//   Warrior.effective_weight == 20
+//   Both dot-syntax forms resolve correctly and independently in the same instance.

@@ -1,0 +1,43 @@
+// Fixture: cri_coercion_multigen_crossfield
+// Rule under test: GDDL Spec v4 §5 (numeric coercion) + §6.6-adjacent copy-chain
+// semantics + §6.7 (cross-field references), combined. A float-producing op-statement
+// in generation 1 gets coerced to an int at its point of storage; that coerced value
+// is inherited (untouched) through generation 2, then read via a cross-field
+// reference in generation 3 and used in further arithmetic.
+//
+// Why this is a meaningful combination and not just "more of the same": the numeric
+// value itself (15 vs. 15.0) is mathematically identical either way, so a bug where an
+// implementation forgets to actually re-type the stored value as a clean int (leaving
+// it internally float-tainted after coercion) would be INVISIBLE from arithmetic
+// results alone -- 15.0 * 2 and 15 * 2 both equal 30 as real numbers. The only place
+// such a bug becomes observable is in the field's own EXPORTED representation (does it
+// serialize as `15` or `15.0`?), which is exactly what the golden-output JSON already
+// distinguishes (per the widening/narrowing fixtures in numeric_coercion/). This
+// fixture checks that representation survives two full generations of copying intact.
+
+define Stats
+	count   = i32
+	derived = i32
+
+Stats Gen1
+	count = 10
+	count * 1.5
+	// 10 * 1.5 = 15.0, exactly whole -> coerced to the int 15 at the point of storage
+	derived = 1
+	// throwaway, closes Stats' other field for Gen1 (avoids an unrelated phase-8 gap)
+
+Stats Gen2 = Gen1
+	// pure passthrough -- no new statements. count (15) and derived (1) both carry
+	// forward unchanged from Gen1.
+
+Stats Gen3 = Gen2
+	derived = count * 2
+	// cross-field reference to `count` -- NOT freshly set in Gen3's own body, but
+	// inherited two generations back from where it was originally coerced. Confirms
+	// the reference sees a properly-typed int (15), not a float-tainted 15.0, and
+	// that arithmetic two generations downstream still produces a cleanly-typed
+	// int result.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Gen3.count   == 15   (not 15.0 -- inherited unchanged across two generations)
+//   Gen3.derived == 30   (15 * 2, a clean int result)

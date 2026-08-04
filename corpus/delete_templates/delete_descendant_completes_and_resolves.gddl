@@ -1,0 +1,28 @@
+// Fixture: delete_descendant_completes_and_resolves
+// Rule under test: GDDL Spec v4 §6.6 / §12 phase 8 -- a `delete` template may stay
+// incomplete, but "any non-`delete` instance copying from one must still fully resolve
+// by export time" (seed context, consistent with §7's blanket initialization rule).
+// Positive/clean-compile companion to delete_descendant_incomplete_error.gddl.
+//
+// StatsTemplate leaves `mp` uninitialized (permitted, it's a delete template).
+// StatsFull copies StatsTemplate and explicitly sets `mp`, closing the gap. StatsFull
+// is a normal (non-delete) instance, so it must fully resolve and be exportable.
+
+define Stats
+	hp = u32
+	mp = u32
+
+Stats StatsTemplate delete
+	hp = 100
+	// mp intentionally left uninitialized -- permitted for a delete template
+
+Stats StatsFull = StatsTemplate
+	mp = 50
+	// closes the gap StatsTemplate left open; StatsFull is not `delete`, so it must
+	// be fully resolved by export time -- and now it is.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   StatsTemplate: not present in exported output (delete instances are export-exempt).
+//   StatsFull.hp == 100 (carried over from StatsTemplate via copy)
+//   StatsFull.mp == 50  (set explicitly, closing the gap)

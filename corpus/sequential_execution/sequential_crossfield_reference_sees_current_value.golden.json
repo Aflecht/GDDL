@@ -1,0 +1,23 @@
+{
+  "fixture": "sequential_crossfield_reference_sees_current_value.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Example": {
+        "status": "ok",
+        "resolved": {
+          "base": 25,
+          "derived": 21
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

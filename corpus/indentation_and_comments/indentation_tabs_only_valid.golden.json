@@ -1,0 +1,28 @@
+{
+  "fixture": "indentation_tabs_only_valid.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Holder": {
+        "status": "ok",
+        "resolved": {
+          "payload": {
+            "inner": {
+              "x": 1,
+              "y": 2
+            },
+            "a": 100
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

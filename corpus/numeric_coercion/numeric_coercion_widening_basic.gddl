@@ -1,0 +1,42 @@
+// Fixture: numeric_coercion_widening_basic
+// Rule under test: GDDL Spec v4 §5 -- numeric type coercion, widening case.
+// "Widening (int -> float) is always automatic." First dedicated fixture for this rule
+// group -- previously the only thing exercising coercion at all was
+// op_statements/op_statement_three_operator_chain.gddl, and that was incidental
+// (built for evaluation-order/precedence coverage, not for coercion itself).
+//
+// Two sources of an int value, both stored into float-typed fields: a bare literal,
+// and the result of a pure-int arithmetic expression. Confirms widening applies
+// uniformly regardless of how the int value was produced, per §5's stated scope.
+//
+// Known phase/check (established in an earlier golden batch's _meta note, not a fresh
+// assumption): coercion is enforced in phase 6 (Resolve), at the point of storage,
+// reported with check "numeric_coercion" when it fires -- but for this fixture nothing
+// should fire, since widening never errors.
+
+define Stats
+	value   = f32
+	value64 = f64
+
+Stats FromLiteral
+	value   = 42
+	value64 = 7
+	// bare int literals stored directly into float-typed fields
+
+Stats FromIntExpression
+	value   = 6 * 7
+	// pure-int arithmetic (6 * 7 = 42, no float operand anywhere), result stored into
+	// a float-typed field for the first time -- widening applies to the computed
+	// result just as it would to a literal
+	value64 = 1
+	// throwaway value, unrelated to what this instance is testing. Present only so
+	// this instance's OTHER field in the shared `Stats` define isn't left genuinely
+	// untouched -- an unrelated phase-8 incompleteness error would otherwise fire
+	// here, since Stats has two fields and this instance only cared about testing one.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   FromLiteral.value        == 42.0   (not the int 42)
+//   FromLiteral.value64      == 7.0    (not the int 7)
+//   FromIntExpression.value   == 42.0   (not the int 42)
+//   FromIntExpression.value64 == 1.0    (throwaway, unrelated to what this instance tests)

@@ -1,0 +1,90 @@
+// Fixture: export_test_binary_coverage (§17 binary export target)
+//
+// Content is IDENTICAL to export_cpp_test/export_test_indexed.gddl,
+// copied deliberately per this project's own established convention
+// (composition_nested_u16_fields.gddl is duplicated the same way
+// across export_z80_test/, export_6502_test/, export_68000_test/,
+// export_cpp_test/) -- and per this task's own explicit instruction to
+// confirm an existing fixture already has everything needed before
+// building a new one from scratch. It does: Item composes Object
+// (proves flattening), has a scalar u32 field (weight), a string 16
+// field (name), a plain-domain identifier field (element: Element,
+// logical-ID form), and an @Domain indexed identifier field
+// (fast_dispatch: @ActionAttack) -- every coverage requirement in one
+// type, plus Object itself as a genuine second exported type for the
+// multi-type per-table-entry test.
+//
+// If export_test_indexed.gddl is ever edited for C++-specific reasons,
+// this copy will silently drift from it -- that's an accepted tradeoff
+// of the duplication convention already established elsewhere in this
+// project, not something new introduced here.
+
+identifier ActionAttack u8
+	melee_weapon	= "Standard attack done with a melee weapon"
+	ranged_weapon	= "Standard attack done with a ranged weapon"
+
+identifier Element u16
+	fire		= "Elemental fire damage type"
+	ice		= "Elemental ice damage type"
+	lightning	= "Elemental lightning damage type"
+	poison		= "Elemental poison damage type"
+
+define Object
+	something1	= u32
+	something2	= u32
+
+define Item
+	object		= Object
+	weight		= u32
+	element		= Element
+	name		= string 16
+	fast_dispatch	= @ActionAttack
+
+Object DefaultObject
+	something1 = 0
+	something2 = 0
+
+Object HeavyObject
+	something1 = 100
+	something2 = 50
+
+Object LightObject = HeavyObject
+	something1 = 5
+
+Object BaseObject
+	something1 = 10
+	something2 = 20
+
+// delete-template-sourced export chain (idiomatic pattern from Example.txt):
+// BaseTemplate is never exported at all; RealObjectGen1 completes it;
+// RealObjectGen2 is a further generation built on top of that.
+Object BaseTemplate delete
+	something1 = 1
+
+Object RealObjectGen1 = BaseTemplate
+	something2 = 2
+
+Object RealObjectGen2 = RealObjectGen1
+	something1 * 10
+
+Item ItemViaFullReplace
+	object = BaseObject
+	weight = 5
+	element = Element.fire
+	name = "Sword"
+	fast_dispatch = ActionAttack.melee_weapon
+
+Item ItemViaBareModify
+	object
+		something1 = 99
+		something2 = 100
+	weight = 7
+	element = Element.ice
+	name = "AAAAAAAAAAAAAAA"
+	fast_dispatch = ActionAttack.ranged_weapon
+
+Item ItemCopy = ItemViaFullReplace
+	weight = 50
+	element = Element.lightning
+	name = "Shield"
+	fast_dispatch = ActionAttack.melee_weapon

@@ -1,0 +1,15 @@
+identifier ActionAttack u8
+	melee_weapon	= "Standard attack done with a melee weapon"
+	ranged_weapon	= "Standard attack done with a ranged weapon"
+
+define Creature
+	hp     = u8
+	attack = ActionAttack
+
+Creature Goblin
+	hp = 10
+	attack = ActionAttack.melee_weapon
+
+Creature Archer
+	hp = 8
+	attack = ActionAttack.ranged_weapon

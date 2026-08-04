@@ -1,0 +1,54 @@
+{
+  "fixture": "circular_reference_longer_chain.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-28",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [
+      {
+        "phase": 4,
+        "check": "circular_dependency",
+        "line": 22,
+        "message": "line 22: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+      },
+      {
+        "phase": 4,
+        "check": "circular_dependency",
+        "line": 25,
+        "message": "line 25: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+      },
+      {
+        "phase": 4,
+        "check": "circular_dependency",
+        "line": 28,
+        "message": "line 28: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+      }
+    ],
+    "warnings": [],
+    "instances": {
+      "A": {
+        "status": "error",
+        "phase": 4,
+        "check": "circular_dependency",
+        "line": 22,
+        "message": "line 22: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+      },
+      "B": {
+        "status": "error",
+        "phase": 4,
+        "check": "circular_dependency",
+        "line": 25,
+        "message": "line 25: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+      },
+      "C": {
+        "status": "error",
+        "phase": 4,
+        "check": "circular_dependency",
+        "line": 28,
+        "message": "line 28: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+      }
+    }
+  }
+}

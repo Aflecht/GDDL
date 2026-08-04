@@ -1,0 +1,39 @@
+// Fixture: delete_multi_generation_chain
+// Rule under test: GDDL Spec v4 §6.6 -- extends beyond the existing single-generation
+// delete coverage (delete_template_incomplete_ok.gddl,
+// delete_descendant_completes_and_resolves.gddl) to a THREE-generation chain:
+// delete-marked template -> delete-marked template (copying the first) -> real,
+// non-delete instance (copying the second). Isolates two things at once: (1) a
+// `delete` instance copying from ANOTHER `delete` instance, carrying forward its
+// incompleteness untouched; (2) confirms incompleteness tolerance survives multiple
+// `delete` hops, and it is only the final non-`delete` instance that must fully
+// resolve -- not "the first delete template plus one hop," but arbitrarily many hops.
+//
+// GRAMMAR CONFIRMED (previously flagged, now resolved and written into the spec):
+// `TemplateGen2` is both a copy of `TemplateGen1` AND itself `delete`-marked, requiring
+// the combined "copy-and-delete" instance header form. Confirmed correct as written:
+// `Type Name = Source delete` (trailing `delete`, matching the single-keyword pattern
+// from the plain `delete` example). No changes needed.
+
+define Stats
+	hp = u32
+	mp = u32
+
+Stats TemplateGen1 delete
+	hp = 100
+	// mp intentionally left uninitialized
+
+Stats TemplateGen2 = TemplateGen1 delete
+	// no new statements at all -- pure passthrough copy. Still `delete`, still
+	// incomplete (mp remains untouched, inherited-uninitialized from TemplateGen1).
+
+Stats RealFinal = TemplateGen2
+	mp = 50
+	// closes the gap left open across BOTH prior generations. RealFinal is not
+	// `delete`, so it must fully resolve by export time -- and now it does.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   TemplateGen1, TemplateGen2: not present in exported output (both `delete`).
+//   RealFinal.hp == 100 (carried across two generations, untouched the whole way)
+//   RealFinal.mp == 50  (closes a gap left open since generation 1)

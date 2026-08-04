@@ -1,0 +1,34 @@
+// Fixture: sequential_crossfield_reference_sees_current_value
+// Rule under test: GDDL Spec v4 §6.2 + §6.7 -- combines sequential execution with
+// cross-field references. `base` has multiple sequential op-statements applied to it;
+// `derived`'s expression references `base` partway through that sequence, and MORE
+// statements touch `base` afterward. Confirms the reference sees `base`'s value AS OF
+// that exact point in execution order (a snapshot, taken eagerly when the statement
+// runs) -- not `base`'s eventual final value, and not some lazily-evaluated
+// "live formula" that would retroactively update `derived` when `base` changes again
+// later. GDDL is compile-time and deterministic with strictly sequential execution
+// (§6.2); nothing in the spec suggests expressions are anything other than evaluated
+// once, at their own point in the sequence -- this fixture makes that concrete and
+// checkable rather than leaving it implicit.
+
+define Stats
+	base    = i32
+	derived = i32
+
+Stats Example
+	base = 10
+	base * 2
+	// base is now 20
+	derived = base + 1
+	// snapshot taken HERE: base is 20 at this exact point, so derived should become 21
+	base + 5
+	// base becomes 25 AFTER derived was already computed -- this must NOT
+	// retroactively change derived's already-stored value
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Example.derived == 21   (base's value at the point of reference: 20, plus 1)
+//   Example.base    == 25   (base's own final value, after the later statement)
+//   If derived instead comes out as 26 (base's FINAL value of 25, plus 1), that would
+//   indicate either lazy/live re-evaluation of the reference, or expressions being
+//   evaluated out of their declared sequential order -- exactly the failure mode this
+//   fixture exists to catch.

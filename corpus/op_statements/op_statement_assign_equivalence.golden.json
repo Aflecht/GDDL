@@ -1,0 +1,30 @@
+{
+  "fixture": "op_statement_assign_equivalence.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "ViaOpStatement": {
+        "status": "ok",
+        "resolved": {
+          "hitpoints": 20
+        },
+        "phase": null,
+        "check": null
+      },
+      "ViaExplicitAssign": {
+        "status": "ok",
+        "resolved": {
+          "hitpoints": 20
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "fixture": "sequential_longer_chain_order_dependent.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Forward": {
+        "status": "ok",
+        "resolved": {
+          "value": 3
+        },
+        "phase": null,
+        "check": null
+      },
+      "Reversed": {
+        "status": "ok",
+        "resolved": {
+          "value": -6
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

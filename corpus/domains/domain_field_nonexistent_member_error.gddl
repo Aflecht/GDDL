@@ -1,0 +1,38 @@
+// Fixture: domain_field_nonexistent_member_error
+// Rule under test: GDDL Spec v4 §12 phase 5 -- "identifier references resolve to a
+// valid domain member" is explicitly listed as a Validate-phase check. Distinct
+// negative path from domain_field_wrong_domain_error.gddl: THAT fixture's assigned
+// value is a perfectly valid identifier reference, just from the wrong domain
+// (`Element.fire` where `ActionAttack` was expected). THIS fixture's assigned value
+// references the CORRECT domain (`ActionAttack`), but a member name that was never
+// declared at all -- a typo (`melee_wepon` instead of `melee_weapon`). Worth its own
+// isolated fixture since a compiler could plausibly check "is this the right domain"
+// and "does this member actually exist within that domain" via different code paths.
+//
+// Phase prediction (spec-grounded, not guessed): §12 phase 5 groups exactly this check
+// ("identifier references resolve to a valid domain member") alongside domain-typing,
+// so phase 5 is expected with reasonable confidence. The specific `check` name
+// Compiler Core reports this under (`domain_typing`, reused from the wrong-domain case,
+// vs. something more specific like `unknown_identifier_member`) is NOT predicted here --
+// left open pending actual golden output, since that's an implementation-naming detail
+// rather than a spec question.
+
+identifier ActionAttack
+	melee_weapon  = "Standard attack done with a melee weapon"
+	ranged_weapon = "Standard attack done with a ranged weapon"
+
+define Creature
+	attack = ActionAttack
+
+Creature Broken
+	attack = ActionAttack.melee_wepon
+	// ERROR: "melee_wepon" (typo) was never declared in the ActionAttack identifier
+	// block. The domain itself is correct -- unlike domain_field_wrong_domain_error.gddl,
+	// this is not a cross-domain mismatch, it's a reference to a member that simply
+	// does not exist anywhere.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error against Broken: field `attack`'s assigned identifier reference
+//   (`ActionAttack.melee_wepon`) does not resolve to any declared member of the
+//   ActionAttack domain. Phase 5 (Validate), per §12's explicit phase-5 checklist.
+//   Exact `check` name and message wording left unpredicted -- see note above.

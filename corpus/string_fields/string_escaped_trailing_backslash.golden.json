@@ -1,0 +1,22 @@
+{
+  "fixture": "string_escaped_trailing_backslash.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-31",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "WindowsPath": {
+        "status": "ok",
+        "resolved": {
+          "path": "C:\\Users\\"
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

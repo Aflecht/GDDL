@@ -1,0 +1,40 @@
+// Fixture: numeric_range_unsigned_boundary
+// Rule under test: GDDL Spec v4 §5 -- numeric range enforcement. "Every numeric type
+// has a fixed range, storing outside it is a compile-time error, no silent
+// wrapping/clamping." Representative unsigned type (`u8`, range 0..255). Confirms
+// both boundary values are accepted exactly at the limit, and one step past either
+// limit is rejected -- not wrapped (256 silently becoming 0) or clamped (256 silently
+// becoming 255).
+//
+// Known phase/check, confirmed directly by the lead session before this fixture was
+// built (not a fresh assumption): phase 6, check "numeric_range", same attribution
+// pattern as numeric_coercion.
+
+define Stats
+	value = u8
+
+Stats MinValid
+	value = 0
+	// exactly at u8's minimum -- must be accepted
+
+Stats MaxValid
+	value = 255
+	// exactly at u8's maximum -- must be accepted
+
+Stats BelowMin
+	value = -1
+	// ERROR: one step below u8's minimum (0). Must be rejected outright, not wrapped
+	// to 255 (as unsigned integer wraparound would do in many languages).
+
+Stats AboveMax
+	value = 256
+	// ERROR: one step above u8's maximum (255). Must be rejected outright, not
+	// wrapped to 0 and not clamped to 255.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   MinValid.value == 0
+//   MaxValid.value == 255
+//   BelowMin: compile error against field `value` -- out of range for `u8`.
+//     Phase 6, check "numeric_range".
+//   AboveMax: compile error against field `value` -- out of range for `u8`.
+//     Phase 6, check "numeric_range".

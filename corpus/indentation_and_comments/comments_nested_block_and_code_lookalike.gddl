@@ -1,0 +1,45 @@
+// Fixture: comments_nested_block_and_code_lookalike
+// Rule under test: GDDL Spec v4 §3 -- "The text files can have two types of comments...
+// Both comment types work like in C++. The /* */ comments can be nested." This fixture
+// isolates two distinct things in one file:
+//   1. A block comment nested inside another block comment (outer/inner/outer again),
+//      confirming nesting depth > 1 is handled correctly, not just a single level.
+//   2. A block comment whose content looks like valid GDDL statements (field
+//      assignments, an instance header) but must be entirely ignored by the compiler --
+//      preprocessing (§12 phase 2) strips comments before parsing ever sees them.
+
+define Creature
+	hitpoints = u32
+	mana      = u32
+
+/*
+This is a nested block comment test.
+/* This inner comment start should extend the nesting, not close the outer one. */
+Still inside the outer comment here -- if nesting weren't handled correctly, everything
+from this point to the real closing marker below would incorrectly be treated as live
+source text and fail to parse.
+*/
+
+Creature Warrior
+	hitpoints = 100
+	/* mana = 999999   -- this looks like a real statement but is commented out and
+	   must be fully ignored: mana stays uninitialized here, this line contributes
+	   nothing to Warrior's resolved data. */
+	mana = 50
+
+/*
+Creature Fake_Ghost_Instance
+	hitpoints = 1
+	mana = 1
+This entire commented-out block looks like a complete, syntactically valid instance
+declaration. It must never be registered, resolved, or exported -- if it were, it
+would appear in the golden output as a phantom instance, which is exactly the failure
+mode this fixture exists to catch.
+*/
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Warrior.hitpoints == 100
+//   Warrior.mana      == 50   (from the live statement below the commented-out one)
+//   No instance named Fake_Ghost_Instance exists anywhere in the exported output --
+//   it was never real source text, only comment content.

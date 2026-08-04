@@ -1,0 +1,28 @@
+{
+  "fixture": "composition_multi_level.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Hero": {
+        "status": "ok",
+        "resolved": {
+          "equipment": {
+            "weapon": {
+              "damage": 25
+            },
+            "armor_rating": 10
+          },
+          "name": "Hero"
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

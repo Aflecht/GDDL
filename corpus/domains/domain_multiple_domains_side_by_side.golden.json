@@ -1,0 +1,52 @@
+{
+  "fixture": "domain_multiple_domains_side_by_side.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "FireArcher": {
+        "status": "ok",
+        "resolved": {
+          "attack": {
+            "__identifier_ref__": true,
+            "domain": "ActionAttack",
+            "key": "ranged_weapon",
+            "logical_id": "ae8d2e9aef4e"
+          },
+          "element": {
+            "__identifier_ref__": true,
+            "domain": "Element",
+            "key": "fire",
+            "logical_id": "2f1bfb6d7ec5"
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "IceWarrior": {
+        "status": "ok",
+        "resolved": {
+          "attack": {
+            "__identifier_ref__": true,
+            "domain": "ActionAttack",
+            "key": "melee_weapon",
+            "logical_id": "48ac49d162c0"
+          },
+          "element": {
+            "__identifier_ref__": true,
+            "domain": "Element",
+            "key": "ice",
+            "logical_id": "136095371386"
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

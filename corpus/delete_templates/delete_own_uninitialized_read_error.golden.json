@@ -1,0 +1,21 @@
+{
+  "fixture": "delete_own_uninitialized_read_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "StatsBadTemplate": {
+        "status": "error",
+        "phase": 6,
+        "check": "uninitialized_read",
+        "line": 19,
+        "message": "line 19: 'mp' is read before being initialized -- reading an uninitialized field is always a compile-time error, delete-marked instances included"
+      }
+    }
+  }
+}

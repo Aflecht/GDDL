@@ -1,0 +1,43 @@
+// Fixture: nested_replace_discards_prior_modify
+// Rule under test: GDDL Spec v4 §6.5 — No Merge Semantics (deliberate). This is the
+// fixture that actually distinguishes "replace-then-modify" from an implicit merge,
+// which nested_replace_basic.gddl and nested_modify_only_basic.gddl on their own do not:
+// both of those fixtures happen to produce the same result a merge-mode implementation
+// would also produce, since nothing conflicting was ever written to the untouched field
+// beforehand. This fixture forces that divergence deliberately.
+//
+// Sequence, within a single instance, in strict statement order (§6.2):
+//   1. Bare `payload` (modify-only): sets payload.a = 7 against a blank payload
+//      (this instance has no copied source yet). payload.b stays uninitialized.
+//   2. `payload = Alt` (replace-then-modify) on the SAME field, later in the same body:
+//      must fully discard step 1's payload entirely -- including the a = 7 just written
+//      -- copy Alt's {a:10, b:20} in, then apply the override on top.
+//
+// A merge-mode bug would incorrectly retain a = 7 from step 1 (since step 2's override
+// only touches b), producing { a: 7, b: 55 } instead of the correct { a: 10, b: 55 }.
+// This is exactly the "kept intentionally vs. forgotten, indistinguishable" failure mode
+// called out by name in §6.5 -- this fixture is the isolated regression test for it.
+
+define Payload
+	a = u32
+	b = u32
+
+define Container
+	payload = Payload
+
+Payload Alt delete
+	a = 10
+	b = 20
+
+Container Holder
+	payload
+		a = 7
+		// b uninitialized here -- fine, nothing reads it yet
+	payload = Alt
+		b = 55
+		// full discard-then-copy-then-override: a = 7 above must NOT survive
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Holder.payload == { a: 10, b: 55 }
+//   NOT { a: 7, b: 55 } -- that result would indicate a merge-mode bug, which is
+//   exactly what this fixture exists to catch.

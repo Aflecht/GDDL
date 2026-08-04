@@ -1,0 +1,33 @@
+{
+  "fixture": "nested_bare_scalar_field_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Container_Seed": {
+        "status": "delete",
+        "resolved": {
+          "payload": {
+            "a": 1,
+            "b": 2
+          },
+          "label": 10
+        },
+        "phase": null,
+        "check": null
+      },
+      "Holder": {
+        "status": "error",
+        "phase": 5,
+        "check": "field_shape",
+        "line": 32,
+        "message": "line 32: bare field 'label' (modify-only form) used on a scalar field -- only struct-typed fields have a scope to enter"
+      }
+    }
+  }
+}

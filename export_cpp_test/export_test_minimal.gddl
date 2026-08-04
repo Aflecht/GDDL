@@ -1,0 +1,18 @@
+identifier ActionAttack
+	melee_weapon	= "Standard attack done with a melee weapon"
+	ranged_weapon	= "Standard attack done with a ranged weapon"
+
+define Object
+	something1	= u32
+	something2	= u32
+
+Object DefaultObject
+	something1 = 0
+	something2 = 0
+
+Object HeavyObject
+	something1 = 100
+	something2 = 50
+
+Object LightObject = HeavyObject
+	something1 = 5

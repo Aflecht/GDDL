@@ -1,0 +1,40 @@
+// Fixture: domain_logical_id_collision_error
+// Rule under test: GDDL Spec v4 §4.1.1 -- logical ID collision detection. Two entries
+// in the SAME identifier domain with different keys but IDENTICAL description text
+// produce the same logical ID, since the entry's key is not part of the hash input
+// (only `Domain::description text` is hashed, per §4.1.1). This is a GENUINE,
+// DETERMINISTIC collision -- not a coincidental hash collision, and not required to be
+// one. Same domain + same description text always produces the same logical ID.
+//
+// The colliding description text here (`"Standard attack done with a melee weapon"`)
+// is deliberately reused from domains/domain_field_accepts_valid_member.gddl, whose
+// `melee_weapon` entry under this same `ActionAttack` domain already has an
+// independently-verified logical ID for this exact domain-qualified string:
+// `5c96a731d7d47e03` (confirmed via a from-scratch FNV-1a-64 cross-check earlier in
+// this corpus's history, not just taken on trust). Reusing it here means this
+// fixture's predicted shared hash value is itself already independently verified,
+// not a fresh, unconfirmed computation.
+//
+// PHASE/CHECK NOT YET CONFIRMED -- per standing discipline, not finalized until
+// Compiler Core confirms the exact `phase`/`check` attribution. The error CONTENT
+// (both colliding qualified names + the shared hash) is well-understood and stated
+// with confidence below; the phase number and check name are deliberately left as
+// TBD rather than guessed.
+
+identifier ActionAttack
+	melee_weapon = "Standard attack done with a melee weapon"
+	heavy_strike = "Standard attack done with a melee weapon"
+	// COLLISION: identical description text to `melee_weapon` above, different key.
+	// Both entries hash to the same logical ID under this domain, deterministically.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error naming BOTH colliding qualified names -- `ActionAttack::Standard
+//   attack done with a melee weapon` for both entries (identical qualified name for
+//   both, since that's literally what the collision means -- domain + description are
+//   the same for each), and citing the shared hash value `5c96a731d7d47e03`.
+//   Phase: TBD -- NOT PREDICTED, pending Compiler Core confirmation. Likely a
+//   registration-time check (the collision is a property of the domain's own
+//   declaration, independent of whether anything ever references either member), but
+//   this is explicitly not asserted as a specific phase number until confirmed.
+//   Check name: TBD -- NOT PREDICTED, pending confirmation. Plausibly something like
+//   "logical_id_collision" or "duplicate_hash", but not guessed at here.

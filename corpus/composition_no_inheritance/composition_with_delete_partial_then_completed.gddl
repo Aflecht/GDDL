@@ -1,0 +1,39 @@
+// Fixture: composition_with_delete_partial_then_completed
+// Rule under test: GDDL Spec v4 §5.2-§5.3 (composition) + §6.6 (delete templates) --
+// combines the two. `LineTemplate` is `delete`-marked and leaves a field INSIDE a
+// composed struct sub-field (`end.y`, not a top-level field) genuinely uninitialized.
+// Confirms the "delete templates may remain incomplete" allowance applies at any
+// nesting depth, not just to top-level fields -- consistent with how the nested
+// field semantics group already established modify-only/replace recursion works at
+// any depth, but not previously tested specifically in combination with `delete`'s
+// incompleteness tolerance. `RealLine` then closes the gap, and being non-`delete`,
+// must (and does) fully resolve.
+
+define Point
+	x = u32
+	y = u32
+
+define Line
+	start = Point
+	end   = Point
+
+Line LineTemplate delete
+	start
+		x = 1
+		y = 2
+	end
+		x = 10
+		// y: never touched -- permitted, since LineTemplate is `delete` and this
+		// incompleteness lives inside a composed sub-field, not at the top level.
+
+Line RealLine = LineTemplate
+	end
+		y = 20
+		// closes the gap left inside the template's composed `end` field. RealLine is
+		// not `delete`, so it must fully resolve by export time -- and now it does.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   LineTemplate: not present in exported output (delete-marked).
+//   RealLine.start == { x: 1, y: 2 }   (inherited unchanged)
+//   RealLine.end   == { x: 10, y: 20 } (x inherited, y closes the gap)

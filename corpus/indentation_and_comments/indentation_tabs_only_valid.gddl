@@ -1,0 +1,29 @@
+// Fixture: indentation_tabs_only_valid
+// Rule under test: GDDL Spec v4 §3 -- "Both regular white space, and tabulator can be
+// used for indentation. Only one type of indentation character can be used inside a
+// single data structure's scope." This fixture uses tab characters exclusively, in
+// every scope, at every depth -- the straightforward valid case. Positive/clean-compile
+// baseline paired with indentation_spaces_only_valid.gddl (spaces-only) and
+// indentation_mixed_tabs_spaces_error.gddl (the negative path).
+
+define Inner
+	x = u32
+	y = u32
+
+define Payload
+	inner = Inner
+	a     = u32
+
+define Container
+	payload = Payload
+
+Container Holder
+	payload
+		inner
+			x = 1
+			y = 2
+		a = 100
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Holder.payload == { inner: { x: 1, y: 2 }, a: 100 }

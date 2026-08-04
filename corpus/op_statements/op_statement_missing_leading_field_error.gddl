@@ -1,0 +1,38 @@
+// Fixture: op_statement_missing_leading_field_error
+// Rule under test: newly resolved rule (now written into the spec) -- every statement
+// must begin with a field name, no exceptions. The three legal statement shapes are:
+//   1. `field = expr`   (assign)
+//   2. `field op expr`  (op-statement)
+//   3. `field`          (bare, modify-only scope entry)
+// A line that does not start with a field name -- no leading identifier, no `=` -- is a
+// SYNTAX error at phase 3 (Parse), not a later-phase error, since the parser cannot
+// determine which field the statement even targets. This is a different error category
+// from most of this corpus (which mostly targets phase 5/6/8 semantic errors) -- this
+// one is caught before any type registration or resolution would even begin.
+//
+// This is also *why* self-reference in non-leading position can only be written via
+// assign, never op-statement shorthand: op-statement syntax requires the field name to
+// lead the statement by construction. See crossfield_self_reference_non_leading.gddl
+// (crossfield references group) for the corresponding valid case, written correctly
+// via assign.
+
+define Creature
+	hitpoints_maximum = f32
+
+Creature Base
+	hitpoints_maximum = 100
+
+Creature Broken = Base
+	20 + hitpoints_maximum * 0.5
+	// ERROR: this line has no leading field name and no `=`. It is not valid
+	// op-statement shorthand (op-statement requires the field to lead: `field op
+	// expr...`), and it is not a valid bare-field scope entry either (bare field
+	// syntax is just a field name, nothing else on the line). There is no legal
+	// statement shape this line matches -- the parser has no field to attach this
+	// expression to.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error against Broken, reported at phase 3 (Parse): statement does not
+//   begin with a field name -- no valid statement shape matched. Should surface
+//   before phase 5 (Validate) or phase 6 (Resolve) ever run, since the parser cannot
+//   even build a valid AST node for this line.

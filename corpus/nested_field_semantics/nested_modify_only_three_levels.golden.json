@@ -1,0 +1,84 @@
+{
+  "fixture": "nested_modify_only_three_levels.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "CoreBase": {
+        "status": "delete",
+        "resolved": {
+          "p": 1,
+          "q": 2
+        },
+        "phase": null,
+        "check": null
+      },
+      "InnerBase": {
+        "status": "delete",
+        "resolved": {
+          "core": {
+            "p": 1,
+            "q": 2
+          },
+          "y": 20
+        },
+        "phase": null,
+        "check": null
+      },
+      "PayloadBase": {
+        "status": "delete",
+        "resolved": {
+          "inner": {
+            "core": {
+              "p": 1,
+              "q": 2
+            },
+            "y": 20
+          },
+          "a": 100
+        },
+        "phase": null,
+        "check": null
+      },
+      "Container_Seed": {
+        "status": "delete",
+        "resolved": {
+          "payload": {
+            "inner": {
+              "core": {
+                "p": 1,
+                "q": 2
+              },
+              "y": 20
+            },
+            "a": 100
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "Holder": {
+        "status": "ok",
+        "resolved": {
+          "payload": {
+            "inner": {
+              "core": {
+                "p": 1,
+                "q": 999
+              },
+              "y": 20
+            },
+            "a": 100
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+// Fixture: string_escape_invalid_sequence
+// Rule under test: GDDL Spec v4, String Literal Escaping -- exactly two
+// escape sequences exist (`\"` and `\\`); `\` followed by any other
+// character is a compile-time error, not a passthrough. Confirms `\n`
+// specifically -- a sequence that WOULD have meaning in many other
+// languages' escaping schemes -- is deliberately rejected here rather
+// than silently accepted as a literal 'n' or interpreted as a newline;
+// the spec is explicit that control-character escapes are out of scope
+// entirely, not an oversight to work around.
+
+define Message
+	text = string 40
+
+Message BadEscape
+	text = "line1\nline2"
+
+// Expected:
+//   Compile error against field `text` -- `\n` is not a recognized
+//   escape sequence (only `\"` and `\\` are). Rejected at phase 6
+//   (resolution/point-of-storage), check "string_escape", same phase
+//   and general shape as string_length's own rejection -- a malformed
+//   value is caught at the same point as any other type-safety check,
+//   not deferred or silently passed through.

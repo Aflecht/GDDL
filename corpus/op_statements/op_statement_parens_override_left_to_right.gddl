@@ -1,0 +1,33 @@
+// Fixture: op_statement_parens_override_left_to_right
+// Rule under test: GDDL Spec v4 §6.3 -- explicit parentheses override the default
+// strict left-to-right grouping. This is the fixture that actually PROVES parens are
+// doing something, unlike op_statement_parens_basic.gddl -- it uses the exact same
+// operands and operators as the existing op_statement_operator_precedence.gddl fixture
+// (`hitpoints_maximum * 0.5 + 20`, which golden-resolves to 70.0 under left-to-right),
+// but with parentheses placed to force the addition to happen FIRST instead of last.
+//
+// Without parens (already covered, golden = 70.0): `hitpoints_maximum * 0.5 + 20`
+//   left-to-right: (hitpoints_maximum * 0.5) then + 20  ->  (100 * 0.5) + 20 = 70.0
+// With parens (this fixture): `hitpoints_maximum * (0.5 + 20)`
+//   parens force: 0.5 + 20 first, then hitpoints_maximum * (that)
+//                 ->  100 * 20.5 = 2050.0
+//
+// The two results (70.0 vs. 2050.0) from the same operands/operators, differing only by
+// the presence and placement of parentheses, is direct proof the grouping mechanism is
+// actually changing evaluation order rather than being silently ignored.
+
+define Creature
+	hitpoints_maximum = f32
+
+Creature Base
+	hitpoints_maximum = 100
+
+Creature Derived = Base
+	hitpoints_maximum = hitpoints_maximum * (0.5 + 20)
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Derived.hitpoints_maximum == 2050.0
+//   ( 100 * (0.5 + 20) = 100 * 20.5 = 2050.0 )
+//   If a reference implementation instead produces 70.0, the parentheses are being
+//   silently ignored / not actually changing grouping -- exactly the regression this
+//   fixture exists to catch, now that paren-grouping is new, previously-uncovered code.

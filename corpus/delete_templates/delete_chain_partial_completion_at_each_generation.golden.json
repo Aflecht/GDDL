@@ -1,0 +1,62 @@
+{
+  "fixture": "delete_chain_partial_completion_at_each_generation.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Gen1": {
+        "status": "delete",
+        "resolved": {
+          "hp": 100,
+          "mp": {
+            "__uninitialized__": true
+          },
+          "xp": {
+            "__uninitialized__": true
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "Gen2": {
+        "status": "delete",
+        "resolved": {
+          "hp": 100,
+          "mp": 50,
+          "xp": {
+            "__uninitialized__": true
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "Gen3": {
+        "status": "delete",
+        "resolved": {
+          "hp": 100,
+          "mp": 50,
+          "xp": {
+            "__uninitialized__": true
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "RealFinal": {
+        "status": "ok",
+        "resolved": {
+          "hp": 100,
+          "mp": 50,
+          "xp": 999
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

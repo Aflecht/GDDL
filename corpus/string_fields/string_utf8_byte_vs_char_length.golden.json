@@ -1,0 +1,29 @@
+{
+  "fixture": "string_utf8_byte_vs_char_length.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-31",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "AtByteLimitMultibyte": {
+        "status": "ok",
+        "resolved": {
+          "name": "caf\u00e9"
+        },
+        "phase": null,
+        "check": null
+      },
+      "OverByteLimitFewChars": {
+        "status": "error",
+        "phase": 6,
+        "check": "string_length",
+        "line": 23,
+        "message": "line 23: 'name' is typed 'string 6', but its value '\u00e9\u00e9\u00e9' is 6 UTF-8 bytes -- exceeds the 5-byte capacity ('string 6' reserves 1 byte for the ASCIIZ terminator) -- storing an over-length string is a compile-time error, never silently truncated (spec \u00a75, String Length Enforcement)"
+      }
+    }
+  }
+}

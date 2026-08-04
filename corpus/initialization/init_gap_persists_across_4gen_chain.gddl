@@ -1,0 +1,37 @@
+// Fixture: init_gap_persists_across_4gen_chain
+// Rule under test: GDDL Spec v4 §12 phase 8 -- extends
+// init_uninitialized_only_caught_at_export.gddl's 2-instance chain to FOUR
+// generations, none of them `delete`-marked. Confirms a gap introduced at generation 1
+// and never touched by ANY descendant is still caught -- not silently accepted or
+// "forgotten" partway through a longer chain than what's been tested so far. Per the
+// already-established independent-per-instance phase-8 rule (confirmed earlier this
+// project: phase 8 checks each non-`delete` instance's own finished tree
+// independently, no cross-instance blocking/cascading), every one of the four
+// instances here should be reported, not just the last.
+
+define Stats
+	hp = u32
+	mp = u32
+
+Stats Gen1
+	hp = 100
+	// mp: never touched, starting right here at generation 1.
+
+Stats Gen2 = Gen1
+	hp = 110
+	// mp: still never touched.
+
+Stats Gen3 = Gen2
+	hp = 120
+	// mp: still never touched.
+
+Stats Gen4 = Gen3
+	hp = 130
+	// mp: still never touched, four generations deep from where the gap started.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   All four instances (Gen1, Gen2, Gen3, Gen4) independently fail phase 8: missing
+//   field `mp` in each, none of them `delete`-marked so none are exempt. Four separate
+//   errors, not one root-caused error with three "blocked" markers (per the
+//   already-confirmed phase-8-doesn't-cascade rule) and not a gap that gets silently
+//   dropped partway through the chain.

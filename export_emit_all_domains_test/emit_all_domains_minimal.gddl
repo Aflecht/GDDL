@@ -1,0 +1,40 @@
+// Fixture: emit_all_domains_minimal
+// Rule under test: §8.5 / §14.7 -- --emit-all-domains flag, all four
+// export targets.
+//
+// Deliberately minimal and isolated: one domain with a declared width
+// that is never referenced by any field in any exported type. The
+// exported type (Item, with one plain u8 field) exists only to give
+// the exporter something concrete to export -- the gap under test is
+// about Rarity, not about Item.
+//
+// Dual-purpose across two channels (§8.5 / §14.7 are two different
+// mechanisms for the same underlying need):
+//   - On 6502, Z80, 68000: Rarity's entire domain entry (member index
+//     constants, jump table on 6502, dispatch on 6502) is suppressed
+//     by default. --emit-all-domains bypasses the per-target
+//     `if domain not in used: continue` guard and emits the same
+//     constant-table form a referenced domain of the same shape already
+//     produces.
+//   - On C++: Rarity's primary `enum class Rarity : uint64_t` is always
+//     emitted (every domain's logical-ID enum is unconditional on C++).
+//     Only the `_Indexed` companion (`Rarity_Indexed : uint8_t`) is
+//     gated -- it only appears when something uses `@Rarity` in the
+//     compiled data, or when --emit-all-domains is on.
+// This distinction is confirmed directly against each exporter's code
+// and a real fixture; §8.5 states it explicitly.
+//
+// Values chosen to be obviously recognizable in output: common=0,
+// rare=1, epic=2, all fitting in u8.
+
+identifier Rarity u8
+	common = "Common tier"
+	rare   = "Rare tier"
+	epic   = "Epic tier"
+
+// Item has no Rarity field. This is the entire point of the fixture.
+define Item
+	power = u8
+
+Item BasicSword
+	power = 10

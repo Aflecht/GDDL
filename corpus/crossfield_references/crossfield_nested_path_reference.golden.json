@@ -1,0 +1,26 @@
+{
+  "fixture": "crossfield_nested_path_reference.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Sword": {
+        "status": "ok",
+        "resolved": {
+          "object": {
+            "weight": 12
+          },
+          "count": 4,
+          "total_weight": 48
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

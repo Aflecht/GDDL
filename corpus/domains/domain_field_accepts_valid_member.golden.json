@@ -1,0 +1,40 @@
+{
+  "fixture": "domain_field_accepts_valid_member.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Warrior": {
+        "status": "ok",
+        "resolved": {
+          "attack": {
+            "__identifier_ref__": true,
+            "domain": "ActionAttack",
+            "key": "melee_weapon",
+            "logical_id": "48ac49d162c0"
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "Archer": {
+        "status": "ok",
+        "resolved": {
+          "attack": {
+            "__identifier_ref__": true,
+            "domain": "ActionAttack",
+            "key": "ranged_weapon",
+            "logical_id": "ae8d2e9aef4e"
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

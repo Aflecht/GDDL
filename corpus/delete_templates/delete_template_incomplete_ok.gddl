@@ -1,0 +1,19 @@
+// Fixture: delete_template_incomplete_ok
+// Rule under test: GDDL Spec v4 §6.6 — a `delete`-marked instance "may be incomplete --
+// not every field needs to be initialized." Isolated case: nothing ever reads or exports
+// StatsTemplate.mp. The whole file must compile cleanly with zero errors.
+//
+// This is a positive/clean-compile fixture -- the golden output should simply be "no
+// errors, no exported data for StatsTemplate" (delete instances are never exported,
+// §6.6 / §12 phase 8), confirming incompleteness alone is not a fault.
+
+define Stats
+	hp = u32
+	mp = u32
+
+Stats StatsTemplate delete
+	hp = 100
+	// mp intentionally never set. Nothing else in this file reads or exports it.
+	// Expected: compiles cleanly, no error. StatsTemplate itself never appears in
+	// exported output (delete instances are export-exempt), so mp's uninitialized
+	// state never becomes observable.

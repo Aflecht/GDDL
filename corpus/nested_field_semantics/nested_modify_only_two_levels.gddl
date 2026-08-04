@@ -1,0 +1,44 @@
+// Fixture: nested_modify_only_two_levels
+// Rule under test: GDDL Spec v4 §6.4 — "this is fully recursive... the same rule applies
+// at the top level and at any nested field, at any depth." Isolates modify-only (bare
+// `field`) nested *inside* another modify-only (bare `field`) — two full levels, not one.
+//
+// Proves that entering a struct field via bare syntax, then entering one of *its* struct
+// sub-fields also via bare syntax, still only touches the specific leaf sub-field named,
+// leaving every sibling untouched at both levels simultaneously.
+
+define Inner
+	x = u32
+	y = u32
+
+define Payload
+	inner = Inner
+	a     = u32
+
+define Container
+	payload = Payload
+
+Payload Base delete
+	inner
+		x = 1
+		y = 2
+	a = 100
+
+Container Container_Seed delete
+	payload = Base
+
+Container Holder = Container_Seed
+	payload
+		inner
+			y = 999
+			// bare `inner` inside bare `payload`: only y is touched at this leaf.
+			// x is untouched at the second level -> must remain 1.
+		// a is untouched at the first level -> must remain 100.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Holder.payload == { inner: { x: 1, y: 999 }, a: 100 }
+//
+// A buggy implementation that only implements modify-only correctly one level deep
+// (e.g. treats the second `inner` block as an implicit full replace, or as a no-op)
+// would diverge from this result while still passing nested_modify_only_basic.gddl,
+// which is why this fixture exists as a distinct case rather than being folded into it.

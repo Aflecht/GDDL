@@ -1,0 +1,25 @@
+{
+  "fixture": "delete_template_incomplete_ok.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "StatsTemplate": {
+        "status": "delete",
+        "resolved": {
+          "hp": 100,
+          "mp": {
+            "__uninitialized__": true
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

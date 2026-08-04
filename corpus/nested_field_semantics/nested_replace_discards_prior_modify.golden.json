@@ -1,0 +1,34 @@
+{
+  "fixture": "nested_replace_discards_prior_modify.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Alt": {
+        "status": "delete",
+        "resolved": {
+          "a": 10,
+          "b": 20
+        },
+        "phase": null,
+        "check": null
+      },
+      "Holder": {
+        "status": "ok",
+        "resolved": {
+          "payload": {
+            "a": 10,
+            "b": 55
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

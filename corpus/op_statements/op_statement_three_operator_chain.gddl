@@ -1,0 +1,36 @@
+// Fixture: op_statement_three_operator_chain
+// Rule under test: GDDL Spec v4 §6.3 -- strict left-to-right evaluation. SIBLING-BUG
+// FIXTURE: every existing precedence-related fixture in this corpus (
+// op_statement_operator_precedence.gddl, crossfield_self_reference_non_leading.gddl,
+// the two parens fixtures) uses exactly two operators. That coverage cannot rule out an
+// evaluator that happens to be correct for the 2-operator case specifically but wrong
+// for longer chains (e.g. one that's correctly left-associative for a single reduction
+// step but mishandles carrying the accumulator through a third operation). This fixture
+// uses three operators / four operands, with a mix of subtraction, multiplication, and
+// addition specifically chosen so left-to-right and standard precedence diverge sharply
+// -- not just numerically differently, but by a wide margin, so a wrong result is
+// obviously wrong rather than a near-miss that could be mistaken for rounding.
+
+define Formula
+	a      = f32
+	b      = f32
+	c      = f32
+	d      = f32
+	result = f32
+
+Formula Chain
+	a = 100
+	b = 3
+	c = 4
+	d = 5
+	result = a - b * c + d
+	// strict left-to-right: ((100 - 3) * 4) + 5
+	//   step 1: 100 - 3   = 97
+	//   step 2: 97 * 4    = 388
+	//   step 3: 388 + 5   = 393
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Chain.result == 393.0
+//   (For contrast, standard math precedence -- NOT how GDDL works -- would compute
+//   b * c first: 100 - (3 * 4) + 5 = 100 - 12 + 5 = 93.0. The two results, 393 vs 93,
+//   diverge widely, making a wrong evaluator's output unambiguous.)

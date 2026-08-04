@@ -1,0 +1,31 @@
+{
+  "fixture": "crossfield_dot_syntax_disambiguation.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Warrior": {
+        "status": "ok",
+        "resolved": {
+          "object": {
+            "weight": 20
+          },
+          "attack": {
+            "__identifier_ref__": true,
+            "domain": "ActionAttack",
+            "key": "melee_weapon",
+            "logical_id": "48ac49d162c0"
+          },
+          "effective_weight": 20
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

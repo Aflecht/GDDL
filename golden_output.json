@@ -1,0 +1,2041 @@
+{
+  "_meta": {
+    "fixture_count": 72,
+    "batches": [
+      {
+        "name": "main_corpus",
+        "count": 72
+      }
+    ]
+  },
+  "fixtures": {
+    "circular_references/circular_reference_direct_two_instance.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 27,
+          "message": "line 27: circular instance-copy reference: A -> B -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        },
+        {
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 30,
+          "message": "line 30: circular instance-copy reference: A -> B -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        }
+      ],
+      "warnings": [],
+      "instances": {
+        "A": {
+          "status": "error",
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 27,
+          "message": "line 27: circular instance-copy reference: A -> B -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        },
+        "B": {
+          "status": "error",
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 30,
+          "message": "line 30: circular instance-copy reference: A -> B -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        }
+      }
+    },
+    "circular_references/circular_reference_longer_chain.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 22,
+          "message": "line 22: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        },
+        {
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 25,
+          "message": "line 25: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        },
+        {
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 28,
+          "message": "line 28: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        }
+      ],
+      "warnings": [],
+      "instances": {
+        "A": {
+          "status": "error",
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 22,
+          "message": "line 22: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        },
+        "B": {
+          "status": "error",
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 25,
+          "message": "line 25: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        },
+        "C": {
+          "status": "error",
+          "phase": 4,
+          "check": "circular_dependency",
+          "line": 28,
+          "message": "line 28: circular instance-copy reference: A -> B -> C -> A -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved"
+        }
+      }
+    },
+    "composition_no_inheritance/composition_multi_level.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Hero": {
+          "status": "ok",
+          "resolved": {
+            "equipment": {
+              "weapon": {
+                "damage": 25
+              },
+              "armor_rating": 10
+            },
+            "name": "Hero"
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "composition_no_inheritance/composition_nested_u16_fields.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Hero": {
+          "status": "ok",
+          "resolved": {
+            "stats": {
+              "hp": 60000,
+              "mp": 12000
+            },
+            "equipment": {
+              "weapon_power": 500
+            },
+            "level": 42
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "composition_no_inheritance/composition_same_type_reused_multiple_fields.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Segment": {
+          "status": "ok",
+          "resolved": {
+            "start": {
+              "x": 1,
+              "y": 2
+            },
+            "end": {
+              "x": 10,
+              "y": 20
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "composition_no_inheritance/composition_with_delete_partial_then_completed.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "LineTemplate": {
+          "status": "delete",
+          "resolved": {
+            "start": {
+              "x": 1,
+              "y": 2
+            },
+            "end": {
+              "x": 10,
+              "y": {
+                "__uninitialized__": true
+              }
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "RealLine": {
+          "status": "ok",
+          "resolved": {
+            "start": {
+              "x": 1,
+              "y": 2
+            },
+            "end": {
+              "x": 10,
+              "y": 20
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "cross_rule_interactions/cri_coercion_multigen_crossfield.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Gen1": {
+          "status": "ok",
+          "resolved": {
+            "count": 15,
+            "derived": 1
+          },
+          "phase": null,
+          "check": null
+        },
+        "Gen2": {
+          "status": "ok",
+          "resolved": {
+            "count": 15,
+            "derived": 1
+          },
+          "phase": null,
+          "check": null
+        },
+        "Gen3": {
+          "status": "ok",
+          "resolved": {
+            "count": 15,
+            "derived": 30
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "cross_rule_interactions/cri_delete_composition_crossfield.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "ShapeTemplate": {
+          "status": "delete",
+          "resolved": {
+            "origin": {
+              "x": 5,
+              "y": 5
+            },
+            "area": 25
+          },
+          "phase": null,
+          "check": null
+        },
+        "RealShape": {
+          "status": "ok",
+          "resolved": {
+            "origin": {
+              "x": 10,
+              "y": 5
+            },
+            "area": 25
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "cross_rule_interactions/cri_indentation_depth_with_replace_modify.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "CoreBase": {
+          "status": "delete",
+          "resolved": {
+            "p": 1,
+            "q": 2
+          },
+          "phase": null,
+          "check": null
+        },
+        "InnerBase": {
+          "status": "delete",
+          "resolved": {
+            "core": {
+              "p": 1,
+              "q": 2
+            },
+            "y": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "CoreAlt": {
+          "status": "delete",
+          "resolved": {
+            "p": 10,
+            "q": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "InnerAlt": {
+          "status": "delete",
+          "resolved": {
+            "core": {
+              "p": 10,
+              "q": 20
+            },
+            "y": 200
+          },
+          "phase": null,
+          "check": null
+        },
+        "PayloadBase": {
+          "status": "delete",
+          "resolved": {
+            "inner": {
+              "core": {
+                "p": 1,
+                "q": 2
+              },
+              "y": 20
+            },
+            "a": 100
+          },
+          "phase": null,
+          "check": null
+        },
+        "Container_Seed": {
+          "status": "delete",
+          "resolved": {
+            "payload": {
+              "inner": {
+                "core": {
+                  "p": 1,
+                  "q": 2
+                },
+                "y": 20
+              },
+              "a": 100
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "inner": {
+                "core": {
+                  "p": 10,
+                  "q": 999
+                },
+                "y": 200
+              },
+              "a": 100
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "crossfield_references/crossfield_basic_reference.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Sword": {
+          "status": "ok",
+          "resolved": {
+            "weight": 12,
+            "count": 4,
+            "total_weight": 48
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "crossfield_references/crossfield_dot_syntax_disambiguation.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Warrior": {
+          "status": "ok",
+          "resolved": {
+            "object": {
+              "weight": 20
+            },
+            "attack": {
+              "__identifier_ref__": true,
+              "domain": "ActionAttack",
+              "key": "melee_weapon",
+              "logical_id": "5c96a731d7d47e03"
+            },
+            "effective_weight": 20
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "crossfield_references/crossfield_forward_reference_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Broken": {
+          "status": "error",
+          "phase": 6,
+          "check": "uninitialized_read",
+          "line": 15,
+          "message": "line 15: 'weight' is read before being initialized -- reading an uninitialized field is always a compile-time error, delete-marked instances included"
+        }
+      }
+    },
+    "crossfield_references/crossfield_nested_path_reference.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Sword": {
+          "status": "ok",
+          "resolved": {
+            "object": {
+              "weight": 12
+            },
+            "count": 4,
+            "total_weight": 48
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "crossfield_references/crossfield_self_reference_non_leading.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints_maximum": 100.0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Derived": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints_maximum": 60.0
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "delete_templates/delete_chain_partial_completion_at_each_generation.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Gen1": {
+          "status": "delete",
+          "resolved": {
+            "hp": 100,
+            "mp": {
+              "__uninitialized__": true
+            },
+            "xp": {
+              "__uninitialized__": true
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "Gen2": {
+          "status": "delete",
+          "resolved": {
+            "hp": 100,
+            "mp": 50,
+            "xp": {
+              "__uninitialized__": true
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "Gen3": {
+          "status": "delete",
+          "resolved": {
+            "hp": 100,
+            "mp": 50,
+            "xp": {
+              "__uninitialized__": true
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "RealFinal": {
+          "status": "ok",
+          "resolved": {
+            "hp": 100,
+            "mp": 50,
+            "xp": 999
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "delete_templates/delete_descendant_completes_and_resolves.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "StatsTemplate": {
+          "status": "delete",
+          "resolved": {
+            "hp": 100,
+            "mp": {
+              "__uninitialized__": true
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "StatsFull": {
+          "status": "ok",
+          "resolved": {
+            "hp": 100,
+            "mp": 50
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "delete_templates/delete_descendant_incomplete_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "StatsTemplate": {
+          "status": "delete",
+          "resolved": {
+            "hp": 100,
+            "mp": {
+              "__uninitialized__": true
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "StatsIncomplete": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "mp"
+          ],
+          "resolved": {
+            "hp": 200,
+            "mp": {
+              "__uninitialized__": true
+            }
+          }
+        }
+      }
+    },
+    "delete_templates/delete_multi_generation_chain.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "TemplateGen1": {
+          "status": "delete",
+          "resolved": {
+            "hp": 100,
+            "mp": {
+              "__uninitialized__": true
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "TemplateGen2": {
+          "status": "delete",
+          "resolved": {
+            "hp": 100,
+            "mp": {
+              "__uninitialized__": true
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "RealFinal": {
+          "status": "ok",
+          "resolved": {
+            "hp": 100,
+            "mp": 50
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "delete_templates/delete_own_uninitialized_read_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "StatsBadTemplate": {
+          "status": "error",
+          "phase": 6,
+          "check": "uninitialized_read",
+          "line": 19,
+          "message": "line 19: 'mp' is read before being initialized -- reading an uninitialized field is always a compile-time error, delete-marked instances included"
+        }
+      }
+    },
+    "delete_templates/delete_template_incomplete_ok.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "StatsTemplate": {
+          "status": "delete",
+          "resolved": {
+            "hp": 100,
+            "mp": {
+              "__uninitialized__": true
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "domains/domain_field_accepts_valid_member.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Warrior": {
+          "status": "ok",
+          "resolved": {
+            "attack": {
+              "__identifier_ref__": true,
+              "domain": "ActionAttack",
+              "key": "melee_weapon",
+              "logical_id": "5c96a731d7d47e03"
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "Archer": {
+          "status": "ok",
+          "resolved": {
+            "attack": {
+              "__identifier_ref__": true,
+              "domain": "ActionAttack",
+              "key": "ranged_weapon",
+              "logical_id": "aa92e2b5323e5154"
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "domains/domain_field_literal_type_mismatch_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Broken": {
+          "status": "error",
+          "phase": 5,
+          "check": "domain_typing",
+          "line": 22,
+          "message": "line 22: 'attack' is typed as identifier domain 'ActionAttack', but was assigned '1' -- a bare literal or wrong-domain reference can never satisfy an identifier-typed field"
+        }
+      }
+    },
+    "domains/domain_field_nonexistent_member_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Broken": {
+          "status": "error",
+          "phase": 5,
+          "check": "domain_typing",
+          "line": 28,
+          "message": "line 28: 'ActionAttack.melee_wepon' is not a known member of domain 'ActionAttack'"
+        }
+      }
+    },
+    "domains/domain_field_wrong_domain_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Broken": {
+          "status": "error",
+          "phase": 5,
+          "check": "domain_typing",
+          "line": 21,
+          "message": "line 21: 'attack' is typed as identifier domain 'ActionAttack', but was assigned 'Element.fire' -- a reference to domain 'Element', not 'ActionAttack' -- a bare literal or wrong-domain reference can never satisfy an identifier-typed field"
+        }
+      }
+    },
+    "domains/domain_logical_id_collision_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "id_collision",
+          "line": 26,
+          "message": "line 26: 'ActionAttack::Standard attack done with a melee weapon' and 'ActionAttack::Standard attack done with a melee weapon' both hash to the same ID (5c96a731d7d47e03) -- this is a hard compile error regardless of how astronomically unlikely a real collision is; every logical/stable ID must be unique across the shared 64-bit space"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
+    "domains/domain_multiple_domains_side_by_side.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "FireArcher": {
+          "status": "ok",
+          "resolved": {
+            "attack": {
+              "__identifier_ref__": true,
+              "domain": "ActionAttack",
+              "key": "ranged_weapon",
+              "logical_id": "aa92e2b5323e5154"
+            },
+            "element": {
+              "__identifier_ref__": true,
+              "domain": "Element",
+              "key": "fire",
+              "logical_id": "60bfd38ceb613075"
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "IceWarrior": {
+          "status": "ok",
+          "resolved": {
+            "attack": {
+              "__identifier_ref__": true,
+              "domain": "ActionAttack",
+              "key": "melee_weapon",
+              "logical_id": "5c96a731d7d47e03"
+            },
+            "element": {
+              "__identifier_ref__": true,
+              "domain": "Element",
+              "key": "ice",
+              "logical_id": "d91462f06c545b7c"
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "indentation_and_comments/comments_nested_block_and_code_lookalike.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Warrior": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints": 100,
+            "mana": 50
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "indentation_and_comments/indentation_deep_nesting_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Deep": {
+          "status": "ok",
+          "resolved": {
+            "level2": {
+              "level3": {
+                "level4": {
+                  "level5": {
+                    "value": 42
+                  }
+                }
+              }
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "indentation_and_comments/indentation_mixed_tabs_spaces_error.gddl": {
+      "status": "parse_error",
+      "error": {
+        "phase": 3,
+        "line": 17,
+        "message": "line 17: mixed indentation characters within a single scope -- this line uses spaces, but the enclosing top-level block already established tabs (indentation character must be consistent across an entire top-level define/identifier/instance block, including everything nested inside it -- not just within one nesting level)"
+      }
+    },
+    "indentation_and_comments/indentation_nested_scope_differs_from_parent_error.gddl": {
+      "status": "parse_error",
+      "error": {
+        "phase": 3,
+        "line": 29,
+        "message": "line 29: mixed indentation characters within a single scope -- this line uses spaces, but the enclosing top-level block already established tabs (indentation character must be consistent across an entire top-level define/identifier/instance block, including everything nested inside it -- not just within one nesting level)"
+      }
+    },
+    "indentation_and_comments/indentation_spaces_only_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "inner": {
+                "x": 1,
+                "y": 2
+              },
+              "a": 100
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "indentation_and_comments/indentation_tabs_only_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "inner": {
+                "x": 1,
+                "y": 2
+              },
+              "a": 100
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "initialization/init_gap_persists_across_4gen_chain.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Gen1": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "mp"
+          ],
+          "resolved": {
+            "hp": 100,
+            "mp": {
+              "__uninitialized__": true
+            }
+          }
+        },
+        "Gen2": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "mp"
+          ],
+          "resolved": {
+            "hp": 110,
+            "mp": {
+              "__uninitialized__": true
+            }
+          }
+        },
+        "Gen3": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "mp"
+          ],
+          "resolved": {
+            "hp": 120,
+            "mp": {
+              "__uninitialized__": true
+            }
+          }
+        },
+        "Gen4": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "mp"
+          ],
+          "resolved": {
+            "hp": 130,
+            "mp": {
+              "__uninitialized__": true
+            }
+          }
+        }
+      }
+    },
+    "initialization/init_multiple_uninitialized_fields_all_reported.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Broken": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "mp",
+            "xp"
+          ],
+          "resolved": {
+            "hp": 100,
+            "mp": {
+              "__uninitialized__": true
+            },
+            "xp": {
+              "__uninitialized__": true
+            }
+          }
+        }
+      }
+    },
+    "initialization/init_nested_uninitialized_dotted_path.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [
+        {
+          "phase": 3,
+          "check": "empty_bare_field",
+          "line": 23,
+          "message": "line 23: bare field 'inner' (modify-only form) has no indented sub-statements -- this enters the field's scope but changes nothing in it, which is valid but usually unintentional (e.g. every statement under it got commented out)"
+        }
+      ],
+      "instances": {
+        "Holder": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "object.inner.value"
+          ],
+          "resolved": {
+            "object": {
+              "inner": {
+                "value": {
+                  "__uninitialized__": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "initialization/init_uninitialized_only_caught_at_export.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "StatsBase": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "mp"
+          ],
+          "resolved": {
+            "hp": 100,
+            "mp": {
+              "__uninitialized__": true
+            }
+          }
+        },
+        "StatsChild": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "mp"
+          ],
+          "resolved": {
+            "hp": 150,
+            "mp": {
+              "__uninitialized__": true
+            }
+          }
+        }
+      }
+    },
+    "nested_field_semantics/nested_bare_scalar_field_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Container_Seed": {
+          "status": "delete",
+          "resolved": {
+            "payload": {
+              "a": 1,
+              "b": 2
+            },
+            "label": 10
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "error",
+          "phase": 5,
+          "check": "field_shape",
+          "line": 32,
+          "message": "line 32: bare field 'label' (modify-only form) used on a scalar field -- only struct-typed fields have a scope to enter"
+        }
+      }
+    },
+    "nested_field_semantics/nested_level2_replace_sibling_level1_untouched.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "L2Base": {
+          "status": "delete",
+          "resolved": {
+            "x": 1,
+            "y": 2
+          },
+          "phase": null,
+          "check": null
+        },
+        "L1Base": {
+          "status": "delete",
+          "resolved": {
+            "level2": {
+              "x": 1,
+              "y": 2
+            },
+            "z": 100
+          },
+          "phase": null,
+          "check": null
+        },
+        "L2Alt": {
+          "status": "delete",
+          "resolved": {
+            "x": 10,
+            "y": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "Seed": {
+          "status": "delete",
+          "resolved": {
+            "branch": {
+              "level2": {
+                "x": 1,
+                "y": 2
+              },
+              "z": 100
+            },
+            "sibling": 999
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "branch": {
+              "level2": {
+                "x": 555,
+                "y": 20
+              },
+              "z": 100
+            },
+            "sibling": 999
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "nested_field_semantics/nested_mixed_replace_and_modify_across_levels.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "L2Base": {
+          "status": "delete",
+          "resolved": {
+            "x": 1,
+            "y": 2
+          },
+          "phase": null,
+          "check": null
+        },
+        "L1Base": {
+          "status": "delete",
+          "resolved": {
+            "level2": {
+              "x": 1,
+              "y": 2
+            },
+            "z": 100
+          },
+          "phase": null,
+          "check": null
+        },
+        "L2Alt": {
+          "status": "delete",
+          "resolved": {
+            "x": 10,
+            "y": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "L1Alt": {
+          "status": "delete",
+          "resolved": {
+            "level2": {
+              "x": 10,
+              "y": 20
+            },
+            "z": 500
+          },
+          "phase": null,
+          "check": null
+        },
+        "Seed": {
+          "status": "delete",
+          "resolved": {
+            "branch": {
+              "level2": {
+                "x": 1,
+                "y": 2
+              },
+              "z": 100
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "branch": {
+              "level2": {
+                "x": 10,
+                "y": 777
+              },
+              "z": 500
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "nested_field_semantics/nested_modify_only_basic.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "delete",
+          "resolved": {
+            "a": 1,
+            "b": 2
+          },
+          "phase": null,
+          "check": null
+        },
+        "Container_Seed": {
+          "status": "delete",
+          "resolved": {
+            "payload": {
+              "a": 1,
+              "b": 2
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "a": 5,
+              "b": 2
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "nested_field_semantics/nested_modify_only_three_levels.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "CoreBase": {
+          "status": "delete",
+          "resolved": {
+            "p": 1,
+            "q": 2
+          },
+          "phase": null,
+          "check": null
+        },
+        "InnerBase": {
+          "status": "delete",
+          "resolved": {
+            "core": {
+              "p": 1,
+              "q": 2
+            },
+            "y": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "PayloadBase": {
+          "status": "delete",
+          "resolved": {
+            "inner": {
+              "core": {
+                "p": 1,
+                "q": 2
+              },
+              "y": 20
+            },
+            "a": 100
+          },
+          "phase": null,
+          "check": null
+        },
+        "Container_Seed": {
+          "status": "delete",
+          "resolved": {
+            "payload": {
+              "inner": {
+                "core": {
+                  "p": 1,
+                  "q": 2
+                },
+                "y": 20
+              },
+              "a": 100
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "inner": {
+                "core": {
+                  "p": 1,
+                  "q": 999
+                },
+                "y": 20
+              },
+              "a": 100
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "nested_field_semantics/nested_modify_only_two_levels.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "delete",
+          "resolved": {
+            "inner": {
+              "x": 1,
+              "y": 2
+            },
+            "a": 100
+          },
+          "phase": null,
+          "check": null
+        },
+        "Container_Seed": {
+          "status": "delete",
+          "resolved": {
+            "payload": {
+              "inner": {
+                "x": 1,
+                "y": 2
+              },
+              "a": 100
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "inner": {
+                "x": 1,
+                "y": 999
+              },
+              "a": 100
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "nested_field_semantics/nested_replace_basic.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "delete",
+          "resolved": {
+            "a": 1,
+            "b": 2
+          },
+          "phase": null,
+          "check": null
+        },
+        "Alt": {
+          "status": "delete",
+          "resolved": {
+            "a": 10,
+            "b": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "a": 5,
+              "b": 2
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder_From_Alt": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "a": 999,
+              "b": 20
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "nested_field_semantics/nested_replace_discards_prior_modify.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Alt": {
+          "status": "delete",
+          "resolved": {
+            "a": 10,
+            "b": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "a": 10,
+              "b": 55
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "nested_field_semantics/nested_scalar_vs_struct_fork.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "delete",
+          "resolved": {
+            "a": 1,
+            "b": 2
+          },
+          "phase": null,
+          "check": null
+        },
+        "Container_Seed": {
+          "status": "delete",
+          "resolved": {
+            "payload": {
+              "a": 1,
+              "b": 2
+            },
+            "label": 10
+          },
+          "phase": null,
+          "check": null
+        },
+        "Holder": {
+          "status": "ok",
+          "resolved": {
+            "payload": {
+              "a": 99,
+              "b": 2
+            },
+            "label": 55
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "numeric_coercion/numeric_coercion_narrowing_rejected.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "FromDivision": {
+          "status": "error",
+          "phase": 6,
+          "check": "numeric_coercion",
+          "line": 14,
+          "message": "line 14: 'count' is typed 'i32' (integer), but its computed value 3.3333333333333335 has a fractional part -- narrowing with fractional loss is a compile-time error (spec \u00a75, Numeric Type Coercion)"
+        },
+        "FromLiteral": {
+          "status": "error",
+          "phase": 6,
+          "check": "numeric_coercion",
+          "line": 19,
+          "message": "line 19: 'small' is typed 'u8' (integer), but its computed value 3.5 has a fractional part -- narrowing with fractional loss is a compile-time error (spec \u00a75, Numeric Type Coercion)"
+        }
+      }
+    },
+    "numeric_coercion/numeric_coercion_through_sequential_chain.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Chain": {
+          "status": "ok",
+          "resolved": {
+            "count": 17
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "numeric_coercion/numeric_coercion_via_crossfield_reference.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "GoodExample": {
+          "status": "ok",
+          "resolved": {
+            "source_int": 42,
+            "target_float": 84.0,
+            "source_frac": 1.0,
+            "target_int": 1
+          },
+          "phase": null,
+          "check": null
+        },
+        "BadExample": {
+          "status": "error",
+          "phase": 6,
+          "check": "numeric_coercion",
+          "line": 37,
+          "message": "line 37: 'target_int' is typed 'i32' (integer), but its computed value 10.5 has a fractional part -- narrowing with fractional loss is a compile-time error (spec \u00a75, Numeric Type Coercion)"
+        }
+      }
+    },
+    "numeric_coercion/numeric_coercion_whole_float_accepted.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "FromLiteral": {
+          "status": "ok",
+          "resolved": {
+            "count": 4,
+            "total": 1
+          },
+          "phase": null,
+          "check": null
+        },
+        "FromExpression": {
+          "status": "ok",
+          "resolved": {
+            "count": 1,
+            "total": 8
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "numeric_coercion/numeric_coercion_widening_basic.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "FromLiteral": {
+          "status": "ok",
+          "resolved": {
+            "value": 42.0,
+            "value64": 7.0
+          },
+          "phase": null,
+          "check": null
+        },
+        "FromIntExpression": {
+          "status": "ok",
+          "resolved": {
+            "value": 42.0,
+            "value64": 1.0
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "numeric_range/numeric_range_computed_expression_overflow.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Example": {
+          "status": "error",
+          "phase": 6,
+          "check": "numeric_range",
+          "line": 16,
+          "message": "line 16: 'value' is typed 'i32', but its computed value 2500000000 is outside i32's range (-2147483648..2147483647) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec \u00a75, Numeric Range Enforcement)"
+        }
+      }
+    },
+    "numeric_range/numeric_range_float_boundary_overflow.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "NearMaxValid": {
+          "status": "ok",
+          "resolved": {
+            "value": 3.4e+38
+          },
+          "phase": null,
+          "check": null
+        },
+        "Overflow": {
+          "status": "error",
+          "phase": 6,
+          "check": "numeric_range",
+          "line": 26,
+          "message": "line 26: 'value' is typed 'f32', but its computed value 3.4e+39 exceeds f32's finite representable magnitude (+/-3.40282e+38) -- storing an out-of-range value is a compile-time error, never silently produced as inf (spec \u00a75, Numeric Range Enforcement)"
+        }
+      }
+    },
+    "numeric_range/numeric_range_signed_boundary.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "MinValid": {
+          "status": "ok",
+          "resolved": {
+            "value": -32768
+          },
+          "phase": null,
+          "check": null
+        },
+        "MaxValid": {
+          "status": "ok",
+          "resolved": {
+            "value": 32767
+          },
+          "phase": null,
+          "check": null
+        },
+        "BelowMin": {
+          "status": "error",
+          "phase": 6,
+          "check": "numeric_range",
+          "line": 19,
+          "message": "line 19: 'value' is typed 'i16', but its computed value -32769 is outside i16's range (-32768..32767) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec \u00a75, Numeric Range Enforcement)"
+        },
+        "AboveMax": {
+          "status": "error",
+          "phase": 6,
+          "check": "numeric_range",
+          "line": 24,
+          "message": "line 24: 'value' is typed 'i16', but its computed value 32768 is outside i16's range (-32768..32767) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec \u00a75, Numeric Range Enforcement)"
+        }
+      }
+    },
+    "numeric_range/numeric_range_unsigned_boundary.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "MinValid": {
+          "status": "ok",
+          "resolved": {
+            "value": 0
+          },
+          "phase": null,
+          "check": null
+        },
+        "MaxValid": {
+          "status": "ok",
+          "resolved": {
+            "value": 255
+          },
+          "phase": null,
+          "check": null
+        },
+        "BelowMin": {
+          "status": "error",
+          "phase": 6,
+          "check": "numeric_range",
+          "line": 25,
+          "message": "line 25: 'value' is typed 'u8', but its computed value -1 is outside u8's range (0..255) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec \u00a75, Numeric Range Enforcement)"
+        },
+        "AboveMax": {
+          "status": "error",
+          "phase": 6,
+          "check": "numeric_range",
+          "line": 30,
+          "message": "line 30: 'value' is typed 'u8', but its computed value 256 is outside u8's range (0..255) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec \u00a75, Numeric Range Enforcement)"
+        }
+      }
+    },
+    "op_statements/op_statement_assign_equivalence.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "ViaOpStatement": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "ViaExplicitAssign": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints": 20
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "op_statements/op_statement_leading_operator_error.gddl": {
+      "status": "parse_error",
+      "error": {
+        "phase": 3,
+        "line": 20,
+        "message": "line 20: statement does not begin with a valid field identifier (found '*') -- no legal statement shape (assign 'field = expr', op-statement 'field op expr', or bare 'field') matches this line"
+      }
+    },
+    "op_statements/op_statement_missing_leading_field_error.gddl": {
+      "status": "parse_error",
+      "error": {
+        "phase": 3,
+        "line": 26,
+        "message": "line 26: statement does not begin with a valid field identifier (found '20') -- no legal statement shape (assign 'field = expr', op-statement 'field op expr', or bare 'field') matches this line"
+      }
+    },
+    "op_statements/op_statement_operator_precedence.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints_maximum": 100.0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Derived": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints_maximum": 70.0
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "op_statements/op_statement_parens_basic.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints_maximum": 100.0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Derived": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints_maximum": 60.0
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "op_statements/op_statement_parens_override_left_to_right.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints_maximum": 100.0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Derived": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints_maximum": 2050.0
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "op_statements/op_statement_three_operator_chain.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Chain": {
+          "status": "ok",
+          "resolved": {
+            "a": 100.0,
+            "b": 3.0,
+            "c": 4.0,
+            "d": 5.0,
+            "result": 393.0
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "sequential_execution/sequential_chained_ops_order_matters.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Forward": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints": 25
+          },
+          "phase": null,
+          "check": null
+        },
+        "Reversed": {
+          "status": "ok",
+          "resolved": {
+            "hitpoints": 30
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "sequential_execution/sequential_crossfield_reference_sees_current_value.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Example": {
+          "status": "ok",
+          "resolved": {
+            "base": 25,
+            "derived": 21
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "sequential_execution/sequential_longer_chain_order_dependent.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Forward": {
+          "status": "ok",
+          "resolved": {
+            "value": 3
+          },
+          "phase": null,
+          "check": null
+        },
+        "Reversed": {
+          "status": "ok",
+          "resolved": {
+            "value": -6
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "string_fields/string_empty_accepted.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "NormalEmptyName": {
+          "status": "ok",
+          "resolved": {
+            "name": ""
+          },
+          "phase": null,
+          "check": null
+        },
+        "OnlyEmptyAllowed": {
+          "status": "ok",
+          "resolved": {
+            "name": ""
+          },
+          "phase": null,
+          "check": null
+        },
+        "NonEmptyRejected": {
+          "status": "error",
+          "phase": 6,
+          "check": "string_length",
+          "line": 31,
+          "message": "line 31: 'name' is typed 'string 1', but its value 'a' is 1 UTF-8 bytes -- exceeds the 0-byte capacity ('string 1' reserves 1 byte for the ASCIIZ terminator) -- storing an over-length string is a compile-time error, never silently truncated (spec \u00a75, String Length Enforcement)"
+        }
+      }
+    },
+    "string_fields/string_escape_invalid_sequence.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "BadEscape": {
+          "status": "error",
+          "phase": 6,
+          "check": "string_escape",
+          "line": 15,
+          "message": "line 15: 'text': invalid escape sequence '\\n' in string literal -- only \\\" (literal quote) and \\\\ (literal backslash) are valid; any other character after a backslash is a compile-time error, not a passthrough (spec: String Literal Escaping)"
+        }
+      }
+    },
+    "string_fields/string_escape_lone_trailing_backslash.gddl": {
+      "status": "parse_error",
+      "error": {
+        "phase": 3,
+        "line": 42,
+        "message": "line 42: unterminated string literal"
+      }
+    },
+    "string_fields/string_escaped_quote.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "QuotedGreeting": {
+          "status": "ok",
+          "resolved": {
+            "text": "He said \"hi\" to me"
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "string_fields/string_escaped_trailing_backslash.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "WindowsPath": {
+          "status": "ok",
+          "resolved": {
+            "path": "C:\\Users\\"
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "string_fields/string_escaping_through_composition.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "QuoteCase": {
+          "status": "ok",
+          "resolved": {
+            "equipment": {
+              "weapon": {
+                "name": "The \"Widowmaker\" blade"
+              },
+              "label": "Standard issue"
+            }
+          },
+          "phase": null,
+          "check": null
+        },
+        "BackslashCase": {
+          "status": "ok",
+          "resolved": {
+            "equipment": {
+              "weapon": {
+                "name": "Plain blade"
+              },
+              "label": "C:\\Users\\"
+            }
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "string_fields/string_length_boundary.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "AtLimit": {
+          "status": "ok",
+          "resolved": {
+            "name": "123456789"
+          },
+          "phase": null,
+          "check": null
+        },
+        "OverLimit": {
+          "status": "error",
+          "phase": 6,
+          "check": "string_length",
+          "line": 17,
+          "message": "line 17: 'name' is typed 'string 10', but its value '1234567890' is 10 UTF-8 bytes -- exceeds the 9-byte capacity ('string 10' reserves 1 byte for the ASCIIZ terminator) -- storing an over-length string is a compile-time error, never silently truncated (spec \u00a75, String Length Enforcement)"
+        }
+      }
+    },
+    "string_fields/string_utf8_byte_vs_char_length.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "AtByteLimitMultibyte": {
+          "status": "ok",
+          "resolved": {
+            "name": "caf\u00e9"
+          },
+          "phase": null,
+          "check": null
+        },
+        "OverByteLimitFewChars": {
+          "status": "error",
+          "phase": 6,
+          "check": "string_length",
+          "line": 23,
+          "message": "line 23: 'name' is typed 'string 6', but its value '\u00e9\u00e9\u00e9' is 6 UTF-8 bytes -- exceeds the 5-byte capacity ('string 6' reserves 1 byte for the ASCIIZ terminator) -- storing an over-length string is a compile-time error, never silently truncated (spec \u00a75, String Length Enforcement)"
+        }
+      }
+    }
+  }
+}

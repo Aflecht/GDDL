@@ -1,0 +1,34 @@
+// Fixture: composition_multi_level
+// Rule under test: GDDL Spec v4 §5.2/§5.3 -- "A `define` can never inherit from another
+// `define`"; composition (struct-typed fields) "provides the same practical capability
+// as 'is-a' inheritance would, without introducing a second, parallel inheritance
+// mechanism." This fixture isolates composition working correctly at three levels of
+// `define` nesting (Character -> Equipment -> Weapon), fully resolving in one instance,
+// with no inheritance syntax anywhere -- every relationship here is a struct-typed
+// field, declared explicitly in each `define`'s own flat field list.
+
+define Weapon
+	damage = u32
+
+define Equipment
+	weapon        = Weapon
+	armor_rating  = u32
+
+define Character
+	equipment = Equipment
+	name      = string 10
+
+Character Hero
+	equipment
+		weapon
+			damage = 25
+		armor_rating = 10
+	name = "Hero"
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Hero.equipment.weapon.damage == 25
+//   Hero.equipment.armor_rating  == 10
+//   Hero.name                    == "Hero"
+//   Three levels of composition, all correctly resolved -- Character does not inherit
+//   from Equipment or Weapon in any sense; it merely has fields typed as those defines.

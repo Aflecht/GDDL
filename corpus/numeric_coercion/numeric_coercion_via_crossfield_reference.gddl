@@ -1,0 +1,59 @@
+// Fixture: numeric_coercion_via_crossfield_reference
+// Rule under test: GDDL Spec v4 §5 + §6.7 -- coercion "applies uniformly regardless of
+// how the value was produced -- literal, op-statement result, or cross-field
+// expression." This fixture is specifically about WHERE coercion is keyed: at the
+// point of storage in the TARGET field, based on the target's declared type -- not
+// based on the SOURCE field's own declared type. Tests both directions in one file:
+//
+// - Widening through a reference: an i32 field's value, read via cross-field
+//   reference and doubled (still pure-int arithmetic), stored into an f32 target.
+// - Narrowing-rejection through a reference: an f32 field holding a genuinely
+//   fractional value, read via cross-field reference, stored DIRECTLY into an i32
+//   target. If rejection were somehow keyed on the literal syntax of an assignment
+//   rather than the value actually being stored, this indirection could plausibly
+//   let a fractional value slip through uncoerced-and-unrejected -- this fixture
+//   exists to rule that out.
+
+define Stats
+	source_int   = i32
+	target_float = f32
+	source_frac  = f32
+	target_int   = i32
+
+Stats GoodExample
+	source_int   = 42
+	target_float = source_int * 2
+	// cross-field reference to an int field, doubled (84, still pure int arithmetic),
+	// stored into an f32 target for the first time -- widens same as any other int
+	// value would, regardless of coming through a reference rather than a literal.
+	source_frac = 1.0
+	target_int  = 1
+	// throwaway values, unrelated to what this instance tests. Present only so
+	// `source_frac`/`target_int` (Stats' other two fields) aren't left genuinely
+	// untouched -- an unrelated phase-8 incompleteness error would otherwise fire.
+
+Stats BadExample
+	source_frac = 10.5
+	target_int  = source_frac
+	// cross-field reference to a float field holding a genuinely fractional value
+	// (10.5), stored directly into an i32 target. ERROR expected: narrowing with
+	// fractional loss, same rejection as a literal `10.5` would trigger -- the
+	// indirection through a field reference must not bypass the check.
+	source_int   = 1
+	target_float = 1
+	// throwaway values, unrelated to what this instance tests. Present only so
+	// `source_int`/`target_float` (the two fields this instance never otherwise
+	// mentions) aren't left genuinely untouched -- that's a separate, unrelated
+	// phase-8 incompleteness gap from the intended `target_int` coercion error above,
+	// and both should be reported independently if left unaddressed.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   GoodExample: compiles cleanly, no error.
+//     GoodExample.target_float == 84.0 (widened, via cross-field reference)
+//     GoodExample.source_frac  == 1.0  (throwaway, unrelated to what this instance tests)
+//     GoodExample.target_int   == 1    (throwaway, unrelated to what this instance tests)
+//   BadExample: compile error against field `target_int` -- narrowing with fractional
+//   loss (10.5, read via cross-field reference from source_frac). Phase 6, check
+//   "numeric_coercion" (per the phase/check established in an earlier golden batch's
+//   _meta note). GoodExample should compile clean regardless of BadExample's error,
+//   matching the established independent-per-instance validation pattern.

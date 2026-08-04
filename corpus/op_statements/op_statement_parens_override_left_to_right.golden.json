@@ -1,0 +1,30 @@
+{
+  "fixture": "op_statement_parens_override_left_to_right.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Base": {
+        "status": "ok",
+        "resolved": {
+          "hitpoints_maximum": 100.0
+        },
+        "phase": null,
+        "check": null
+      },
+      "Derived": {
+        "status": "ok",
+        "resolved": {
+          "hitpoints_maximum": 2050.0
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

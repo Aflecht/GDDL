@@ -1,0 +1,15 @@
+{
+  "fixture": "op_statement_missing_leading_field_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parse_error",
+    "error": {
+      "phase": 3,
+      "line": 26,
+      "message": "line 26: statement does not begin with a valid field identifier (found '20') -- no legal statement shape (assign 'field = expr', op-statement 'field op expr', or bare 'field') matches this line"
+    }
+  }
+}

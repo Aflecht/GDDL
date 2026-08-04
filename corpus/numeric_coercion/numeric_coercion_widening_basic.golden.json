@@ -1,0 +1,32 @@
+{
+  "fixture": "numeric_coercion_widening_basic.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "FromLiteral": {
+        "status": "ok",
+        "resolved": {
+          "value": 42.0,
+          "value64": 7.0
+        },
+        "phase": null,
+        "check": null
+      },
+      "FromIntExpression": {
+        "status": "ok",
+        "resolved": {
+          "value": 42.0,
+          "value64": 1.0
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "fixture": "nested_level2_replace_sibling_level1_untouched.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "L2Base": {
+        "status": "delete",
+        "resolved": {
+          "x": 1,
+          "y": 2
+        },
+        "phase": null,
+        "check": null
+      },
+      "L1Base": {
+        "status": "delete",
+        "resolved": {
+          "level2": {
+            "x": 1,
+            "y": 2
+          },
+          "z": 100
+        },
+        "phase": null,
+        "check": null
+      },
+      "L2Alt": {
+        "status": "delete",
+        "resolved": {
+          "x": 10,
+          "y": 20
+        },
+        "phase": null,
+        "check": null
+      },
+      "Seed": {
+        "status": "delete",
+        "resolved": {
+          "branch": {
+            "level2": {
+              "x": 1,
+              "y": 2
+            },
+            "z": 100
+          },
+          "sibling": 999
+        },
+        "phase": null,
+        "check": null
+      },
+      "Holder": {
+        "status": "ok",
+        "resolved": {
+          "branch": {
+            "level2": {
+              "x": 555,
+              "y": 20
+            },
+            "z": 100
+          },
+          "sibling": 999
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

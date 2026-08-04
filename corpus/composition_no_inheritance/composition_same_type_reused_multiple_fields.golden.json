@@ -1,0 +1,29 @@
+{
+  "fixture": "composition_same_type_reused_multiple_fields.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Segment": {
+        "status": "ok",
+        "resolved": {
+          "start": {
+            "x": 1,
+            "y": 2
+          },
+          "end": {
+            "x": 10,
+            "y": 20
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

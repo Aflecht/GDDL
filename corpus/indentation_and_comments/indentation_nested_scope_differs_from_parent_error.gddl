@@ -1,0 +1,41 @@
+// Fixture: indentation_nested_scope_differs_from_parent_error
+// Rule under test: GDDL Spec v4 §3 -- RESOLVED (previously flagged, now written into
+// the spec): a "scope" for the single-indentation-character rule means one ENTIRE
+// top-level `define`/instance block, including everything nested inside it -- not each
+// individual nested field block independently. A nested block cannot switch
+// indentation characters from its parent, even if that nested block is internally
+// self-consistent on its own.
+//
+// This fixture was originally built the other way (as a POSITIVE fixture, expecting
+// sibling nested blocks to legally differ from each other and from their parent) --
+// that reading was wrong, per the resolution above. Rebuilt as the negative case the
+// resolution actually implies: a genuinely different failure shape from
+// indentation_mixed_tabs_spaces_error.gddl, which mixes tab/space between two SIBLING
+// statements at the SAME nesting depth. THIS fixture mixes across nesting DEPTHS --
+// the top-level `branch` line is tab-indented; its own nested body (`x`, `y`) is
+// space-indented. That nested body is internally consistent (both its lines use
+// spaces), which is exactly the case that needed clarifying: internal self-consistency
+// of a nested block does NOT exempt it from matching its parent scope's character.
+
+define Level2
+	x = u32
+	y = u32
+
+define Level1
+	branch = Level2
+
+Level1 Holder
+	branch
+        x = 1
+        y = 2
+// ERROR: `branch` (above) is tab-indented, at Holder's top-level scope. `x` and `y`
+// (above) are space-indented -- internally consistent with EACH OTHER, but not with
+// `branch`'s tab, and both belong to the same overarching scope (Holder's entire
+// instance body, nested content included) per the resolved rule. This must be a
+// compile error even though the nested block, taken alone, looks perfectly consistent.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error: mixed indentation characters within a single scope (Holder's whole
+//   instance body counts as one scope), reported at phase 3 (Parse), same category as
+//   indentation_mixed_tabs_spaces_error.gddl -- but reached via a depth-mismatch
+//   between a parent line and its nested block, not a same-depth sibling mismatch.

@@ -1,0 +1,21 @@
+{
+  "fixture": "domain_field_nonexistent_member_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Broken": {
+        "status": "error",
+        "phase": 5,
+        "check": "domain_typing",
+        "line": 28,
+        "message": "line 28: 'ActionAttack.melee_wepon' is not a known member of domain 'ActionAttack'"
+      }
+    }
+  }
+}

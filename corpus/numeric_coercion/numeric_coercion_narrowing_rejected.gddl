@@ -1,0 +1,33 @@
+// Fixture: numeric_coercion_narrowing_rejected
+// Rule under test: GDDL Spec v4 §5 -- "narrowing with fractional loss is a
+// compile-time error." Two sources of a genuinely fractional value, both stored into
+// integer-typed fields: the result of a division that doesn't divide evenly, and a
+// float literal with a real fractional part. Confirms rejection isn't silent
+// truncation (e.g. `10 / 3` quietly becoming `3`) and applies uniformly regardless of
+// how the fractional value was produced.
+
+define Stats
+	count = i32
+	small = u8
+
+Stats FromDivision
+	count = 10 / 3
+	// 10 / 3 = 3.333... -- genuine fractional loss if stored into an i32 field.
+	// ERROR expected: must be rejected at compile time, not silently truncated to 3.
+
+Stats FromLiteral
+	small = 3.5
+	// bare float literal with a real fractional part, stored into a u8 field.
+	// ERROR expected: same rejection, from a literal rather than a computed value.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Two independent compile errors (per-instance, matching the established
+//   independent-validation pattern -- see initialization/init_uninitialized_only_caught_at_export.gddl
+//   for the precedent of multiple independent errors in one fixture):
+//   - FromDivision: field `count` -- narrowing with fractional loss (10/3 = 3.333...)
+//     rejected. Phase 6 (Resolve), check "numeric_coercion" (per the phase/check
+//     established in an earlier golden batch's _meta note).
+//   - FromLiteral: field `small` -- narrowing with fractional loss (3.5) rejected.
+//     Same phase/check as above.
+//   Neither instance should silently truncate to 3 or 3 respectively -- that would be
+//   the exact failure mode this fixture exists to catch.

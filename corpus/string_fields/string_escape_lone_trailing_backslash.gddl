@@ -1,0 +1,41 @@
+// Fixture: string_escape_lone_trailing_backslash
+// NOT strictly requested -- added because implementing the parity fix
+// surfaced a genuinely non-obvious result worth golden-locking rather
+// than only describing in prose.
+//
+// A single unpaired backslash immediately before what looks like a
+// string's closing quote (e.g. `"abc\"`, ONE backslash, not the
+// paired-and-complete `\\` two backslashes tested in
+// string_escaped_trailing_backslash.gddl) is NOT rejected by the
+// phase-6 "string_escape" check at all. Per the parity rule, an odd
+// backslash count immediately before a `"` means that `"` IS escaped
+// (a literal quote character, not a boundary) -- so the tokenizer
+// correctly keeps scanning for a LATER, real closing quote. If none
+// exists before end of line/file, the result is "unterminated string
+// literal" at phase 3 (parsing), never reaching phase 6's unescape
+// logic at all.
+//
+// Both this and string_escape_invalid_sequence.gddl satisfy the spec's
+// "a lone `\` at the end of a string... is rejected outright" language
+// -- they're just two DIFFERENT rejection mechanisms (phase 3 tokenizer
+// boundary detection vs. phase 6 escape-sequence validation), depending
+// on whether the malformed backslash appears at the very end of the
+// literal (where it's ambiguous with the closing quote itself) or
+// mid-string (where the tokenizer has already found a real, unambiguous
+// terminator and phase 6 gets to inspect the escape sequences within).
+
+define Message
+	text = string 40
+
+Message Unterminated
+	text = "trailing backslash\"
+
+// Expected:
+//   Whole-file parse error (phase 3), NOT a per-instance phase-6
+//   error -- this fixture has no "instances" key in its golden output,
+//   matching the shape every other whole-file parse failure in this
+//   corpus uses. check: "unterminated string literal". The single `\`
+//   before the apparent closing quote is interpreted as escaping that
+//   quote (per the parity rule), so the tokenizer never finds a real
+//   terminator on this line and correctly reports the string as
+//   unterminated.

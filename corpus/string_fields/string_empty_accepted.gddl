@@ -1,0 +1,40 @@
+// Fixture: string_empty_accepted
+// Rule under test: GDDL Spec v4 (String Length Enforcement). The spec doesn't mention
+// empty strings explicitly, but the general rule fully determines the answer: content
+// byte length must be <= N-1, and an empty string has 0 bytes, which is <= N-1 for
+// ANY N >= 1. So an empty string must always be ACCEPTED, regardless of field size --
+// this fixture confirms that directly rather than leaving it an assumption, and
+// confirms nothing crashes on the 0-byte edge case.
+//
+// Includes the most extreme boundary alongside the ordinary case: `string 1` (N=1)
+// has a max content length of ZERO bytes (N-1=0) -- the only value such a field can
+// EVER legally hold is the empty string. Confirms both that this extreme accepts
+// empty, and that it correctly rejects anything with even a single byte of content.
+
+define Item
+	name = string 10
+
+Item NormalEmptyName
+	name = ""
+	// ordinary-sized field, empty string -- 0 bytes, well under N-1=9. Must be
+	// accepted.
+
+define TinyItem
+	name = string 1
+	// max content = 0 bytes (N-1 = 1-1 = 0) -- can ONLY ever hold an empty string.
+
+TinyItem OnlyEmptyAllowed
+	name = ""
+	// exactly 0 bytes, at the (trivial but real) 0-byte limit. Must be accepted.
+
+TinyItem NonEmptyRejected
+	name = "a"
+	// even a single byte exceeds the 0-byte max content for `string 1`. ERROR
+	// expected -- confirms the boundary is enforced correctly even at this extreme,
+	// not silently waived because the field is unusually small.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   NormalEmptyName.name == "" (accepted, no error, no crash)
+//   OnlyEmptyAllowed.name == "" (accepted, no error, no crash, even at the N=1 extreme)
+//   NonEmptyRejected: compile error against field `name` -- value exceeds the maximum
+//   content length (0 bytes) for `string 1`.

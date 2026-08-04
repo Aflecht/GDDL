@@ -1,0 +1,32 @@
+// Fixture: delete_descendant_incomplete_error
+// Rule under test: GDDL Spec v4 §6.6 / §12 phase 8 -- "any non-`delete` instance copying
+// from one must still fully resolve by export time." Negative-path companion to
+// delete_descendant_completes_and_resolves.gddl: here the gap is never closed.
+//
+// StatsTemplate leaves `mp` uninitialized (permitted). StatsIncomplete copies
+// StatsTemplate, touches `hp` only, and never sets `mp` anywhere in its own body either.
+// StatsIncomplete is NOT `delete`, so by export time it must be fully resolved -- it
+// isn't, so this must be a compile error, caught at final validation (§12 phase 8),
+// not earlier (StatsTemplate itself compiles fine at phases 5-7, same as in the
+// incomplete-ok fixture -- the fault only exists on StatsIncomplete's side).
+
+define Stats
+	hp = u32
+	mp = u32
+
+Stats StatsTemplate delete
+	hp = 100
+	// mp intentionally left uninitialized -- permitted for a delete template
+
+Stats StatsIncomplete = StatsTemplate
+	hp = 200
+	// mp is still never set anywhere in this chain. StatsIncomplete is not `delete`,
+	// so this must fail -- but only at phase 8 (final export validation), not at
+	// phases 5-7, since nothing before export attempts to read mp's value.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error against StatsIncomplete, reported at phase 8 (final validation):
+//   field `mp` required for export but never initialized.
+//   StatsTemplate itself must NOT be reported as an error source -- the fault is
+//   StatsIncomplete's, per the collect-and-report policy (§12 phase 6): a direct
+//   failure is recorded once, against the instance where it actually occurs.

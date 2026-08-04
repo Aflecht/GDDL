@@ -1,0 +1,34 @@
+// Fixture: numeric_range_signed_boundary
+// Rule under test: GDDL Spec v4 §5 -- numeric range enforcement, signed case.
+// Representative signed type (`i16`, range -32768..32767). Companion to
+// numeric_range_unsigned_boundary.gddl -- specifically covers the negative-minimum
+// boundary an unsigned type can never exercise, since its own minimum is always 0.
+
+define Stats
+	value = i16
+
+Stats MinValid
+	value = -32768
+	// exactly at i16's minimum -- must be accepted
+
+Stats MaxValid
+	value = 32767
+	// exactly at i16's maximum -- must be accepted
+
+Stats BelowMin
+	value = -32769
+	// ERROR: one step below i16's minimum (-32768). Must be rejected outright, not
+	// wrapped around to the positive end of the range.
+
+Stats AboveMax
+	value = 32768
+	// ERROR: one step above i16's maximum (32767). Must be rejected outright, not
+	// wrapped around to the negative end of the range.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   MinValid.value == -32768
+//   MaxValid.value == 32767
+//   BelowMin: compile error against field `value` -- out of range for `i16`.
+//     Phase 6, check "numeric_range".
+//   AboveMax: compile error against field `value` -- out of range for `i16`.
+//     Phase 6, check "numeric_range".

@@ -1,0 +1,38 @@
+// Fixture: domain_multiple_domains_side_by_side
+// Rule under test: GDDL Spec v4 §4.2 -- each identifier block is an independent type
+// (domain); nothing in the spec suggests a `define` is limited to referencing a single
+// domain. Positive-path depth fixture: two genuinely different identifier domains,
+// used as two separate fields on the same `define`, both assigned correctly,
+// confirming they coexist without interference (e.g. a buggy implementation that
+// tracks "the current identifier type in scope" as a single global rather than
+// per-field could plausibly let one domain's members leak into the other field's
+// validation).
+
+identifier ActionAttack
+	melee_weapon  = "Standard attack done with a melee weapon"
+	ranged_weapon = "Standard attack done with a ranged weapon"
+
+identifier Element
+	fire = "Fire elemental damage type"
+	ice  = "Ice elemental damage type"
+
+define Creature
+	attack  = ActionAttack
+	element = Element
+
+Creature FireArcher
+	attack  = ActionAttack.ranged_weapon
+	element = Element.fire
+
+Creature IceWarrior
+	attack  = ActionAttack.melee_weapon
+	element = Element.ice
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   FireArcher.attack  == ActionAttack.ranged_weapon (logical ID)
+//   FireArcher.element == Element.fire (logical ID)
+//   IceWarrior.attack  == ActionAttack.melee_weapon (logical ID)
+//   IceWarrior.element == Element.ice (logical ID)
+//   Each field's value must come from its own correct domain, with no cross-domain
+//   leakage between `attack` and `element` on either instance.

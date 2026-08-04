@@ -1,0 +1,30 @@
+// Fixture: crossfield_forward_reference_error
+// Rule under test: GDDL Spec v4 §6.7 -- "No separate initialization-order or
+// cycle-detection machinery is needed. Because execution is strictly sequential and
+// reading an uninitialized field is already always an error (§7), referencing a
+// not-yet-set field simply falls through to that existing error." Negative-path
+// companion to crossfield_basic_reference.gddl: same fields, same expression shape,
+// but `total_weight` is written BEFORE `weight` and `count` are set, instead of after.
+
+define Item
+	weight       = u32
+	count        = u32
+	total_weight = u32
+
+Item Broken
+	total_weight = weight * count
+	// ERROR: at this exact point in sequential execution, neither `weight` nor
+	// `count` has been set yet (both statements setting them appear below). This is
+	// not a special "forward reference" error category -- it is the ordinary
+	// uninitialized-field-read error (§7), reached via the same mechanism as any
+	// other read of an unset field. No cycle-detection or reordering occurs; the
+	// compiler does not look ahead.
+	weight = 12
+	count  = 4
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error against Broken: field `weight` (and/or `count`) read while
+//   uninitialized, at the `total_weight = weight * count` statement. Should be
+//   reported as the same error category as any other uninitialized-read case (e.g.
+//   delete_own_uninitialized_read_error.gddl), not a distinct "forward reference"
+//   error type -- there is no such separate category per §6.7.

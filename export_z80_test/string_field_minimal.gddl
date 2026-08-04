@@ -1,0 +1,30 @@
+// Fixture: string_field_minimal (Z80 export target only -- not a Test
+// Corpus golden-lock fixture; this is Compiler Core's own permanent
+// test asset, closing the last remaining gap flagged in HANDOFF.md).
+//
+// Rule under test: GDDL Spec v4 §13.2 -- Z80 string-field export.
+// Minimal, isolated case: one type, one string field, one instance,
+// deliberately non-ASCII so the UTF-8 byte-length question is
+// genuinely exercised rather than trivially true for a plain ASCII
+// name (a-umlaut/'u' = 2 UTF-8 bytes, so "Grübnik" is 8 content bytes
+// across 7 characters -- an export that assumed 1 byte per character,
+// or got byte order/padding wrong, would produce an observably wrong
+// result rather than one that happens to work by coincidence).
+//
+// `string 12`: "Grübnik" is 8 UTF-8 bytes, well under the 11 usable
+// bytes (N-1), so the assembled/compiled output should show 8 content
+// bytes, exactly one ASCIIZ terminator, and 3 further explicit zero
+// padding bytes -- 12 total, matching §13.2's `db "text", 0, 0` style
+// exactly (scaled to this field's actual padding count).
+
+define Villager
+	name = string 12
+
+Villager Grubnik
+	name = "Grübnik"
+
+// Expected (language-level; export-target correctness validated
+// separately through Compiler Core's own export_z80_test/ and
+// export_z80_c_test/, not captured here):
+//   Compiles cleanly, no error.
+//   Grubnik.name == "Grübnik"

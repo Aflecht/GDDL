@@ -1,0 +1,41 @@
+// Fixture: nested_scalar_vs_struct_fork
+// Rule under test: GDDL Spec v4 §6.4, final paragraph -- "This fork only becomes
+// observable on struct-typed fields... For scalar fields there is nothing to 'enter' --
+// hitpoints = 100 is always a plain overwrite, full stop."
+//
+// This fixture puts a scalar field and a struct field side by side in the same instance
+// so both behaviors are pinned down together, from the same starting instance, making
+// the contrast directly comparable in one golden output rather than across two files.
+//
+// Only `payload` (struct-typed) gets the bare-vs-`=` fork exercised. `label` (scalar)
+// only ever appears as a plain `label = <value>` assignment, since that is the only
+// legal form scalar fields have -- see the corpus-lead flag below regarding bare-scalar
+// syntax legality, which this fixture deliberately does NOT attempt to exercise.
+
+define Payload
+	a = u32
+	b = u32
+
+define Container
+	payload = Payload
+	label   = u32
+
+Payload Base delete
+	a = 1
+	b = 2
+
+Container Container_Seed delete
+	payload = Base
+	label   = 10
+
+Container Holder = Container_Seed
+	payload
+		a = 99
+		// modify-only: b untouched, stays 2 (inherited from Base via Container_Seed)
+	label = 55
+		// plain overwrite: label has no "enter scope" concept, this simply replaces
+		// the prior value (10) outright -- there is no modify-only equivalent for it
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Holder.payload == { a: 99, b: 2 }
+//   Holder.label   == 55

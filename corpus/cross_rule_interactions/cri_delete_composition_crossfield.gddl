@@ -1,0 +1,55 @@
+// Fixture: cri_delete_composition_crossfield
+// Rule under test: GDDL Spec v4 §5.2-§5.3 (composition) + §6.6 (delete templates) +
+// §6.7 (cross-field references), all three together in one fixture. Highest-value
+// category for this round -- real bugs found so far in this project (operator
+// precedence, leading-token parsing) came from combinations, not isolated rules.
+//
+// `ShapeTemplate` is `delete`-marked, composes a nested `Point` struct (`origin`), and
+// computes `area` via a cross-field reference INTO that composed sub-field
+// (`origin.x * origin.y`). `RealShape` then copies the template and changes
+// `origin.x` -- but does NOT restate `area`.
+//
+// KEY PREDICTION, STATED EXPLICITLY (grounded in already-established behavior, not a
+// fresh guess, but non-obvious enough to be worth spelling out): `area` should NOT
+// recompute. GDDL expressions are evaluated once, eagerly, at their own point in
+// strictly sequential execution (§6.2, and directly confirmed by
+// sequential_crossfield_reference_sees_current_value.gddl in this same round) --
+// there is no "live formula" mechanic anywhere in the spec. Copying an instance
+// carries forward already-RESOLVED values, not unevaluated expressions to be
+// re-run later. So `RealShape.area` should still read 25 (5*5, computed once inside
+// `ShapeTemplate`), even though `RealShape.origin.x` is now 10, not 5. If a reference
+// implementation instead produces 50 (10*5, as if `area`'s formula re-ran against the
+// new `origin.x`), that would reveal an unexpected live-recomputation behavior nothing
+// in the spec currently describes -- worth flagging back rather than just noting as a
+// "bug" if it happens, since it could equally mean a real, previously-undocumented
+// rule exists that this corpus hasn't caught up to yet.
+
+define Point
+	x = u32
+	y = u32
+
+define Shape
+	origin = Point
+	area   = u32
+
+Shape ShapeTemplate delete
+	origin
+		x = 5
+		y = 5
+	area = origin.x * origin.y
+	// cross-field reference reaching into a composed sub-field, inside a delete
+	// template -- computed once, here, against origin's values at this exact point.
+
+Shape RealShape = ShapeTemplate
+	origin
+		x = 10
+		// y untouched -> inherited 5
+	// area: NOT restated. Per the prediction above, this should carry forward
+	// ShapeTemplate's already-computed value (25), not recompute against the new x.
+
+// Expected (prediction, pending golden output from Compiler Core reference run --
+// see the key prediction stated in detail above):
+//   Compiles cleanly, no error.
+//   ShapeTemplate: not present in exported output (delete-marked).
+//   RealShape.origin == { x: 10, y: 5 }
+//   RealShape.area   == 25   (NOT 50 -- see key prediction above for why)

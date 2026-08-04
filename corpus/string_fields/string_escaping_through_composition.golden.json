@@ -1,0 +1,40 @@
+{
+  "fixture": "string_escaping_through_composition.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-31",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "QuoteCase": {
+        "status": "ok",
+        "resolved": {
+          "equipment": {
+            "weapon": {
+              "name": "The \"Widowmaker\" blade"
+            },
+            "label": "Standard issue"
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "BackslashCase": {
+        "status": "ok",
+        "resolved": {
+          "equipment": {
+            "weapon": {
+              "name": "Plain blade"
+            },
+            "label": "C:\\Users\\"
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

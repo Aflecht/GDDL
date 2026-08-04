@@ -1,0 +1,15 @@
+{
+  "fixture": "indentation_mixed_tabs_spaces_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parse_error",
+    "error": {
+      "phase": 3,
+      "line": 17,
+      "message": "line 17: mixed indentation characters within a single scope -- this line uses spaces, but the enclosing top-level block already established tabs (indentation character must be consistent across an entire top-level define/identifier/instance block, including everything nested inside it -- not just within one nesting level)"
+    }
+  }
+}

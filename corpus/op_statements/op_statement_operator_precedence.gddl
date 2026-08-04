@@ -1,0 +1,37 @@
+// Fixture: op_statement_operator_precedence
+// Rule under test: GDDL Spec v4 §6.3 -- multi-operator expressions in a single
+// op-statement or assign. MUST-KEEP REGRESSION FIXTURE: this exact expression shape
+// (`hitpoints_maximum * 0.5 + 20`) already caused one real implementation bug in
+// Compiler Core, per the seed context for this corpus.
+//
+// RESOLVED (now written into the spec, not just decided verbally): GDDL uses **strict
+// left-to-right evaluation**, not standard mathematical operator precedence. There is
+// no "`*`/`/` bind tighter than `+`/`-`" rule. Parentheses are available whenever
+// standard-math-style grouping (or any other grouping) is actually wanted.
+//
+// NOTE ON THIS PARTICULAR FIXTURE: for THIS specific expression shape, strict
+// left-to-right evaluation and standard mathematical precedence happen to produce the
+// SAME grouping -- `(hitpoints_maximum * 0.5)` then `+ 20` either way, since the `*`
+// already comes first left-to-right. This fixture alone therefore cannot distinguish
+// the two rules; it only confirms the expected numeric result for the exact case that
+// broke Compiler Core once. The case that actually distinguishes left-to-right from
+// standard precedence -- reversed operator order, `20 + hitpoints_maximum * 0.5` -- is
+// covered separately in crossfield_self_reference_non_leading.gddl (crossfield
+// references group), written via assign rather than op-statement, since op-statement
+// syntax requires the field name to lead the statement by construction and this
+// expression does not put the field name first.
+
+define Creature
+	hitpoints_maximum = f32
+
+Creature Base
+	hitpoints_maximum = 100
+
+Creature Derived = Base
+	hitpoints_maximum * 0.5 + 20
+	// op-statement, expands to: hitpoints_maximum = hitpoints_maximum * 0.5 + 20
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Derived.hitpoints_maximum == 70.0
+//   ( (100 * 0.5) + 20 = 70.0 -- under strict left-to-right evaluation, same result
+//     standard precedence would also give for this particular operator ordering )

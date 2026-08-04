@@ -1,0 +1,21 @@
+{
+  "fixture": "domain_field_wrong_domain_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Broken": {
+        "status": "error",
+        "phase": 5,
+        "check": "domain_typing",
+        "line": 21,
+        "message": "line 21: 'attack' is typed as identifier domain 'ActionAttack', but was assigned 'Element.fire' -- a reference to domain 'Element', not 'ActionAttack' -- a bare literal or wrong-domain reference can never satisfy an identifier-typed field"
+      }
+    }
+  }
+}

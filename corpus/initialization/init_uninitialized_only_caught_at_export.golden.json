@@ -1,0 +1,42 @@
+{
+  "fixture": "init_uninitialized_only_caught_at_export.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "StatsBase": {
+        "status": "incomplete",
+        "phase": 8,
+        "check": "final_completeness",
+        "missing_fields": [
+          "mp"
+        ],
+        "resolved": {
+          "hp": 100,
+          "mp": {
+            "__uninitialized__": true
+          }
+        }
+      },
+      "StatsChild": {
+        "status": "incomplete",
+        "phase": 8,
+        "check": "final_completeness",
+        "missing_fields": [
+          "mp"
+        ],
+        "resolved": {
+          "hp": 150,
+          "mp": {
+            "__uninitialized__": true
+          }
+        }
+      }
+    }
+  }
+}

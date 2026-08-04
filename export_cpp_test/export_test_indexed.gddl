@@ -1,0 +1,69 @@
+identifier ActionAttack u8
+	melee_weapon	= "Standard attack done with a melee weapon"
+	ranged_weapon	= "Standard attack done with a ranged weapon"
+
+identifier Element u16
+	fire		= "Elemental fire damage type"
+	ice		= "Elemental ice damage type"
+	lightning	= "Elemental lightning damage type"
+	poison		= "Elemental poison damage type"
+
+define Object
+	something1	= u32
+	something2	= u32
+
+define Item
+	object		= Object
+	weight		= u32
+	element		= Element
+	name		= string 16
+	fast_dispatch	= @ActionAttack
+
+Object DefaultObject
+	something1 = 0
+	something2 = 0
+
+Object HeavyObject
+	something1 = 100
+	something2 = 50
+
+Object LightObject = HeavyObject
+	something1 = 5
+
+Object BaseObject
+	something1 = 10
+	something2 = 20
+
+// delete-template-sourced export chain (idiomatic pattern from Example.txt):
+// BaseTemplate is never exported at all; RealObjectGen1 completes it;
+// RealObjectGen2 is a further generation built on top of that.
+Object BaseTemplate delete
+	something1 = 1
+
+Object RealObjectGen1 = BaseTemplate
+	something2 = 2
+
+Object RealObjectGen2 = RealObjectGen1
+	something1 * 10
+
+Item ItemViaFullReplace
+	object = BaseObject
+	weight = 5
+	element = Element.fire
+	name = "Sword"
+	fast_dispatch = ActionAttack.melee_weapon
+
+Item ItemViaBareModify
+	object
+		something1 = 99
+		something2 = 100
+	weight = 7
+	element = Element.ice
+	name = "AAAAAAAAAAAAAAA"
+	fast_dispatch = ActionAttack.ranged_weapon
+
+Item ItemCopy = ItemViaFullReplace
+	weight = 50
+	element = Element.lightning
+	name = "Shield"
+	fast_dispatch = ActionAttack.melee_weapon

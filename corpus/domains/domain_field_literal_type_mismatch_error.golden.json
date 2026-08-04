@@ -1,0 +1,21 @@
+{
+  "fixture": "domain_field_literal_type_mismatch_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Broken": {
+        "status": "error",
+        "phase": 5,
+        "check": "domain_typing",
+        "line": 22,
+        "message": "line 22: 'attack' is typed as identifier domain 'ActionAttack', but was assigned '1' -- a bare literal or wrong-domain reference can never satisfy an identifier-typed field"
+      }
+    }
+  }
+}

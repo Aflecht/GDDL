@@ -1,0 +1,35 @@
+// Fixture: sequential_longer_chain_order_dependent
+// Rule under test: GDDL Spec v4 §6.2 -- extends
+// sequential_chained_ops_order_matters.gddl (2 operations) to a longer, 5-operation
+// chain on one field, still deliberately non-associative/non-commutative so the two
+// orderings produce genuinely different results. The existing 2-operation fixture
+// can't rule out an implementation that happens to handle short chains correctly but
+// drops, reorders, or partially collapses a longer sequence.
+
+define Stats
+	value = i32
+
+Stats Forward
+	value = 2
+	value * 3
+	value - 4
+	value * 2
+	value + 1
+	value - 2
+	// step by step: 2 *3=6, -4=2, *2=4, +1=5, -2=3
+
+Stats Reversed
+	value = 2
+	value - 2
+	value + 1
+	value * 2
+	value - 4
+	value * 3
+	// same five operations, fully reversed order: 2 -2=0, +1=1, *2=2, -4=-2, *3=-6
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Forward.value  == 3
+//   Reversed.value == -6
+//   The two results must differ, and differ substantially (3 vs. -6, not a near-miss)
+//   -- a wrong result here should be unambiguous, not something that could be
+//   mistaken for a rounding or off-by-one issue.

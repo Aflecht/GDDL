@@ -1,0 +1,78 @@
+// Fixture: string_escaping_through_composition
+// Rule under test: GDDL Spec v4 §5 -- string-literal escape processing (`\"` -> `"`,
+// `\\` -> `\`) verified specifically on a string field sitting INSIDE a composed
+// (nested `define`) type -- not at a flat, top-level field, which is all every
+// existing `string_fields/` fixture exercises. Structure modeled on
+// `composition_no_inheritance/composition_multi_level.gddl` (Character -> Equipment ->
+// Weapon), reused here specifically so nesting depth is exercised the same way, not
+// just a single hop.
+//
+// WHY THIS IS ITS OWN FIXTURE RATHER THAN AN ASSUMPTION: the unescape call sits at the
+// one site in the reference implementation that processes any field assignment's
+// right-hand side, flat or nested alike -- there's no obvious code path reason
+// composition would behave differently. But this exact project already found two
+// independently-introduced copies of the identical escaping bug, undetected until a
+// fixture was specifically built to exercise them. "The code looks like it should be
+// fine" was true right up until it wasn't, twice, in this same project's history --
+// worth the same standard here rather than assuming the flat-field fix generalizes.
+//
+// Both instances exercise the SAME nested field (`equipment.weapon.name`, two hops
+// deep) so the escape-TYPE is the only thing varying between them, isolated from any
+// difference in nesting depth or field identity. `equipment.label` (one hop deep) is
+// present as plain, unremarkable filler in both, so composition at more than one
+// depth is touched without conflating it with the escape test itself.
+//
+// QuoteCase tests `\"`. BackslashCase tests `\\` specifically in the PARITY-RULE
+// shape (a string ending in a literal backslash, per spec: "the direct, motivating
+// scenario `\\` was introduced to handle") -- historically the more subtle of the two
+// bugs found this session, deliberately re-tested through this new path rather than
+// assumed to generalize from the flat-field fix.
+
+define Weapon
+	name = string 40
+
+define Equipment
+	weapon = Weapon
+	label  = string 40
+
+define Character
+	equipment = Equipment
+
+Character QuoteCase
+	equipment
+		weapon
+			name = "The \"Widowmaker\" blade"
+			// escape under test: \" -- embedded literal quotes, two hops deep
+		label = "Standard issue"
+		// plain filler, one hop deep -- no escape here, just confirms this
+		// shallower nested field also resolves normally alongside the deeper one
+
+Character BackslashCase
+	equipment
+		weapon
+			name = "Plain blade"
+			// plain filler, two hops deep -- no escape here
+		label = "C:\\Users\\"
+		// escape under test: \\ -- a string ENDING in a literal backslash, the
+		// parity-rule case (spec: two backslashes immediately before the closing
+		// quote is an even count, a genuine terminator, not an escaped one) --
+		// this time at one hop deep rather than two, so both nesting depths get
+		// exercised across the fixture as a whole, just not both escape types at
+		// both depths individually
+
+// Expected (prediction, pending golden output from Compiler Core reference run --
+// independently computed, not hand-typed from memory, given this project's specific
+// history with off-by-one transcription errors in exactly this kind of prediction):
+//   Compiles cleanly, no error.
+//   QuoteCase.equipment.weapon.name == `The "Widowmaker" blade` (22 characters):
+//     ['T','h','e',' ','"','W','i','d','o','w','m','a','k','e','r','"',' ','b','l','a','d','e']
+//   QuoteCase.equipment.label == "Standard issue" (unescaped, plain)
+//   BackslashCase.equipment.weapon.name == "Plain blade" (unescaped, plain)
+//   BackslashCase.equipment.label == `C:\Users\` (9 characters, trailing backslash
+//   intact as a single literal character, NOT doubled and NOT stripped):
+//     ['C',':','\\','U','s','e','r','s','\\']
+//   If either resolved value instead retains a doubled/unprocessed backslash (e.g.
+//   `C:\\Users\\` surviving as 11 characters rather than unescaping to 9), or drops
+//   the escaped quote characters entirely, that's exactly the class of bug this
+//   fixture exists to catch -- specifically through the nested path, not the flat
+//   one already covered elsewhere in `string_fields/`.

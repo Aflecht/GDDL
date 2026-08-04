@@ -1,0 +1,8 @@
+define Stats
+    value = u32
+
+Stats First
+    value = 1
+
+Stats Second
+    value = 2

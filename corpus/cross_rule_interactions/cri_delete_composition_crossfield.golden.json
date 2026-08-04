@@ -1,0 +1,38 @@
+{
+  "fixture": "cri_delete_composition_crossfield.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "ShapeTemplate": {
+        "status": "delete",
+        "resolved": {
+          "origin": {
+            "x": 5,
+            "y": 5
+          },
+          "area": 25
+        },
+        "phase": null,
+        "check": null
+      },
+      "RealShape": {
+        "status": "ok",
+        "resolved": {
+          "origin": {
+            "x": 10,
+            "y": 5
+          },
+          "area": 25
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

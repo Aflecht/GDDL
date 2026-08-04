@@ -1,0 +1,44 @@
+// Fixture: init_uninitialized_only_caught_at_export
+// Rule under test: GDDL Spec v4 §7 + §12 -- confirms the PHASE 6 vs. PHASE 8 boundary
+// specifically. This is the one new thing this fixture group needs to prove; the general
+// "reading an uninitialized field is always a compile error" rule is already exercised
+// elsewhere (delete_own_uninitialized_read_error.gddl for the delete-template case; the
+// planned cross-field forward-reference fixture for the same-instance-sequential case).
+// This fixture is about WHEN the error surfaces, not just THAT it does.
+//
+// StatsBase and StatsChild are both normal (non-`delete`) instances. Neither one's body
+// ever reads or assigns `mp` -- it is simply never mentioned anywhere in the chain.
+// Because nothing ever attempts to READ mp during resolution, phase 6 (Resolve, §12)
+// has nothing to fail on: executing every listed statement for both instances succeeds
+// without incident. The gap is only detectable once the compiler asks "is everything
+// required for export actually initialized?" -- that question is phase 8 (Final
+// Validation), not phase 6. This fixture exists to confirm the error surfaces at the
+// correct phase, not merely that it surfaces at all.
+
+define Stats
+	hp = u32
+	mp = u32
+
+Stats StatsBase
+	hp = 100
+	// mp: never touched. No statement anywhere reads or assigns it, so phase 6 has
+	// nothing to fail on for this instance.
+
+Stats StatsChild = StatsBase
+	hp = 150
+	// mp: still never touched, anywhere in this two-instance chain. Same as above --
+	// phase 6 resolves StatsChild's statements (just the hp override) without incident.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Both StatsBase and StatsChild fail final export validation (phase 8): field `mp`
+//   required for export but never initialized.
+//   Critically: NEITHER instance should be reported as failing during phase 6 (Resolve)
+//   -- if a reference implementation reports this as a phase-6/resolve-time error
+//   instead of a phase-8/export-validation error, that's a phase-boundary bug this
+//   fixture is designed to catch.
+//
+// Resolved: StatsBase and StatsChild each get their own separate `mp`-uninitialized
+// error at phase 8. Phase 8 validates each non-`delete` instance's already-fully-
+// resolved tree independently -- it checks a property of that finished tree, not the
+// resolution process, so phase 6's collect-and-report/"blocked" cascade policy does
+// not apply here. No cross-instance blocking occurs at this phase.

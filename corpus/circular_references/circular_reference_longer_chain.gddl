@@ -1,0 +1,39 @@
+// Fixture: circular_reference_longer_chain
+// Rule under test: circular reference detection, depth pass. The existing
+// circular_reference_direct_two_instance.gddl only tests the minimal 2-instance
+// cycle. A DFS-based detector that's correct for a 2-node cycle specifically could
+// still plausibly mishandle a longer one (e.g. an off-by-one in path reconstruction,
+// or incorrectly reporting only a 2-instance sub-segment of a 3-instance cycle).
+// This fixture uses three instances, `A = B`, `B = C`, `C = A`, confirming the
+// reported cycle path names all three instances in order, not a truncated or
+// incorrect subset.
+//
+// PHASE/CHECK: same confidence level as circular_reference_direct_two_instance.gddl --
+// spec-grounded/specified (phase 4, check `circular_dependency`), not a guess. The
+// exact path STRING format (e.g. `A -> B -> C -> A`) is predicted by direct analogy
+// with the already-confirmed 2-instance case's format (`A -> B -> A`), extended to
+// three instances -- reasonable confidence, but this specific 3-element path string
+// is what this fixture is actually verifying, so it's stated as the fixture's main
+// point rather than something to take entirely for granted.
+
+define Stats
+	hp = u32
+
+Stats A = B
+	hp = 1
+
+Stats B = C
+	hp = 2
+
+Stats C = A
+	hp = 3
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error at phase 4 (Register), check `circular_dependency`. Error(s) should
+//   name the full 3-instance cycle path (e.g. `A -> B -> C -> A`), for all three
+//   participating instances -- by analogy with the 2-instance case, likely reported
+//   once per instance (three total entries, each citing the same full path), matching
+//   the pattern already confirmed: `circular_reference_direct_two_instance.gddl`
+//   produced one `duplicate_errors` entry per participating instance's declaration
+//   line, plus a corresponding per-instance `status: "error"` entry in `instances`,
+//   all citing the identical path. Expecting the same shape here, scaled to three.

@@ -1,0 +1,29 @@
+// Fixture: op_statement_assign_equivalence
+// Rule under test: GDDL Spec v4 §6.3 -- assign and op-statement are "two surface forms
+// of [a single underlying] mechanism, not separate mechanisms." `hitpoints * 2` is
+// stated to be "exactly equivalent to `hitpoints = hitpoints * 2`." This fixture proves
+// that equivalence empirically rather than taking the spec's wording on faith: two
+// instances, identical starting value, one using each form, must produce identical
+// results.
+
+define Creature
+	hitpoints = u32
+
+Creature ViaOpStatement
+	hitpoints = 10
+	hitpoints * 2
+	// op-statement shorthand: implicitly prepends hitpoints' own current value
+
+Creature ViaExplicitAssign
+	hitpoints = 10
+	hitpoints = hitpoints * 2
+	// hand-written self-reference, spelled out in full -- per §6.3, "any self-reference
+	// ... must be written out explicitly" for the assign form
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   ViaOpStatement.hitpoints  == 20
+//   ViaExplicitAssign.hitpoints == 20
+//   Both values must be identical. If a reference implementation produces different
+//   results for these two instances, that's proof assign and op-statement are NOT
+//   genuinely unified in practice, despite the spec's wording -- exactly what this
+//   fixture exists to catch.

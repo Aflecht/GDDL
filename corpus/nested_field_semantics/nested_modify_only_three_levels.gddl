@@ -1,0 +1,48 @@
+// Fixture: nested_modify_only_three_levels
+// Rule under test: GDDL Spec v4 §6.4 -- modify-only nesting is fully recursive "at any
+// nested field, at any depth." Depth-pass fixture: extends
+// nested_modify_only_two_levels.gddl by one more level. That fixture alone can't rule
+// out an implementation that's correctly recursive for exactly two levels and breaks
+// (or silently stops recursing, or errors) at a third.
+
+define Core
+	p = u32
+	q = u32
+
+define Inner
+	core = Core
+	y    = u32
+
+define Payload
+	inner = Inner
+	a     = u32
+
+define Container
+	payload = Payload
+
+Core CoreBase delete
+	p = 1
+	q = 2
+
+Inner InnerBase delete
+	core = CoreBase
+	y    = 20
+
+Payload PayloadBase delete
+	inner = InnerBase
+	a     = 100
+
+Container Container_Seed delete
+	payload = PayloadBase
+
+Container Holder = Container_Seed
+	payload
+		inner
+			core
+				q = 999
+				// p untouched at level 3 (deepest) -> stays 1
+			// y untouched at level 2 -> stays 20
+		// a untouched at level 1 -> stays 100
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Holder.payload == { inner: { core: { p: 1, q: 999 }, y: 20 }, a: 100 }

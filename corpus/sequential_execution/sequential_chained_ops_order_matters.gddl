@@ -1,0 +1,31 @@
+// Fixture: sequential_chained_ops_order_matters
+// Rule under test: GDDL Spec v4 §6.2 -- "All statements inside an instance execute
+// strictly top to bottom. Repeated operations on the same field are allowed and simply
+// chain." This fixture deliberately uses a NON-commutative, non-associative pairing of
+// operations (multiply then add, vs. add then multiply) so the two orderings produce
+// genuinely different results -- not just a case where reordering happens to not matter
+// (e.g. two additions, or two multiplications, would still prove nothing about ordering
+// since the result would be identical either way).
+
+define Creature
+	hitpoints = u32
+
+Creature Forward
+	hitpoints = 10
+	hitpoints * 2
+	hitpoints + 5
+	// executes as: hitpoints = 10; hitpoints = 10*2 = 20; hitpoints = 20+5 = 25
+
+Creature Reversed
+	hitpoints = 10
+	hitpoints + 5
+	hitpoints * 2
+	// executes as: hitpoints = 10; hitpoints = 10+5 = 15; hitpoints = 15*2 = 30
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Forward.hitpoints  == 25
+//   Reversed.hitpoints == 30
+//   The two results MUST differ. If a reference implementation produces the same value
+//   for both instances, that indicates statements are being collapsed, memoized, or
+//   otherwise not executed in strict declared order -- exactly the failure mode this
+//   fixture exists to catch.

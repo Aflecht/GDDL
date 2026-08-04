@@ -1,0 +1,39 @@
+// Fixture: numeric_coercion_whole_float_accepted
+// Rule under test: GDDL Spec v4 §5 -- "a float that's exactly whole ... may be safely
+// coerced." Positive-path companion to numeric_coercion_narrowing_rejected.gddl: same
+// direction (float-shaped value into an integer-typed field), but the value has no
+// fractional part, so it must be ACCEPTED rather than rejected just because it's
+// syntactically a float. Confirms rejection is keyed on genuine fractional loss, not
+// merely on the source being float-typed or float-shaped.
+
+define Stats
+	count = i32
+	total = u8
+
+Stats FromLiteral
+	count = 4.0
+	// exactly whole float literal into an i32 field -- must be accepted and coerced
+	// to the integer 4, not rejected on sight just because it's written as "4.0".
+	total = 1
+	// throwaway value, unrelated to what this instance tests. Present only so
+	// `total` (Stats' other field) isn't left genuinely untouched -- an unrelated
+	// phase-8 incompleteness error would otherwise fire here.
+
+Stats FromExpression
+	total = 4.0 * 2
+	// 4.0 * 2 = 8.0 -- a float-typed intermediate/result, but exactly whole. Must be
+	// accepted into the u8 field, coerced to 8.
+	count = 1
+	// throwaway value, unrelated to what this instance tests. Present only so
+	// `count` (Stats' other field) isn't left genuinely untouched.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   FromLiteral.count    == 4   (coerced from 4.0, not rejected)
+//   FromLiteral.total    == 1   (throwaway, unrelated to what this instance tests)
+//   FromExpression.total == 8   (coerced from 8.0, not rejected)
+//   FromExpression.count == 1   (throwaway, unrelated to what this instance tests)
+//   Neither instance should produce a numeric_coercion error -- if either does, that
+//   indicates rejection is being triggered by "is this a float" rather than "does this
+//   float have a genuine fractional part," which is exactly the distinction this
+//   fixture exists to pin down.

@@ -1,0 +1,30 @@
+// Fixture: delete_own_uninitialized_read_error
+// Rule under test: seed-context clarification on GDDL Spec v4 §6.6 + §7 -- a `delete`
+// instance's own body reading one of its OWN uninitialized fields IS a compile error,
+// with no exception carved out for delete templates. This is the subtle counterpart to
+// delete_template_incomplete_ok.gddl: leaving a field untouched is fine; actively
+// reading it while it's still untouched is not, even inside a delete template.
+//
+// `mp` is never set anywhere in StatsBadTemplate's body. The expression assigned to
+// `hp` reads `mp` (via cross-field expression reference, §6.7) while it is still
+// uninitialized. §7 states reading an uninitialized field is always a compile error,
+// and explicitly names the delete-template exception as covering only "may remain
+// incomplete" -- not "may be read while incomplete." This fixture isolates that gap.
+
+define Stats
+	hp = u32
+	mp = u32
+
+Stats StatsBadTemplate delete
+	hp = mp * 2
+	// ERROR: mp is read here via cross-field reference (§6.7) but has not been set
+	// anywhere in this instance -- not before this line, not after, not ever. The
+	// fact that StatsBadTemplate is `delete` does not exempt this read; §7's
+	// uninitialized-read rule applies unconditionally except for the narrower
+	// "may remain incomplete [if never read]" allowance.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error against StatsBadTemplate: field `mp` read while uninitialized.
+//   This must be reported even though StatsBadTemplate is a delete template and is
+//   never exported or copied by anything else in this fixture -- the error is in the
+//   template's own body, at phase 6 (resolve), independent of export status.

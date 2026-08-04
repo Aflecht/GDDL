@@ -1,0 +1,25 @@
+// Fixture: domain_field_accepts_valid_member
+// Rule under test: GDDL Spec v4 §4.2 -- an identifier block declaration is itself a
+// type (domain). A field typed with that domain accepts values from that domain only.
+// This is the positive/clean-compile baseline; the two companion negative-path fixtures
+// (domain_field_literal_type_mismatch_error.gddl and
+// domain_field_wrong_domain_error.gddl) exercise the two distinct ways a field can fail
+// this check.
+
+identifier ActionAttack
+	melee_weapon  = "Standard attack done with a melee weapon"
+	ranged_weapon = "Standard attack done with a ranged weapon"
+
+define Creature
+	attack = ActionAttack
+
+Creature Warrior
+	attack = ActionAttack.melee_weapon
+
+Creature Archer
+	attack = ActionAttack.ranged_weapon
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Warrior.attack == ActionAttack.melee_weapon  (as a logical ID, per §8.2 default)
+//   Archer.attack  == ActionAttack.ranged_weapon (as a logical ID, per §8.2 default)

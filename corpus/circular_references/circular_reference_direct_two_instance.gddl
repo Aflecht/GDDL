@@ -1,0 +1,39 @@
+// Fixture: circular_reference_direct_two_instance
+// Rule under test: circular reference detection -- a direct, mutual `A = B`, `B = A`
+// cycle between two instances via full replace (`= Source`). Neither instance can
+// ever actually resolve: A's resolution depends on B's, B's depends on A's, with no
+// base case. This must be rejected before any resolution is attempted.
+//
+// PHASE/CHECK: spec-grounded/specified, not a guess -- confirmed implemented and
+// verified: phase 4 (Register), check `circular_dependency`, DFS-based, correctly
+// handles both top-level and nested full-replace cycles, zero false positives on
+// valid chains. Phase 4 makes sense structurally: the register phase builds the full
+// instance registry (all names, all `= Source` edges) in one pass across the whole
+// file before any actual resolution begins, which is exactly what lets a DFS over the
+// instance-copy graph detect a cycle up front -- independent of which instance
+// happens to be declared textually first. (This also confirms, as a side effect,
+// that forward-referencing an instance not yet declared later in the same file is
+// legal at the registration level -- the whole graph is known before resolution
+// starts, not built incrementally in file order.)
+//
+// Same confidence level as the corrected prediction in
+// domains/domain_logical_id_collision_error.gddl: this is a documented, confirmed
+// implementation detail, not a genuinely open question the way (for example) the
+// original bare-scalar-field phase question was before it got resolved.
+
+define Stats
+	hp = u32
+
+Stats A = B
+	hp = 1
+
+Stats B = A
+	hp = 2
+
+// Expected (prediction, pending golden output from Compiler Core reference run --
+// phase/check below are spec-grounded/specified, per the note above, not guessed):
+//   Compile error at phase 4 (Register), check `circular_dependency`. Error should
+//   name the exact cycle path (something like `A -> B -> A`), not just flag "A" or
+//   "B" individually without showing how they relate -- a DFS-based detector
+//   naturally has this path available (it's exactly what DFS traces), so a golden
+//   implementation should surface it, not just report "a cycle exists somewhere."

@@ -1,0 +1,29 @@
+// Fixture: domain_field_wrong_domain_error
+// Rule under test: GDDL Spec v4 §4.2 -- "A field typed ActionAttack will never accept
+// a value from any other domain." Negative path, case 2 of 2: the assigned value IS a
+// syntactically valid identifier reference (unlike
+// domain_field_literal_type_mismatch_error.gddl's bare literal) -- it just belongs to
+// the wrong domain. This isolates domain-boundary checking specifically, separate from
+// "is this even an identifier reference" checking.
+
+identifier ActionAttack
+	melee_weapon  = "Standard attack done with a melee weapon"
+	ranged_weapon = "Standard attack done with a ranged weapon"
+
+identifier Element
+	fire = "Fire elemental damage type"
+	ice  = "Ice elemental damage type"
+
+define Creature
+	attack = ActionAttack
+
+Creature Broken
+	attack = Element.fire
+	// ERROR: Element.fire is a perfectly valid identifier reference -- just not a
+	// member of the ActionAttack domain. attack is strictly bound to ActionAttack
+	// only; there is no generic "any identifier" type that would let this through
+	// (§4.2).
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error against Broken: field `attack` expects an ActionAttack domain
+//   member, got a valid identifier reference from the Element domain instead.

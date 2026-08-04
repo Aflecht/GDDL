@@ -1,0 +1,47 @@
+// Fixture: nested_level2_replace_sibling_level1_untouched
+// Rule under test: GDDL Spec v4 §6.4 -- combines two things that have each only been
+// tested in isolation so far: (1) a nested replace (`field = Source`) reaching two
+// levels deep, inside a bare (modify-only) entry at level 1, and (2) a completely
+// separate sibling field at level 1 that is never entered at all, confirming the deep
+// replace has zero effect outside its own nesting path.
+
+define Level2
+	x = u32
+	y = u32
+
+define Level1
+	level2 = Level2
+	z      = u32
+
+define Container
+	branch  = Level1
+	sibling = u32
+
+Level2 L2Base delete
+	x = 1
+	y = 2
+
+Level1 L1Base delete
+	level2 = L2Base
+	z      = 100
+
+Level2 L2Alt delete
+	x = 10
+	y = 20
+
+Container Seed delete
+	branch  = L1Base
+	sibling = 999
+
+Container Holder = Seed
+	branch
+		level2 = L2Alt
+			x = 555
+			// y untouched -> inherited from the fresh L2Alt copy (20), not L2Base
+		// z untouched at level 1 (branch's own scope) -> stays 100, inherited from L1Base
+	// sibling: never entered at all, anywhere in Holder's body -> stays 999 unchanged,
+	// completely unaffected by the deep replace happening inside branch.level2
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Holder.branch  == { level2: { x: 555, y: 20 }, z: 100 }
+//   Holder.sibling == 999

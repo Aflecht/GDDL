@@ -1,0 +1,33 @@
+// Fixture: numeric_coercion_through_sequential_chain
+// Rule under test: GDDL Spec v4 §5 + §6.2 -- an op-statement chain on an int-typed
+// field where one step involves a float operand. Confirms the FIELD's own declared
+// type governs the value actually stored at each step (coercion is enforced "at the
+// literal point of storage," per the phase/check note from an earlier golden batch --
+// each op-statement is its own storage event, not just the chain's final line), not
+// whatever type the intermediate arithmetic happened to produce.
+//
+// `count * 1.5` produces a float-typed intermediate result (15.0) -- but it's exactly
+// whole, so per numeric_coercion_whole_float_accepted.gddl's rule, storing it back
+// into the i32 field `count` is accepted, coerced to the integer 15. The NEXT
+// statement, `count + 2`, then reads count as a proper int (15) and adds 2 -- if a
+// buggy implementation left count internally float-tainted after the first step
+// instead of re-coercing at that storage point, this second step is where it would
+// most plausibly surface as a wrong final value.
+
+define Stats
+	count = i32
+
+Stats Chain
+	count = 10
+	count * 1.5
+	// 10 * 1.5 = 15.0 (float-typed intermediate, exactly whole) -- stored into
+	// count (i32): accepted, coerced to 15.
+	count + 2
+	// reads count as 15 (a proper int by this point, not 15.0) + 2 = 17
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Chain.count == 17
+//   If a reference implementation instead produces 17.0 (a float) or some other value
+//   showing float-taint carried past the first op-statement's storage point, that's
+//   the exact failure mode this fixture exists to catch.

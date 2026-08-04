@@ -1,0 +1,21 @@
+// Fixture: init_multiple_uninitialized_fields_all_reported
+// Rule under test: GDDL Spec v4 §12 phase 8 -- confirms the `missing_fields` list
+// (already an array in the established golden-output schema, e.g.
+// delete_descendant_incomplete_error.gddl's single-entry `["mp"]`) actually reports
+// EVERY uninitialized field required for export, not just the first one encountered.
+// A validator that returns on the first failure instead of collecting all of them
+// would under-report here -- worth catching directly rather than assuming the
+// existing single-entry examples generalize correctly.
+
+define Stats
+	hp = u32
+	mp = u32
+	xp = u32
+
+Stats Broken
+	hp = 100
+	// mp AND xp: both genuinely never touched anywhere in this instance.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error / incomplete against Broken: `missing_fields` contains BOTH `mp`
+//   and `xp` -- not just one of them. Phase 8 (Final Validation).

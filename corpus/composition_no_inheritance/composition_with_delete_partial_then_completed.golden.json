@@ -1,0 +1,46 @@
+{
+  "fixture": "composition_with_delete_partial_then_completed.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "LineTemplate": {
+        "status": "delete",
+        "resolved": {
+          "start": {
+            "x": 1,
+            "y": 2
+          },
+          "end": {
+            "x": 10,
+            "y": {
+              "__uninitialized__": true
+            }
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "RealLine": {
+        "status": "ok",
+        "resolved": {
+          "start": {
+            "x": 1,
+            "y": 2
+          },
+          "end": {
+            "x": 10,
+            "y": 20
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

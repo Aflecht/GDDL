@@ -1,0 +1,15 @@
+{
+  "fixture": "string_escape_lone_trailing_backslash.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-31",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parse_error",
+    "error": {
+      "phase": 3,
+      "line": 42,
+      "message": "line 42: unterminated string literal"
+    }
+  }
+}

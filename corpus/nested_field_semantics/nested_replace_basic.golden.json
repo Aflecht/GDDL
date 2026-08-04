@@ -1,0 +1,54 @@
+{
+  "fixture": "nested_replace_basic.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Base": {
+        "status": "delete",
+        "resolved": {
+          "a": 1,
+          "b": 2
+        },
+        "phase": null,
+        "check": null
+      },
+      "Alt": {
+        "status": "delete",
+        "resolved": {
+          "a": 10,
+          "b": 20
+        },
+        "phase": null,
+        "check": null
+      },
+      "Holder": {
+        "status": "ok",
+        "resolved": {
+          "payload": {
+            "a": 5,
+            "b": 2
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "Holder_From_Alt": {
+        "status": "ok",
+        "resolved": {
+          "payload": {
+            "a": 999,
+            "b": 20
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+define Stats
+    value = u32
+
+Stats OnlyOne
+    value = 42

@@ -1,0 +1,31 @@
+// Fixture: op_statement_leading_operator_error
+// Rule under test: GDDL Spec v4 -- every statement must begin with a field name (same
+// rule as op_statement_missing_leading_field_error.gddl). Companion negative case: that
+// existing fixture's invalid line starts with a numeral literal (`20 + ...`); THIS
+// fixture's invalid line starts with a bare operator token and nothing at all before
+// it (`* 2`) -- no field, no literal, no operand of any kind preceding the operator.
+// Worth its own isolated fixture rather than assuming the numeral-leading case already
+// covers it: a parser could plausibly handle "starts with an unexpected literal" and
+// "starts with an unexpected operator with no left operand" via different code paths
+// (e.g. one detected by "first token isn't an identifier", the other only detected once
+// the expression grammar itself fails to find a left-hand operand for the operator).
+
+define Creature
+	hitpoints_maximum = f32
+
+Creature Base
+	hitpoints_maximum = 100
+
+Creature Broken = Base
+	* 2
+	// ERROR: this line starts with a bare operator token and nothing else. It is not
+	// valid op-statement shorthand (op-statement requires the field to lead: `field op
+	// expr...`), it is not a valid assign, and it is not a valid bare-field scope
+	// entry. There is no left operand for `*` to apply to, and no field for the
+	// resulting value to be stored into.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error against Broken, reported at phase 3 (Parse): statement does not
+//   begin with a field name -- same error category as
+//   op_statement_missing_leading_field_error.gddl, but reached via a different invalid
+//   first-token shape (operator vs. literal).

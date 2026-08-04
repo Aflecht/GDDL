@@ -1,0 +1,53 @@
+identifier ActionAttack u8
+	melee_weapon	= "Standard attack done with a melee weapon"
+	ranged_weapon	= "Standard attack done with a ranged weapon"
+
+identifier Element u16
+	fire		= "Elemental fire damage type"
+	ice		= "Elemental ice damage type"
+	lightning	= "Elemental lightning damage type"
+
+identifier Rarity u32
+	common		= "Common rarity tier"
+	rare		= "Rare rarity tier"
+
+define Creature
+	hp     = u8
+	attack = ActionAttack
+	rarity = Rarity
+
+Creature Goblin
+	hp = 10
+	attack = ActionAttack.melee_weapon
+	rarity = Rarity.common
+
+Creature Archer
+	hp = 8
+	attack = ActionAttack.ranged_weapon
+	rarity = Rarity.rare
+
+define Object
+	something1 = u8
+	something2 = u8
+
+define Item
+	object  = Object
+	weight  = u8
+	element = Element
+	name    = string 16
+
+Item Sword
+	object
+		something1 = 5
+		something2 = 3
+	weight = 7
+	element = Element.fire
+	name = "Sword"
+
+Item Shield
+	object
+		something1 = 2
+		something2 = 9
+	weight = 4
+	element = Element.ice
+	name = "Shield"

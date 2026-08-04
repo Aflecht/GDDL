@@ -1,0 +1,23 @@
+{
+  "fixture": "comments_nested_block_and_code_lookalike.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Warrior": {
+        "status": "ok",
+        "resolved": {
+          "hitpoints": 100,
+          "mana": 50
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

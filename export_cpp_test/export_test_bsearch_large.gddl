@@ -1,0 +1,62 @@
+define Stats
+    value = u32
+
+Stats Entry00
+    value = 0
+
+Stats Entry01
+    value = 1
+
+Stats Entry02
+    value = 2
+
+Stats Entry03
+    value = 3
+
+Stats Entry04
+    value = 4
+
+Stats Entry05
+    value = 5
+
+Stats Entry06
+    value = 6
+
+Stats Entry07
+    value = 7
+
+Stats Entry08
+    value = 8
+
+Stats Entry09
+    value = 9
+
+Stats Entry10
+    value = 10
+
+Stats Entry11
+    value = 11
+
+Stats Entry12
+    value = 12
+
+Stats Entry13
+    value = 13
+
+Stats Entry14
+    value = 14
+
+Stats Entry15
+    value = 15
+
+Stats Entry16
+    value = 16
+
+Stats Entry17
+    value = 17
+
+Stats Entry18
+    value = 18
+
+Stats Entry19
+    value = 19

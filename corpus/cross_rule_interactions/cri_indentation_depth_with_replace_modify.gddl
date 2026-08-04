@@ -1,0 +1,69 @@
+// Fixture: cri_indentation_depth_with_replace_modify
+// Rule under test: GDDL Spec v4 §3 (indentation-consistency-per-scope) + §6.4-§6.5
+// (replace-vs-modify-only nested field semantics), combined at real depth. Extends
+// nested_mixed_replace_and_modify_across_levels.gddl (2 levels) to 3 levels, while
+// making the indentation-consistency angle explicit: the ENTIRE Holder instance body
+// below -- spanning all three nesting levels of statements, mixing a bare
+// (modify-only) entry, a full replace (`= Source`), and another bare entry nested
+// inside that replacement -- is written under one single indentation character
+// (tabs) throughout, since per the resolved scope-granularity rule
+// (indentation_and_comments/MANIFEST.md), the whole top-level instance body counts as
+// ONE scope for the consistency rule, regardless of how many nested-field-semantics
+// transitions happen within it. This fixture confirms both rules apply correctly and
+// simultaneously at the same real depth, not just in isolated shallow fixtures.
+
+define Core
+	p = u32
+	q = u32
+
+define Inner
+	core = Core
+	y    = u32
+
+define Payload
+	inner = Inner
+	a     = u32
+
+define Container
+	payload = Payload
+
+Core CoreBase delete
+	p = 1
+	q = 2
+
+Inner InnerBase delete
+	core = CoreBase
+	y    = 20
+
+Core CoreAlt delete
+	p = 10
+	q = 20
+
+Inner InnerAlt delete
+	core = CoreAlt
+	y    = 200
+
+Payload PayloadBase delete
+	inner = InnerBase
+	a     = 100
+
+Container Container_Seed delete
+	payload = PayloadBase
+
+Container Holder = Container_Seed
+	payload
+		inner = InnerAlt
+			core
+				q = 999
+				// p untouched here -> inherited from the FRESH InnerAlt.core copy
+				// (CoreAlt, p = 10), not from the old InnerBase/CoreBase state --
+				// same no-merge principle as nested_replace_discards_prior_modify.gddl,
+				// now exercised three levels deep.
+			// y untouched inside inner's override block -> inherited from InnerAlt
+			// (200), not from payload's old inner.y (20) -- inner was fully replaced.
+		// a untouched at payload's own scope -> stays 100, inherited from PayloadBase
+		// via Container_Seed, completely unaffected by the deep replace+modify below it.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Holder.payload == { inner: { core: { p: 10, q: 999 }, y: 200 }, a: 100 }

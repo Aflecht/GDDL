@@ -1,0 +1,41 @@
+{
+  "fixture": "cri_coercion_multigen_crossfield.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Gen1": {
+        "status": "ok",
+        "resolved": {
+          "count": 15,
+          "derived": 1
+        },
+        "phase": null,
+        "check": null
+      },
+      "Gen2": {
+        "status": "ok",
+        "resolved": {
+          "count": 15,
+          "derived": 1
+        },
+        "phase": null,
+        "check": null
+      },
+      "Gen3": {
+        "status": "ok",
+        "resolved": {
+          "count": 15,
+          "derived": 30
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

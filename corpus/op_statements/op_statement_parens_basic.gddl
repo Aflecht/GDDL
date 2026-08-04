@@ -1,0 +1,29 @@
+// Fixture: op_statement_parens_basic
+// Rule under test: GDDL Spec v4 §6.3 -- explicit parentheses are available for grouping
+// whenever a particular grouping is wanted, on top of the base strict left-to-right
+// evaluation rule. SIBLING-BUG FIXTURE: the evaluator rewrite that fixed the left-to-
+// right precedence bug specifically added real paren-grouping via recursion -- that is
+// new code with zero prior coverage in this corpus. This fixture is the basic sanity
+// check that parenthesized grouping parses and evaluates correctly at all.
+//
+// Note: for THIS particular arrangement, the parenthesized grouping happens to produce
+// the same result strict left-to-right would already give without any parens (grouping
+// the leftmost operator pair first is what left-to-right does by default anyway). That
+// means this fixture alone cannot prove parens are doing anything beyond what left-to-
+// right already does -- it only proves the paren-recursion code path executes and
+// evaluates correctly. The fixture that actually proves grouping changes the outcome is
+// op_statement_parens_override_left_to_right.gddl, which deliberately groups a NON-
+// adjacent-by-default pair of operations to force a different result.
+
+define Creature
+	hitpoints_maximum = f32
+
+Creature Base
+	hitpoints_maximum = 100
+
+Creature Derived = Base
+	hitpoints_maximum = (20 + hitpoints_maximum) * 0.5
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Derived.hitpoints_maximum == 60.0
+//   ( (20 + 100) * 0.5 = 120 * 0.5 = 60.0 )

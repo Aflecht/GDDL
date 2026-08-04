@@ -1,0 +1,29 @@
+// Fixture: indentation_spaces_only_valid
+// Rule under test: GDDL Spec v4 §3 -- same rule as indentation_tabs_only_valid.gddl,
+// mirror case using regular whitespace (spaces) exclusively instead of tabs, in every
+// scope, at every depth. Same structure and same expected result as the tabs-only
+// fixture, so the two golden outputs should be identical in content -- only the raw
+// source bytes differ.
+
+define Inner
+    x = u32
+    y = u32
+
+define Payload
+    inner = Inner
+    a     = u32
+
+define Container
+    payload = Payload
+
+Container Holder
+    payload
+        inner
+            x = 1
+            y = 2
+        a = 100
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compiles cleanly, no error.
+//   Holder.payload == { inner: { x: 1, y: 2 }, a: 100 }
+//   Content must be identical to indentation_tabs_only_valid.gddl's golden output.

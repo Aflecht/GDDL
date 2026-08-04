@@ -1,0 +1,27 @@
+// Fixture: crossfield_nested_path_reference
+// Rule under test: GDDL Spec v4 §6.7 -- cross-field references extend to "nested
+// struct fields via dotted path" within the current instance's own scope. Isolated
+// case: the referenced field lives one level down inside a composed struct field,
+// not at the top level like crossfield_basic_reference.gddl.
+
+define Object
+	weight = u32
+
+define Item
+	object       = Object
+	count        = u32
+	total_weight = u32
+
+Item Sword
+	object
+		weight = 12
+	count        = 4
+	total_weight = object.weight * count
+	// "object.weight" here is a nested-path cross-field reference (§6.7), not an
+	// identifier domain access -- there is no identifier domain named `object` in
+	// scope, so this is unambiguous on its own. (The disambiguation-in-the-same-scope
+	// case, where both meanings are plausible, is isolated separately in
+	// crossfield_dot_syntax_disambiguation.gddl.)
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Sword.total_weight == 48

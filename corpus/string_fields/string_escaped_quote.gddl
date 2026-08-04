@@ -1,0 +1,39 @@
+// Fixture: string_escaped_quote
+// (Renamed from string_escaped_quote_current_behavior -- see History below.)
+//
+// Rule under test: GDDL Spec v4, String Literal Escaping. `\"` inside a
+// string literal resolves to a single literal double-quote character;
+// the backslash itself is consumed, not retained.
+//
+// History: this fixture originally golden-locked CONFIRMED-BUGGY current
+// behavior (the resolved value retained literal backslashes, e.g.
+// `He said \"hi\" to me` rather than `He said "hi" to me`), deliberately
+// flagged as "not a compliance test, no rule to check against" at the
+// time -- the spec said nothing about escape sequences yet, and
+// `_strip_quotes()`/the equivalent field-value site never actually
+// unescaped anything, just stripped the outer quote pair. That design
+// gap is now resolved (GDDL_Specification_v4.md, String Literal
+// Escaping) and the underlying bug fixed (parser.py's shared
+// `_unescape_string_content`, used by both `_strip_quotes` for
+// identifier descriptions and resolve.py's field-value handling, which
+// had the identical bug independently). This fixture now golden-locks
+// the CORRECT, intended behavior and is an ordinary compliance test
+// like any other -- the prior golden capture under the old name and
+// old (buggy) expected value should be treated as superseded, not a
+// second value to reconcile against.
+
+define Message
+	text = string 40
+
+Message QuotedGreeting
+	text = "He said \"hi\" to me"
+
+// Expected:
+//   Compiles cleanly, no error (20 bytes of raw source between the
+//   quotes unescapes to 18 characters/bytes of actual content, all
+//   ASCII, comfortably under `string 40`'s 39-byte capacity).
+//   QuotedGreeting.text == the literal 18-character sequence with the
+//   backslashes CONSUMED and real quote characters in their place:
+//   `He said "hi" to me`. Character-by-character:
+//   ['H','e',' ','s','a','i','d',' ','"','h','i','"',' ','t','o',' ','m','e']
+//   -- 18 elements, no backslash characters anywhere in the result.

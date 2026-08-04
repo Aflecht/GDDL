@@ -1,0 +1,29 @@
+// Fixture: domain_field_literal_type_mismatch_error
+// Rule under test: GDDL Spec v4 §4.2 -- identifier-typed fields are strictly
+// domain-bound, "exactly like u32 or string 30 are strict types." Negative path,
+// case 1 of 2: a bare literal (not an identifier reference at all) assigned to a
+// domain-typed field. Distinct failure mode from domain_field_wrong_domain_error.gddl,
+// where the assigned value IS a valid identifier reference, just from the wrong domain
+// -- this fixture's value isn't an identifier reference of any kind.
+//
+// This mirrors the intentional `attack = 1` negative-path case already present in the
+// canonical Example.txt (Human_Fighter), but isolated here as its own dedicated,
+// minimal fixture rather than relying on that larger, multi-purpose file for this
+// specific rule's coverage.
+
+identifier ActionAttack
+	melee_weapon  = "Standard attack done with a melee weapon"
+	ranged_weapon = "Standard attack done with a ranged weapon"
+
+define Creature
+	attack = ActionAttack
+
+Creature Broken
+	attack = 1
+	// ERROR: 1 is a bare numeric literal, not an ActionAttack domain member.
+	// attack is strictly typed to ActionAttack -- no implicit conversion from any
+	// other type, including plain integers, is permitted (§4.2, Core Principle 1).
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error against Broken: field `attack` expects an ActionAttack domain
+//   member, got a bare literal of the wrong type.

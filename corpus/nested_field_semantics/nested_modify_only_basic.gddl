@@ -1,0 +1,35 @@
+// Fixture: nested_modify_only_basic
+// Rule under test: GDDL Spec v4 §6.4 — bare `field` (no `=`), modify-only, isolated at
+// a single nesting level, with no other rule interactions.
+//
+// Proves: entering a struct field without `=` touches only the sub-fields explicitly
+// listed inside; every other sub-field keeps whatever value it already had from the
+// instance this one was copied from. Companion fixture to nested_replace_basic.gddl —
+// same shapes, different mode, so the two golden outputs can be diffed directly against
+// each other to confirm the fork actually produces different results.
+
+define Payload
+	a = u32
+	b = u32
+
+define Container
+	payload = Payload
+
+Payload Base delete
+	a = 1
+	b = 2
+
+Container Container_Seed delete
+	payload = Base
+
+Container Holder = Container_Seed
+	payload
+		a = 5
+		// b not mentioned: modify-only leaves it exactly as inherited (2), not reset
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Holder.payload == { a: 5, b: 2 }
+//   Note this happens to match nested_replace_basic's Holder result, which is expected
+//   since both fixtures start from the same Base values and touch the same single field.
+//   The fork only becomes observable once a *prior* value diverges from the copy source
+//   for an untouched field — see nested_replace_discards_prior_modify.gddl for that case.

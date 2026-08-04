@@ -1,0 +1,22 @@
+{
+  "fixture": "numeric_coercion_through_sequential_chain.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Chain": {
+        "status": "ok",
+        "resolved": {
+          "count": 17
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

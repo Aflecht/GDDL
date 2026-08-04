@@ -1,0 +1,32 @@
+{
+  "fixture": "numeric_coercion_whole_float_accepted.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "FromLiteral": {
+        "status": "ok",
+        "resolved": {
+          "count": 4,
+          "total": 1
+        },
+        "phase": null,
+        "check": null
+      },
+      "FromExpression": {
+        "status": "ok",
+        "resolved": {
+          "count": 1,
+          "total": 8
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

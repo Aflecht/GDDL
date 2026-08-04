@@ -1,0 +1,26 @@
+// Fixture: string_length_boundary
+// Rule under test: GDDL Spec v4 (String Length Enforcement) -- "storing a string value
+// whose length exceeds what a `string N` field can hold is a compile-time error."
+// `string N` is ASCIIZ, N bytes total including terminator, so a field can hold at
+// most N-1 bytes of actual content. Confirms this is a hard, correct cutoff -- exactly
+// N-1 bytes accepted, N bytes (one byte too many) rejected -- not an off-by-one in
+// either direction.
+
+define Item
+	name = string 10
+
+Item AtLimit
+	name = "123456789"
+	// 9 ASCII characters = 9 bytes, exactly N-1 (10-1=9) -- must be accepted.
+
+Item OverLimit
+	name = "1234567890"
+	// 10 ASCII characters = 10 bytes, one byte past N-1 (9) -- must be rejected.
+	// ERROR expected.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   AtLimit.name == "123456789" (9 bytes, accepted)
+//   OverLimit: compile error against field `name` -- value exceeds the maximum
+//   content length (9 bytes) for `string 10`. Point-of-storage check, same as any
+//   other type-safety enforcement (per spec: "rejected at the same point as any other
+//   type-safety check on that field (point of storage), not deferred to export time").

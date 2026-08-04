@@ -1,0 +1,38 @@
+{
+  "fixture": "init_nested_uninitialized_dotted_path.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [
+      {
+        "phase": 3,
+        "check": "empty_bare_field",
+        "line": 23,
+        "message": "line 23: bare field 'inner' (modify-only form) has no indented sub-statements -- this enters the field's scope but changes nothing in it, which is valid but usually unintentional (e.g. every statement under it got commented out)"
+      }
+    ],
+    "instances": {
+      "Holder": {
+        "status": "incomplete",
+        "phase": 8,
+        "check": "final_completeness",
+        "missing_fields": [
+          "object.inner.value"
+        ],
+        "resolved": {
+          "object": {
+            "inner": {
+              "value": {
+                "__uninitialized__": true
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

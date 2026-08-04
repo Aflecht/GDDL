@@ -1,0 +1,44 @@
+// Fixture: crossfield_self_reference_non_leading
+// Rule under test: two things confirmed together, deliberately, in one fixture:
+//
+// 1. GDDL Spec v4 §6.7 -- self-reference (a field referencing its own current value)
+//    works correctly when NOT in leading position within the expression, via assign.
+//    The existing op_statement_assign_equivalence.gddl fixture only exercises
+//    self-reference in leading position (`hitpoints * 2`, self-value implicitly
+//    prepended by op-statement shorthand) -- this fixture is genuinely new coverage,
+//    not a duplicate, since op-statement syntax structurally CANNOT put anything before
+//    the field name. Non-leading self-reference is only reachable via assign.
+//
+// 2. GDDL Spec v4 §6.3 -- strict left-to-right expression evaluation (no standard
+//    math operator precedence; parentheses available for explicit grouping when
+//    wanted). `20 + hitpoints_maximum * 0.5` is the operator ordering that actually
+//    distinguishes left-to-right from standard precedence -- unlike
+//    op_statement_operator_precedence.gddl's `hitpoints_maximum * 0.5 + 20`, where
+//    both rules happen to agree. Under left-to-right: `(20 + hitpoints_maximum) * 0.5`.
+//    Under standard precedence (NOT how GDDL works): `20 + (hitpoints_maximum * 0.5)`.
+//    These give different numeric results, which is the point.
+//
+// Written via assign, not op-statement, because op-statement syntax requires the field
+// name to lead the statement by construction -- there is no way to write "20 + ..." as
+// an op-statement targeting hitpoints_maximum. See
+// op_statement_missing_leading_field_error.gddl for the negative-path proof of that
+// constraint.
+
+define Creature
+	hitpoints_maximum = f32
+
+Creature Base
+	hitpoints_maximum = 100
+
+Creature Derived = Base
+	hitpoints_maximum = 20 + hitpoints_maximum * 0.5
+	// self-reference (hitpoints_maximum on the right) is NOT in leading position here;
+	// only reachable via assign, per the rule this fixture isolates.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Derived.hitpoints_maximum == 60.0
+//   Strict left-to-right: 20 + 100 = 120, then 120 * 0.5 = 60.0
+//   (NOT 70.0, which is what standard math precedence would give:
+//    20 + (100 * 0.5) = 20 + 50 = 70.0 -- that result would indicate the reference
+//    implementation is incorrectly applying standard operator precedence instead of
+//    GDDL's confirmed strict left-to-right rule.)

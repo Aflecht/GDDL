@@ -1,0 +1,16 @@
+// Fixture: string_field_6502_minimal (6502 export target only -- not a
+// Test Corpus golden-lock fixture; this is Compiler Core's own permanent
+// test asset for the 6502 string-field implementation).
+//
+// Exercises GDDL Spec v4 §13.2 on all three 6502 dialects.
+// Deliberately non-ASCII ("Grübnik", 8 UTF-8 bytes across 7 chars)
+// so that an export that assumed 1-byte-per-character, or got the
+// !text/.text byte-count or padding wrong, produces an observably
+// wrong result rather than a coincidentally correct one.
+// string 12: 8 content bytes + 1 NUL + 3 zero padding = 12 total.
+
+define Villager
+	name = string 12
+
+Villager Grubnik
+	name = "Grübnik"

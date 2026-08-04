@@ -1,0 +1,54 @@
+{
+  "fixture": "nested_modify_only_two_levels.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Base": {
+        "status": "delete",
+        "resolved": {
+          "inner": {
+            "x": 1,
+            "y": 2
+          },
+          "a": 100
+        },
+        "phase": null,
+        "check": null
+      },
+      "Container_Seed": {
+        "status": "delete",
+        "resolved": {
+          "payload": {
+            "inner": {
+              "x": 1,
+              "y": 2
+            },
+            "a": 100
+          }
+        },
+        "phase": null,
+        "check": null
+      },
+      "Holder": {
+        "status": "ok",
+        "resolved": {
+          "payload": {
+            "inner": {
+              "x": 1,
+              "y": 999
+            },
+            "a": 100
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

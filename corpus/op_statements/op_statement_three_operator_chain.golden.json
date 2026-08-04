@@ -1,0 +1,26 @@
+{
+  "fixture": "op_statement_three_operator_chain.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Chain": {
+        "status": "ok",
+        "resolved": {
+          "a": 100.0,
+          "b": 3.0,
+          "c": 4.0,
+          "d": 5.0,
+          "result": 393.0
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

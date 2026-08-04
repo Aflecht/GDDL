@@ -1,0 +1,26 @@
+// Fixture: numeric_range_computed_expression_overflow
+// Rule under test: GDDL Spec v4 §5 -- numeric range enforcement, computed-value case
+// (integer side; the float side's computed-overflow case lives in
+// numeric_range_float_boundary_overflow.gddl's `Overflow` instance). Confirms the
+// range check fires on a value produced by ARITHMETIC, not just a literal that's
+// obviously out of range on sight -- mirrors the same concern already established for
+// numeric_coercion (see numeric_coercion_via_crossfield_reference.gddl and
+// numeric_coercion_through_sequential_chain.gddl for the coercion-side precedent of
+// checking computed values, not just literals).
+
+define Stats
+	value = i32
+
+Stats Example
+	value = 2000000000
+	value + 500000000
+	// 2000000000 + 500000000 = 2500000000 -- exceeds i32's maximum (2147483647).
+	// ERROR expected: the overflow is only visible once the arithmetic is actually
+	// performed; nothing about the literal `2000000000` alone is out of range for
+	// i32, and nothing about `500000000` alone is either. Confirms the check applies
+	// at the point of storage of a COMPUTED result, same as it would for a literal.
+
+// Expected (prediction, pending golden output from Compiler Core reference run):
+//   Compile error against field `value` on the second statement -- out of range for
+//   `i32` (computed value 2500000000 exceeds the maximum 2147483647). Phase 6, check
+//   "numeric_range".

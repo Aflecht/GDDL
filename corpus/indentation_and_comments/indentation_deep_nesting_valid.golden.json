@@ -1,0 +1,30 @@
+{
+  "fixture": "indentation_deep_nesting_valid.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-07-03",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Deep": {
+        "status": "ok",
+        "resolved": {
+          "level2": {
+            "level3": {
+              "level4": {
+                "level5": {
+                  "value": 42
+                }
+              }
+            }
+          }
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}
