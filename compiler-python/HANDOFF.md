@@ -640,34 +640,44 @@ Both prior entries here are now resolved:
 
 ## Current state / how to resume
 
-- **The paragraph below (project location, fixture count, "it's a git
-  repo" claim) was found STALE during the 2026-08-04 restructuring,
-  predating that restructuring -- not something today's move broke.
-  Left as-is rather than silently overwritten with unverified
-  replacement claims, since resolving it correctly ties into the
-  larger shared-repo-vs-relayed-copies question raised as part of this
-  same restructuring, which isn't Compiler Core's call to make
-  unilaterally. Whoever settles that question should also correct this
-  paragraph as part of settling it, not before.**
-- Project lives at `/mnt/user-data/outputs/gddl-compiler-core` (the
-  persistent mount — survives sandbox resets, unlike `/home/claude`).
-  It's a git repo; check `git log` for the checkpoint history.
-- To regenerate golden output, POST-RESTRUCTURING: `python3
-  export_golden.py` from `compiler-python/tests/` (writes
-  `golden_output.json` alongside it, imports the pipeline from the
-  sibling `compiler-python/gddl/` directory). This line IS corrected
-  for the new layout -- confirmed by actually running it from the new
+- **Repository status, as of the 2026-08-04 restructuring (this
+  replaces the speculative version of this paragraph that stood here
+  briefly during the restructuring itself, while the shared-repo
+  question below was still open):**
+- This is a real, single git repository (initialized during the
+  restructuring — no prior git history existed anywhere in any prior
+  sandbox copy of this project; that gap is recorded, not silently
+  smoothed over, in the restructuring commit itself). Check `git log`
+  for the actual commit history from that point forward.
+- **Public repository.** Decided, not assumed: the project's own
+  internal development history — everything in this file, written
+  across many sessions in the voice this file has always used —
+  becomes publicly visible as part of that decision, since GitHub has
+  no per-branch visibility and a public `dev` branch necessarily means
+  the whole repository, `main` included. `main`'s protection was never
+  about secrecy — no AI session has ever held credentials to it — so
+  visibility doesn't change that protection at all. Given this, a
+  deliberate sensitivity pass was done on this file specifically
+  before that visibility went into effect: no credentials, API keys,
+  tokens, private key material, or real people's contact information
+  anywhere in it (checked directly, not assumed absent). The
+  `/home/claude/...` and `/mnt/user-data/...` path fragments
+  throughout are sandbox filesystem artifacts from the AI coding
+  sessions that built this project, not secrets — consistent with
+  this file's already-established transparent voice about its own
+  development process, which the public-visibility decision doesn't
+  change the reasoning for.
+- To regenerate golden output: `python3 export_golden.py` from
+  `compiler-python/tests/` (writes `golden_output.json` alongside it,
+  imports the pipeline from the sibling `compiler-python/gddl/`
+  directory). Confirmed correct by actually running it from that
   location, not just edited by inspection.
-- `corpus/` currently has 60 fixtures across 12 rule groups. **Also
-  stale** -- confirmed directly during this restructuring that the
-  real current count is 72 (`compiler-python/tests/corpus/`, checked
-  via the actual lock-completeness output, not this paragraph). Left
-  uncorrected for the same reason as the location/git-repo claim above
-  -- this whole paragraph reads as one stale block from the same
-  earlier point in the project's history, not independently-stale
-  lines to patch one at a time.
-- As of the last verified sweep, the implementation reproduces the
-  canonical `golden_output.json` with zero unexplained diffs.
+- `compiler-python/tests/corpus/` currently has 72 fixtures. As of the
+  last verified sweep, the implementation reproduces the canonical
+  `golden_output.json` with zero unexplained diffs, and the
+  lock-completeness check (`check_lock_completeness()` in
+  `export_golden.py`) confirms every fixture has a matching
+  `.golden.json`.
 
 ### 6502 real-toolchain validation setup
 
