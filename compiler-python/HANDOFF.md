@@ -640,12 +640,32 @@ Both prior entries here are now resolved:
 
 ## Current state / how to resume
 
+- **The paragraph below (project location, fixture count, "it's a git
+  repo" claim) was found STALE during the 2026-08-04 restructuring,
+  predating that restructuring -- not something today's move broke.
+  Left as-is rather than silently overwritten with unverified
+  replacement claims, since resolving it correctly ties into the
+  larger shared-repo-vs-relayed-copies question raised as part of this
+  same restructuring, which isn't Compiler Core's call to make
+  unilaterally. Whoever settles that question should also correct this
+  paragraph as part of settling it, not before.**
 - Project lives at `/mnt/user-data/outputs/gddl-compiler-core` (the
   persistent mount — survives sandbox resets, unlike `/home/claude`).
   It's a git repo; check `git log` for the checkpoint history.
-- To regenerate golden output: `python3 export_golden.py` from the
-  project root (writes `golden_output.json` alongside it).
-- `corpus/` currently has 60 fixtures across 12 rule groups.
+- To regenerate golden output, POST-RESTRUCTURING: `python3
+  export_golden.py` from `compiler-python/tests/` (writes
+  `golden_output.json` alongside it, imports the pipeline from the
+  sibling `compiler-python/gddl/` directory). This line IS corrected
+  for the new layout -- confirmed by actually running it from the new
+  location, not just edited by inspection.
+- `corpus/` currently has 60 fixtures across 12 rule groups. **Also
+  stale** -- confirmed directly during this restructuring that the
+  real current count is 72 (`compiler-python/tests/corpus/`, checked
+  via the actual lock-completeness output, not this paragraph). Left
+  uncorrected for the same reason as the location/git-repo claim above
+  -- this whole paragraph reads as one stale block from the same
+  earlier point in the project's history, not independently-stale
+  lines to patch one at a time.
 - As of the last verified sweep, the implementation reproduces the
   canonical `golden_output.json` with zero unexplained diffs.
 
@@ -679,7 +699,7 @@ working state:
   third-party proprietary freeware, not project source, same
   reasoning as not committing compiled test binaries — but it does
   need to be copied back into a working location (e.g.
-  `/home/claude/gddl/tools/kickassembler/`) after a reset, since
+  `/home/claude/work/gddl-compiler-core/compiler-python/tools/kickassembler/ (path convention as of the 2026-08-04 restructuring; adjust if your own working root differs)`) after a reset, since
   `/home/claude` itself doesn't persist. Run via
   `java -jar /path/to/KickAss.jar <file.asm> -o out.prg`.
 
@@ -881,7 +901,7 @@ Atari ST), not just visual review.
   if the prebuilt archive isn't available, just Amiga/Kickstart-only,
   no Atari target). The prebuilt one is preserved at
   `/mnt/user-data/outputs/tools/vbcc/` -- copy back to e.g.
-  `/home/claude/gddl/tools/vbcc/` after a reset. Invoke via
+  `/home/claude/work/gddl-compiler-core/compiler-python/tools/vbcc/ (same restructuring-era convention as above)` after a reset. Invoke via
   `VBCC=/path/to/vbcc PATH=$VBCC/bin:$PATH vc +TARGET file.c -o out`.
   Confirmed targets: `+aos68k` (AmigaOS), `+kick13` (Kickstart 1.3),
   `+tos` (Atari ST/TOS, **32-bit `int`** -- confirmed directly via
@@ -1014,7 +1034,7 @@ with a real Z80 emulation library, not just visual review.
   `LD A, 42` / `RET` assembles to `3e 2a c9`. The built binary
   (`sjasmplus`, ~700KB) is preserved at
   `/mnt/user-data/outputs/tools/sjasmplus/sjasmplus` -- copy back to
-  e.g. `/home/claude/gddl/tools/sjasmplus/` after a reset (and
+  e.g. `/home/claude/work/gddl-compiler-core/compiler-python/tools/sjasmplus/ (same restructuring-era convention as above)` after a reset (and
   `chmod +x` it there -- the persistent mount doesn't reliably keep
   the executable bit set, confirmed directly rather than assumed).
   Get a symbol table via `--sym=<file>` (format: `NAME: EQU

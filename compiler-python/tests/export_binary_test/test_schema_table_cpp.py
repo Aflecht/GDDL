@@ -24,7 +24,12 @@ import subprocess
 import sys
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Same fix as test_binary_export.py's sibling script -- three
+# directories up from compiler-python/tests/export_binary_test/ reaches
+# compiler-python/, then into gddl/.
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "gddl"))
 
 from parser import parse_file
 from resolve import resolve_all

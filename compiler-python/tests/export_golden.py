@@ -13,9 +13,19 @@ import os
 # working directory and from wherever the project root happens to live
 # (the previous absolute /home/claude/gddl paths broke the regression
 # workflow whenever the tree was checked out or copied elsewhere).
-_ROOT = os.path.dirname(os.path.abspath(__file__))
+#
+# Post-restructuring split: this file lives in compiler-python/tests/,
+# but the pipeline modules it imports (parser, resolve, validate) now
+# live in a SIBLING directory, compiler-python/gddl/ -- corpus/ and
+# golden_output.json stay relative to THIS file's own directory
+# (_TESTS_ROOT), but the import path must point one level up and into
+# gddl/ instead (_GDDL_ROOT). Before the restructuring these were the
+# same directory; conflating them again here would silently break the
+# moment either side of the tree moves independently in the future.
+_TESTS_ROOT = os.path.dirname(os.path.abspath(__file__))
+_GDDL_ROOT = os.path.join(os.path.dirname(_TESTS_ROOT), "gddl")
 
-sys.path.insert(0, _ROOT)
+sys.path.insert(0, _GDDL_ROOT)
 
 from parser import parse_file, GDDLParseError
 from resolve import resolve_all, StructValue, UNINIT, IdentifierRef
@@ -131,12 +141,12 @@ def main():
         "_meta": {"fixture_count": 0, "batches": []},
         "fixtures": {},
     }
-    corpus_root = os.path.join(_ROOT, "corpus")
+    corpus_root = os.path.join(_TESTS_ROOT, "corpus")
     main_files = run_batch(corpus_root, out["fixtures"])
     out["_meta"]["batches"].append({"name": "main_corpus", "count": len(main_files)})
     out["_meta"]["fixture_count"] = len(out["fixtures"])
 
-    with open(os.path.join(_ROOT, "golden_output.json"), "w") as fh:
+    with open(os.path.join(_TESTS_ROOT, "golden_output.json"), "w") as fh:
         json.dump(out, fh, indent=2)
 
     print(f"Wrote golden_output.json: {len(out['fixtures'])} fixtures")

@@ -13,6 +13,21 @@ messages (naming the actual bytes needed and the highest resulting
 address, not just "out of range").
 """
 
+import os
+import sys
+
+# Found during the repository restructuring sweep: this script had NO
+# sys.path setup at all, relying entirely on the pre-restructuring flat
+# layout where the pipeline modules sat in the same directory the test
+# scripts were run from. Every sibling script in this project already
+# handles this explicitly (see export_golden.py, verify_shift_add.py);
+# this one was simply missed until a systematic grep for "imports the
+# pipeline without any sys.path setup" surfaced it -- exactly the kind
+# of gap a manual pass alone would likely have missed.
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "gddl"))
+
 from parser import parse_file
 from resolve import resolve_all
 from export_6502 import gather_ir, allocate_zero_page, Export6502Error

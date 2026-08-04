@@ -24,7 +24,14 @@ import sys
 import shutil
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# This file sits at compiler-python/tests/export_binary_test/. Three
+# directories up reaches compiler-python/, then into gddl/ for the
+# pipeline modules -- verified by actually running this file post-fix,
+# not just by counting dirname() calls (the sibling verify_shift_add.py
+# fix was one level short on the first attempt; same care applied here).
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "gddl"))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from parser import parse_file
