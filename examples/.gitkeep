@@ -1,0 +1,4 @@
+Placeholder so this directory survives the restructuring commit --
+git doesn't track empty directories. examples/cpp-load-binary-data/,
+referenced in the README, doesn't exist yet; this restructuring only
+scaffolds the directory the README expects to find, not its contents.
