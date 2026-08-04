@@ -1,0 +1,134 @@
+GDDL License v1.0
+
+Intent:
+This license allows anyone to freely use, modify, redistribute, and embed
+GDDL in other software, including commercial software, while preventing
+GDDL itself from being sold as a competing software product.
+
+Copyright (c) 2026 Sami Koistinen
+
+
+You may:
+
+- Use GDDL for any purpose, free of charge.
+- Read, modify, and share the source code.
+- Use modified versions privately or within any organization.
+- Redistribute the original or modified GDDL software and source code free
+  of charge, provided this license and all copyright notices are kept intact.
+- Include GDDL, with or without modifications, in your own software,
+  including commercial software.
+- Charge for services such as installation, customization, support,
+  consulting, or training.
+
+
+You may not:
+
+- Sell or license GDDL, its source code, or a modified version of GDDL as a
+  standalone software product.
+- Claim GDDL as your own.
+- Remove or alter this license or the copyright notices.
+
+
+Competing Product Clarification:
+
+For purposes of the restriction above, a product or service counts as "a
+modified version of GDDL" if its value derives, entirely or substantially,
+from GDDL's own functionality — regardless of renaming, rebranding, or the
+extent of source code changes made to it. This clarification exists
+specifically so the restriction above cannot be avoided through modification
+or renaming alone.
+
+This clarification does not extend the restriction to your own software
+merely because it includes, depends on, or is built using GDDL — see
+"Included Software" below, which remains freely allowed. Nor does it limit
+charging for services such as installation, customization, support,
+consulting, or training, as already stated above.
+
+
+Included Software:
+
+If your software includes GDDL or a modified version of GDDL, you must:
+
+- Identify GDDL by name in your documentation or other accompanying materials.
+- Include this license.
+- State that GDDL is licensed separately under the GDDL License v1.0.
+
+
+Patent Grant:
+
+The copyright holder grants you a worldwide, royalty-free license to any
+patents owned by the copyright holder that are required to use, modify, or
+distribute GDDL under this license.
+
+This grant applies only to patents covering GDDL itself and does not apply
+to unrelated inventions or technologies.
+
+
+Examples:
+
+The following examples are intended to clarify how this license applies.
+
+
+Allowed:
+
+- A person downloads GDDL, modifies it, and uses their modified version to
+  create their own game.
+
+- A game developer embeds GDDL into their game so players can create and
+  load mods.
+
+- A company modifies GDDL internally to better fit their development
+  workflow.
+
+- A company ships a commercial game that includes GDDL or a modified version
+  of GDDL.
+
+- A website, package manager, or code hosting service provides a free mirror
+  of the GDDL source code.
+
+- A developer creates tutorials, integrations, plugins, or services that use
+  GDDL.
+
+- A consultant charges for installing, customizing, or supporting GDDL.
+
+
+Not Allowed:
+
+- A company takes GDDL, renames it, and sells it as their own compiler or
+  development tool.
+
+- A company sells a modified version of GDDL as a separate product.
+
+- A person sells copies of the GDDL source code.
+
+- A person removes the GDDL copyright notices or license and distributes it
+  as their own work.
+
+- A company creates a paid download where the main product being sold is
+  access to GDDL itself.
+
+
+These examples do not replace the license terms. If an example conflicts
+with the license text, the license text takes precedence.
+
+
+Disclaimer:
+
+GDDL is provided "as is", without warranty of any kind. The copyright holder
+is not liable for any claim, damage, or other liability arising from its use.
+
+
+License Versioning:
+
+GDDL versions released under GDDL License v1.0 remain licensed under this
+version unless explicitly stated otherwise.
+
+Future versions of the GDDL License may be released separately and will only
+apply to versions of GDDL that explicitly adopt them.
+
+
+Contact:
+
+Questions about this license may be directed to:
+
+https://github.com/Aflecht/GDDL/issues
