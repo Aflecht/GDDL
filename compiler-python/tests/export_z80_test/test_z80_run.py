@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validates the generated Z80/SjASMPlus output (dispatch subroutine +
 dense-index registry lookup) by actually assembling with the real

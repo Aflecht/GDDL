@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 6502 export, phase 1: shared, assembler-agnostic resolution step (§10.3).
 

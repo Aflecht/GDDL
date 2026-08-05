@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validates the generated 6502/64tass string-field output by assembling
 with the real `64tass` binary and executing via py65.

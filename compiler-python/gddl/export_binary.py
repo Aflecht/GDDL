@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Binary export target, §17 of the spec: a standalone `.gddldata.bin` /
 `.gddlmeta.json` pair, decoupled from any compile target, readable by

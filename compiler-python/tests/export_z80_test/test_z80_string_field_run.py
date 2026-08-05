@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validates the generated Z80/SjASMPlus output for a `string N` field --
 closes the last remaining item from HANDOFF.md's Z80 known-gap note

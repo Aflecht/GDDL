@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validates §17.5's C++ compile-time schema table by DIRECT COMPARISON
 against export_binary.py's own .gddlmeta.json output for the same

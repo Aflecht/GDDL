@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Lock-completeness check for a GDDL corpus tree: every `.gddl` file has
 a matching `.golden.json` sitting next to it.

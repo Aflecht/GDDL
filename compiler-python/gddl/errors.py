@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Shared error/warning types for every compile phase (3 through 8). Carry
 enough structure that downstream consumers (golden-output export, corpus

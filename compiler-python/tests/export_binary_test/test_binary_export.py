@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Full validation suite for export_binary.py (§17), run against
 export_test_binary_coverage.gddl. Three genuinely separate checks, per

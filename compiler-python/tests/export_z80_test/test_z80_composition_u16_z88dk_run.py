@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 z88dk-z80asm counterpart of test_z80_composition_u16_run.py. Uses the
 .map file (via -m), NOT the .sym file (via -s) -- confirmed directly

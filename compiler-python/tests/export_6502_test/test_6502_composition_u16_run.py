@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validates the generated 6502/ACME output for a COMPOSED type with u16
 fields -- closes a gap this project's own audit found: no 6502 fixture

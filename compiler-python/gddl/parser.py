@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 GDDL parser -- phases 2 (preprocess) and 3 (parse) of the compiler-core
 pipeline.

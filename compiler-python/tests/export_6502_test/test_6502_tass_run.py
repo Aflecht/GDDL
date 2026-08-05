@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 64tass counterpart of test_6502_run.py -- same logic, real second
 assembler, since the two dialects have confirmed genuine differences

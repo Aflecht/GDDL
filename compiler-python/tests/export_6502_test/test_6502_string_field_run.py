@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validates the generated 6502/ACME string-field output by assembling
 with the real `acme` binary and executing via py65.

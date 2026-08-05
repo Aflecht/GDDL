@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Reusable Z80 test-execution helper, using the `z80` PyPI package
 (kosarev/z80) -- a bare Z80 CPU emulation library, no OS/disk boot

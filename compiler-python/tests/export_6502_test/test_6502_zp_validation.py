@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validation test for --zp-base's two required checks (§10.2):
 (a) the value itself is a valid zero-page address (0-255 / $00-$FF).

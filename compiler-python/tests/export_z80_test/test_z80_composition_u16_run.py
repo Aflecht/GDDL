@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validates the generated Z80/SjASMPlus output for a COMPOSED type with
 u16 fields -- closes the gap flagged in HANDOFF.md ("KNOWN GAP: Z80

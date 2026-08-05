@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Z80 export, z88dk assembly-mode renderer (§16.1: second of three
 planned output paths -- z88dk's own internal assembler, `z88dk-z80asm`,

@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 68000 export (§15): shared IR and C89 renderer, combined in one module.
 

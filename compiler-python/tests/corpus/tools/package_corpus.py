@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Mandatory pre-packaging step for this corpus: run the lock-completeness
 check (received from Compiler Core) BEFORE any sync-to-outputs or zip

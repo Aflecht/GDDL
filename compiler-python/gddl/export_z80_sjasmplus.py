@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Z80 export, SjASMPlus renderer (§16.1: first of three planned output
 paths -- assembly-only, following the 6502 exporter's architecture

@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Phase 6: instance resolution (phases 6+7 fused -- expression evaluation
 happens inline at the point each statement executes, rather than as a

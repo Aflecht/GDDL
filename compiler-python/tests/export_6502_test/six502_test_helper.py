@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Reusable 6502 test-execution helper, using the `py65` PyPI package
 (pure-Python 6502/65C02 emulator) -- mirrors z80_test_helper.py's role

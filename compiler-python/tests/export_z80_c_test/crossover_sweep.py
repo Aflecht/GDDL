@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Re-run SPEC v4 §16.2's direct-indexing vs pointer-table crossover sweep
 against REAL zsdcc, replacing the stock-SDCC-4.2.0 stand-in the spec's

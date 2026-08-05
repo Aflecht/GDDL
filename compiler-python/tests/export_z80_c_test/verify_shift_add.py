@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Verify the exporter's shift-add index computation (the
 --z80-pointer-table=off path) for EVERY type size 1..64, against a real

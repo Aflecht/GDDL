@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 A genuinely independent reader for `.gddldata.bin` files (§17.3),
 built directly from the binary format's own docstring in

@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validates the generated 6502/KickAssembler string-field output by
 assembling with the real KickAssembler jar and executing via py65.

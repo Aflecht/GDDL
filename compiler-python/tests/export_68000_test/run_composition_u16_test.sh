@@ -1,4 +1,7 @@
 #!/bin/bash
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 # Real vbcc compile + vamos execution for composition_nested_u16_fields.gddl
 # on the 68000 target. Run from export_68000_test/.
 #

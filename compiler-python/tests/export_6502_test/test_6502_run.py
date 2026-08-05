@@ -1,3 +1,6 @@
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 """
 Validates the generated 6502/ACME output (dispatch subroutines +
 dense-index registry lookup, now named `{Type}_Find`) by actually

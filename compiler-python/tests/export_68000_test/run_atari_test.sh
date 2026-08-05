@@ -1,4 +1,7 @@
 #!/bin/bash
+# Part of GDDL, licensed under the GDDL License v1.0.
+# See LICENSE at the project root for full terms.
+
 # Headless Atari ST test runner (hatari + EmuTOS), analogous to vamos
 # for Amiga. Confirmed working invocation, documented here so it's
 # reproducible rather than ad hoc:
