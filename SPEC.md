@@ -1042,7 +1042,55 @@ For 6502 and Z80: nothing in this section applies to those targets' own existing
 
 ---
 
-## 18. Design Summary
+## 18. Multi-File Compilation
+
+### 18.1 Purpose and Scope
+
+A single `.gddl` file has always been fully self-contained — its own identifiers, its own `define`s, its own instances — and nothing about that changes here. This section adds the ability to compile **several such files together as one combined unit**, letting a `define` (or an `identifier` domain) live in one file while any number of other files declare instances of it. This is the mechanism that makes a shared `Definitions.weapon`-style file, referenced implicitly by many other files declaring actual weapon instances, expressible for the first time — previously, every file needing a given type had to redeclare it.
+
+**This is entirely a front-end input-handling concern, resolved before any exporter is ever invoked.** No exporter (§10, §14, §15, §16, §17) needs to know, or is able to tell, whether its input came from one file or many — by the time compilation reaches parsing, there is exactly one combined source, exactly as today.
+
+### 18.2 How Combination Works
+
+Every resolved input file is concatenated into a single in-memory source text, then handed to the existing single-file pipeline unchanged. This works cleanly, and was verified directly rather than assumed, because the resolver already performs something equivalent to a declaration-collection pass before resolving instances or references — confirmed by direct testing: an instance may already reference its own type's `define`, an identifier domain, or a composed type's `define`, regardless of whether that declaration appears earlier or later in the *same* file. Combining multiple files exposes that existing behavior across file boundaries; it required no change to the parser, resolver, or validator.
+
+**Combined files share one identifier/instance namespace, with full cross-file collision detection.** This is not a side effect to tolerate — it is the actual feature, and it follows directly from the identity system already being global rather than file-scoped (logical IDs are `Domain::text` hashes, stable IDs are `Type::InstanceName` hashes, per §4.1.1/§6.8). Two files declaring the same name collide exactly as two statements in one file would today; nothing about this rule is relaxed by being spread across files.
+
+**Error messages are remapped back to their real source file and line number.** The combination step itself records each input file's name and its starting line offset in the combined text; after compilation, every error and warning is rewritten from a combined-text line number back to `(source file, original line)` before being reported. This remapping is the only new logic in the pipeline — everything upstream and downstream of it is unaware combination ever happened.
+
+**Combination order affects only error-attribution determinism, never compilation success.** Order-independence for compilation itself is confirmed by the testing above — a genuine collision is a genuine collision regardless of which file is processed "first." But when a collision *does* occur, which file's declaration gets reported as "the duplicate" depends on processing order, and that should be reproducible across identical runs, not dependent on filesystem enumeration order (which is not guaranteed stable across platforms). Combination order is therefore fixed as: files given directly on the command line, in the order given, followed by files discovered via glob patterns, in sorted path order.
+
+### 18.3 No Assumed File Extension
+
+**The compiler never assumes `.gddl` as a file extension**, and never infers "this is a GDDL source file" from a name alone. A project may name its files however suits its own organization — `weapons.weapon`, `enemies.enemy`, or anything else — and every input must be given explicitly, either as a literal filename or as a glob pattern that names the extension it's looking for (or deliberately omits one, matching everything in a location).
+
+### 18.4 Input Forms
+
+Three forms, freely combinable in one invocation:
+
+1. **Individual file paths**, with or without leading directory structure (`goblin.weapon`, `items/goblin.weapon`) — always unambiguous, never affected by anything below.
+2. **Glob patterns naming an extension**, matching files directly inside a directory (`items/*.weapon`) or, using `**`, recursively through subdirectories (`items/**/*.weapon`).
+3. **Unqualified glob patterns**, matching every file in a location regardless of extension (`items/*`, or recursively, `items/**/*`) — a deliberate choice when a project doesn't distinguish by extension at all; anything non-GDDL swept in this way surfaces as an ordinary parse error on that specific file, which is informative, not a failure mode the tool needs to specially guard against.
+
+**There is no bare-folder input form, and no separate recursion flag.** A directory can only be referenced through a glob pattern (form 2 or 3 above) — a tool that doesn't assume any extension has no principled way to answer "which files in this folder count" without one. Recursion is controlled entirely per-pattern by the presence of `**`; a single invocation may freely mix recursive and non-recursive patterns, since there is no global flag to conflict between them.
+
+**Glob expansion is always performed by the GDDL compiler itself, never left to the invoking shell.** This matters concretely across platforms: Unix shells typically expand a wildcard before the program ever sees it, but Windows' `cmd.exe` and PowerShell generally do not, passing the literal pattern text straight through. Relying on shell expansion would make wildcards work by accident on some platforms and silently do nothing on others.
+
+### 18.5 Error Behavior
+
+**Any file argument or glob pattern that resolves to zero actual files is a hard, unconditional error** — never a silent no-op. This is a single uniform rule covering what might otherwise look like two separate cases (a literal file that doesn't exist, and a pattern that matches nothing): both are exactly the same situation, since directory references only ever exist as patterns in the first place, so "this folder has no `.weapon` files" and "this pattern matched zero files" are the same event, not two policies to reconcile.
+
+### 18.6 Output
+
+**Unchanged.** Every exporter's existing `-o`/`--output` flag continues to work exactly as it does for a single file today — multiple inputs are simply a new way of building up the one combined source that gets compiled and exported once. No exporter requires any change to support this.
+
+### 18.7 Deliberately Out of Scope for This Pass
+
+An `--exclude` pattern, for skipping specific paths inside a recursive glob (a `.git` directory, a generated-output directory that happens to sit inside a source tree, etc.). Real and likely useful eventually; not needed for the feature to function, and adding it speculatively now would be building flexibility nobody has asked for yet rather than scoping this cleanly.
+
+---
+
+## 19. Design Summary
 
 | Concept | Rule |
 |---|---|
