@@ -2,7 +2,7 @@
   "fixture": "domain_logical_id_collision_error.gddl",
   "capture_status": "captured",
   "blocked_reason": null,
-  "captured_at": "2026-07-20",
+  "captured_at": "2026-08-05",
   "compiler_core_version": null,
   "output": {
     "status": "parsed",
@@ -10,8 +10,8 @@
       {
         "phase": 4,
         "check": "id_collision",
-        "line": 26,
-        "message": "line 26: 'ActionAttack::Standard attack done with a melee weapon' and 'ActionAttack::Standard attack done with a melee weapon' both hash to the same ID (5c96a731d7d47e03) -- this is a hard compile error regardless of how astronomically unlikely a real collision is; every logical/stable ID must be unique across the shared 64-bit space"
+        "line": 28,
+        "message": "line 28: 'ActionAttack::Standard attack done with a melee weapon' and 'ActionAttack::Standard attack done with a melee weapon' both hash to the same ID (5c96a731d7d47e03) -- this is a hard compile error regardless of how astronomically unlikely a real collision is; every logical/stable ID must be unique across the shared 64-bit space"
       }
     ],
     "warnings": [],

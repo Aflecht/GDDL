@@ -56,17 +56,29 @@ appear, matching Compiler Core's own `status` field.
 
 **Revision note (2026-07-03, batch 3):** phase 4 (Register) and phase 5 (Validate) are
 now real, separate passes in the reference implementation, not folded into phase 6.
-This added two fields to the shape below: a top-level `duplicate_errors` array (phase 4
-duplicate-name detection) and a per-instance `check` field alongside `phase`, naming
-which independently-attributable check produced a given result or error (e.g.
-`field_shape`, `domain_typing` for phase 5; `uninitialized_read` for phase 6;
-`final_completeness` for phase 8; `numeric_coercion` for phase 6's coercion enforcement,
-per that phase's own note -- coercion depends on a computed value, only known during
-phase 6 execution, even though it's a phase-5-flavored structural concern). `check` is
-`null` for non-error/non-flagged results. Numeric coercion (widening automatic,
-narrowing-with-loss a compile error, narrowing-with-no-loss allowed) is also new as of
-this batch and is why previously-int-typed resolved values for `f32`/`f64` fields now
-appear as floats (e.g. `100` -> `100.0`).
+This added two fields to the shape below: a top-level `duplicate_errors` array and a
+per-instance `check` field alongside `phase`, naming which independently-attributable
+check produced a given result or error (e.g. `field_shape`, `domain_typing` for phase
+5; `uninitialized_read` for phase 6; `final_completeness` for phase 8;
+`numeric_coercion`/`numeric_range`/`string_length`/`string_escape` for phase 6;
+`id_collision`/`circular_dependency` for phase 4).
+
+**`duplicate_errors` is broader than its name suggests** -- confirmed from real data,
+not just the original "phase 4 duplicate-name detection" guess. It holds ANY
+phase-4/Register-level structural error, each as `{phase, check, line, message}`:
+- Duplicate instance/type names (the original motivating case).
+- `id_collision` -- a logical ID collision between two identifier-domain entries
+  (§4.1.1/§4.1). These have NO corresponding entry in `instances` at all -- the
+  collision is a property of the identifier domain's own declaration, independent of
+  any instance ever referencing it, so `instances` can be `{}` for a file that's
+  nothing but a colliding identifier block.
+- `circular_dependency` -- a circular instance-copy reference (`A = B`, `B = A`, or
+  longer). Unlike `id_collision`, this ALSO appears per-instance in `instances`, once
+  for each instance participating in the cycle -- e.g. a 2-instance cycle produces TWO
+  entries in `duplicate_errors` (one per participating instance's declaration line)
+  AND corresponding `status: "error"` entries for both `A` and `B` in `instances`, all
+  four citing the identical named cycle path (e.g. `A -> B -> A`), not a generic
+  "a cycle exists somewhere" message.
 
 ### `output.status == "parsed"`
 

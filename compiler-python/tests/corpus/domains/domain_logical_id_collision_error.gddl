@@ -15,11 +15,13 @@
 // fixture's predicted shared hash value is itself already independently verified,
 // not a fresh, unconfirmed computation.
 //
-// PHASE/CHECK NOT YET CONFIRMED -- per standing discipline, not finalized until
-// Compiler Core confirms the exact `phase`/`check` attribution. The error CONTENT
-// (both colliding qualified names + the shared hash) is well-understood and stated
-// with confidence below; the phase number and check name are deliberately left as
-// TBD rather than guessed.
+// PHASE/CHECK: spec-grounded, not a guess. GDDL Spec v4 §4.1 (Collision Detection
+// subsection) explicitly states this is caught at phase 4 (Register). The check name
+// (`id_collision`) was specified directly in the original request to Compiler Core,
+// not inferred. Still worth Compiler Core's actual run confirming it lands exactly
+// there in practice -- same as any other prediction in this corpus -- but this is not
+// the same category of genuinely-undetermined-until-implementation-runs question that,
+// e.g., the bare-scalar-field phase question originally was before it got resolved.
 
 identifier ActionAttack
 	melee_weapon = "Standard attack done with a melee weapon"
@@ -27,14 +29,12 @@ identifier ActionAttack
 	// COLLISION: identical description text to `melee_weapon` above, different key.
 	// Both entries hash to the same logical ID under this domain, deterministically.
 
-// Expected (prediction, pending golden output from Compiler Core reference run):
+// Expected (prediction, pending golden output from Compiler Core reference run --
+// phase/check below are spec-grounded, not guessed, see note above):
 //   Compile error naming BOTH colliding qualified names -- `ActionAttack::Standard
 //   attack done with a melee weapon` for both entries (identical qualified name for
 //   both, since that's literally what the collision means -- domain + description are
 //   the same for each), and citing the shared hash value `5c96a731d7d47e03`.
-//   Phase: TBD -- NOT PREDICTED, pending Compiler Core confirmation. Likely a
-//   registration-time check (the collision is a property of the domain's own
-//   declaration, independent of whether anything ever references either member), but
-//   this is explicitly not asserted as a specific phase number until confirmed.
-//   Check name: TBD -- NOT PREDICTED, pending confirmation. Plausibly something like
-//   "logical_id_collision" or "duplicate_hash", but not guessed at here.
+//   Phase 4 (Register), per GDDL Spec v4 §4.1's Collision Detection subsection.
+//   Check: `id_collision`, as specified directly in the original request to Compiler
+//   Core.

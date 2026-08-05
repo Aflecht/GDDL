@@ -25,18 +25,24 @@ the way. This file is just the routing index.
 | `nested_field_semantics/` | 9 | §6.4, §6.5 |
 | `delete_templates/` | 6 | §6.6, §7, §12 phase 8 |
 | `initialization/` | 4 | §7, §12 phases 6 & 8 |
-| `domains/` | 5 | §4.2 |
+| `domains/` | 6 | §4.2, §4.1.1 |
 | `crossfield_references/` | 5 | §6.3, §6.7 |
 | `op_statements/` | 7 | §6.3 |
 | `sequential_execution/` | 3 | §6.2 |
 | `indentation_and_comments/` | 6 | §3, §12 phases 2–3 |
-| `composition_no_inheritance/` | 3 | §5.2–§5.3 |
+| `composition_no_inheritance/` | 4 | §5.2–§5.3 |
 | `numeric_coercion/` | 5 | §5 |
 | `cross_rule_interactions/` | 3 | multiple (see group manifest) |
 | `numeric_range/` | 4 | §5 |
+| `circular_references/` | 2 | new rule (see group manifest) |
+| `string_fields/` | 8 | §5 |
 
-**Total: 60 fixtures** (56 golden-locked from prior batches, 4 new numeric-range
-fixtures pending golden capture).
+**Total: 72 fixtures** (71 captured, 1 pending --
+`string_fields/string_escaping_through_composition.gddl`, awaiting its own real
+Compiler Core run. `string_escaped_quote_current_behavior.gddl` was deleted outright
+as superseded, not recaptured -- replaced by four new fixtures Compiler Core built in
+its place, all already captured. See `string_fields/MANIFEST.md` for the full
+cross-copy-drift note.).
 
 ### numeric_coercion/ (§5)
 - `numeric_coercion_widening_basic.gddl`
@@ -100,6 +106,7 @@ golden batch's `_meta` note -- no fresh spec ambiguity required flagging this ro
 - `domain_field_wrong_domain_error.gddl` (negative path)
 - `domain_field_nonexistent_member_error.gddl` (depth pass, negative path)
 - `domain_multiple_domains_side_by_side.gddl` (depth pass)
+- `domain_logical_id_collision_error.gddl` (new rule, §4.1.1, phase 4/check id_collision spec-grounded)
 
 ### crossfield_references/ (§6.7)
 - `crossfield_basic_reference.gddl`
@@ -130,6 +137,7 @@ golden batch's `_meta` note -- no fresh spec ambiguity required flagging this ro
 - `composition_multi_level.gddl`
 - `composition_same_type_reused_multiple_fields.gddl` (depth pass)
 - `composition_with_delete_partial_then_completed.gddl` (depth pass)
+- `composition_nested_u16_fields.gddl` (dual-purpose: golden-locked here + separately handed to Compiler Core for Z80 export testing)
 
 ### cross_rule_interactions/ (multiple rules combined, see group manifest)
 - `cri_delete_composition_crossfield.gddl` (delete + composition + cross-field reference)
@@ -141,6 +149,20 @@ golden batch's `_meta` note -- no fresh spec ambiguity required flagging this ro
 - `numeric_range_signed_boundary.gddl`
 - `numeric_range_float_boundary_overflow.gddl` (boundary + overflow merged)
 - `numeric_range_computed_expression_overflow.gddl`
+
+### circular_references/ (new rule, see group manifest)
+- `circular_reference_direct_two_instance.gddl` (phase 4/check `circular_dependency`, spec-grounded)
+- `circular_reference_longer_chain.gddl` (3-instance cycle, same confidence, pending capture)
+
+### string_fields/ (string type, new group)
+- `string_length_boundary.gddl`
+- `string_utf8_byte_vs_char_length.gddl`
+- `string_empty_accepted.gddl`
+- `string_escaped_quote.gddl` (supersedes deleted `string_escaped_quote_current_behavior.gddl`)
+- `string_escaped_trailing_backslash.gddl`
+- `string_escape_invalid_sequence.gddl`
+- `string_escape_lone_trailing_backslash.gddl`
+- `string_escaping_through_composition.gddl` (escape processing verified through a nested field, not just flat -- pending capture)
 
 ## Known gaps / deliberately not built
 
@@ -198,3 +220,95 @@ rather than a subcategory; float boundary and float overflow being the same
 phenomenon, merged into one fixture instead of two) were resolved as spec/naming
 questions directly, without needing an implementation run first. See
 `numeric_range/MANIFEST.md` for full details.
+
+## New rule: logical ID collision detection (§4.1.1)
+
+`domains/domain_logical_id_collision_error.gddl` -- two entries in the same identifier
+domain, different keys, identical description text, producing a genuine deterministic
+collision (key is not part of the hash input, only `Domain::description text` is).
+Predicted error content (both colliding qualified names + the shared hash, reusing an
+already-independently-verified hash value rather than a fresh unverified one) stated
+with confidence. Phase (4) and check name (`id_collision`) are ALSO stated with
+confidence, not left open -- both are spec-grounded/specified (§4.1's Collision
+Detection subsection names phase 4 explicitly; the check name was specified directly
+in the original request to Compiler Core) rather than guessed. Distinct from cases
+like the original bare-scalar-field phase question, which really was undetermined
+until an implementation existed to confirm it.
+
+## Built: circular reference detection
+
+`circular_references/circular_reference_direct_two_instance.gddl` -- a direct `A = B`,
+`B = A` cycle, confirmed caught at phase 4 (registration), check
+`circular_dependency`, DFS-based. This was previously logged as "planned, not yet
+built" pending confirmation the change had landed -- it has now landed and been
+confirmed, so the fixture was built with the same confidence level as the corrected
+collision-detection prediction, not held back as an open question.
+
+`circular_references/circular_reference_longer_chain.gddl` -- a 3-instance cycle
+(`A = B`, `B = C`, `C = A`), same confidence level, added afterward as a natural
+depth-pass follow-up. As of this note, this fixture is complete but its capture
+status is `pending` -- awaiting a Compiler Core run, not blocked on anything design-
+or confirmation-related.
+
+See `circular_references/MANIFEST.md` for the one follow-up genuinely not yet
+built: a nested-field-cycle companion. Flagged there as non-trivial to construct
+correctly (natural-seeming constructions collapse into being structurally identical
+to the top-level case) -- worth a design discussion before attempting, not a quick
+follow-up like the longer chain was.
+
+## Built: composition + u16 fixture, dual-purpose (Z80 export gap)
+
+`composition_no_inheritance/composition_nested_u16_fields.gddl` -- authored to close
+a real gap found in Z80 export testing (no composition or `u16` field had been
+exercised end-to-end on real Z80 toolchains, only a single flat `u8` field).
+Explicitly resolved as a two-channel situation, not a schema question: this corpus's
+golden-lock schema is target-independent and correctly has no concept of an export
+target. The source is authored once and used twice -- golden-locked here on its own
+legitimate language-level merits, and separately handed to Compiler Core for
+placement under their own `export_z80_test/` directory and real-toolchain validation,
+which this corpus does not and should not track. No string field included -- Z80
+string storage semantics remain an open, separate design question this fixture
+doesn't depend on. See `composition_no_inheritance/MANIFEST.md` for the full note.
+
+## Built: string_fields group (new)
+
+Four fixtures closing the language-level string-semantics gap: length boundary
+(N-1 accepted, N rejected), UTF-8 byte-vs-character counting (both directions),
+empty string (confirmed accepted, including the extreme `string 1` case), and a
+confirmed real-implementation finding around escaped quotes. That last fixture is
+NOT a compliance test -- the spec says nothing about escaping, so it golden-locks
+actual current (buggy) behavior rather than intended behavior, and is explicitly
+flagged as a real, undecided design gap requiring a decision from the lead session
+(commit to proper `\"` escaping and fix `_strip_quotes()`, or decide GDDL has no
+escape mechanism at all) -- not something resolved or guessed at in this corpus. See
+`string_fields/MANIFEST.md` for full detail, including an independent re-verification
+of the exact predicted character sequence (the reporting session's own manual
+transcription was off by one character).
+
+## Built: string_escaping_through_composition (escape processing at a nested path)
+
+Verifies §5's escape processing (`\"` and `\\`, including the parity-rule trailing-
+backslash case) specifically through a nested composed struct field, not just the
+flat top-level fields every prior `string_fields/` fixture used. Modeled on
+`composition_multi_level.gddl`'s structure. Built because this project already found
+the identical escaping bug independently duplicated in two separate files -- "the
+code should handle this the same way" was true right up until it wasn't, twice.
+
+## Resolved: `string_escaped_quote_current_behavior.gddl` staleness question
+
+Confirmed the first hypothesis: the fix had landed, and that fixture's captured data
+was genuinely stale (old: 20 characters, backslashes intact; current real behavior:
+18 characters, real quote characters -- verified character-by-character, not
+JSON-escaping illusion). But the actual scope was larger than one stale fixture: this
+corpus had never received the escape-fix delivery at all. Compiler Core didn't just
+fix the bug -- they deleted the old fixture entirely and replaced it with four new
+ones (`string_escaped_quote.gddl`, `string_escaped_trailing_backslash.gddl`,
+`string_escape_invalid_sequence.gddl`, `string_escape_lone_trailing_backslash.gddl`),
+each isolating a distinct aspect of the resolved rule. Same root cause as an earlier
+incident this session (the two originally-missing golden locks): a fix landed in one
+copy with nothing forwarded to this one to ride along with it. Old fixture and its
+golden lock deleted outright, not recaptured under the old name. The four new
+fixtures pulled in with their already-captured, independently-verified golden data.
+`string_escaping_through_composition.gddl`'s own predictions needed no changes --
+built after the rule was already resolved, so nothing there was affected by the drift.
+See `string_fields/MANIFEST.md` for full detail.

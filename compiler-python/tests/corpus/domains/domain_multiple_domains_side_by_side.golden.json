@@ -16,13 +16,13 @@
             "__identifier_ref__": true,
             "domain": "ActionAttack",
             "key": "ranged_weapon",
-            "logical_id": "ae8d2e9aef4e"
+            "logical_id": "aa92e2b5323e5154"
           },
           "element": {
             "__identifier_ref__": true,
             "domain": "Element",
             "key": "fire",
-            "logical_id": "2f1bfb6d7ec5"
+            "logical_id": "60bfd38ceb613075"
           }
         },
         "phase": null,
@@ -35,13 +35,13 @@
             "__identifier_ref__": true,
             "domain": "ActionAttack",
             "key": "melee_weapon",
-            "logical_id": "48ac49d162c0"
+            "logical_id": "5c96a731d7d47e03"
           },
           "element": {
             "__identifier_ref__": true,
             "domain": "Element",
             "key": "ice",
-            "logical_id": "136095371386"
+            "logical_id": "d91462f06c545b7c"
           }
         },
         "phase": null,

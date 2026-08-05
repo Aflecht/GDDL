@@ -1,8 +1,44 @@
 {
   "fixture": "numeric_range_unsigned_boundary.gddl",
-  "capture_status": "pending",
+  "capture_status": "captured",
   "blocked_reason": null,
-  "captured_at": null,
+  "captured_at": "2026-07-03",
   "compiler_core_version": null,
-  "output": null
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "MinValid": {
+        "status": "ok",
+        "resolved": {
+          "value": 0
+        },
+        "phase": null,
+        "check": null
+      },
+      "MaxValid": {
+        "status": "ok",
+        "resolved": {
+          "value": 255
+        },
+        "phase": null,
+        "check": null
+      },
+      "BelowMin": {
+        "status": "error",
+        "phase": 6,
+        "check": "numeric_range",
+        "line": 25,
+        "message": "line 25: 'value' is typed 'u8', but its computed value -1 is outside u8's range (0..255) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec \u00a75, Numeric Range Enforcement)"
+      },
+      "AboveMax": {
+        "status": "error",
+        "phase": 6,
+        "check": "numeric_range",
+        "line": 30,
+        "message": "line 30: 'value' is typed 'u8', but its computed value 256 is outside u8's range (0..255) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec \u00a75, Numeric Range Enforcement)"
+      }
+    }
+  }
 }

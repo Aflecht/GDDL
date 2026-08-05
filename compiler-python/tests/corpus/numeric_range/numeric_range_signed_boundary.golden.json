@@ -1,8 +1,44 @@
 {
   "fixture": "numeric_range_signed_boundary.gddl",
-  "capture_status": "pending",
+  "capture_status": "captured",
   "blocked_reason": null,
-  "captured_at": null,
+  "captured_at": "2026-07-03",
   "compiler_core_version": null,
-  "output": null
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "MinValid": {
+        "status": "ok",
+        "resolved": {
+          "value": -32768
+        },
+        "phase": null,
+        "check": null
+      },
+      "MaxValid": {
+        "status": "ok",
+        "resolved": {
+          "value": 32767
+        },
+        "phase": null,
+        "check": null
+      },
+      "BelowMin": {
+        "status": "error",
+        "phase": 6,
+        "check": "numeric_range",
+        "line": 19,
+        "message": "line 19: 'value' is typed 'i16', but its computed value -32769 is outside i16's range (-32768..32767) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec \u00a75, Numeric Range Enforcement)"
+      },
+      "AboveMax": {
+        "status": "error",
+        "phase": 6,
+        "check": "numeric_range",
+        "line": 24,
+        "message": "line 24: 'value' is typed 'i16', but its computed value 32768 is outside i16's range (-32768..32767) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec \u00a75, Numeric Range Enforcement)"
+      }
+    }
+  }
 }
