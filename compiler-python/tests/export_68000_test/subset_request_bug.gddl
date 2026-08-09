@@ -1,0 +1,52 @@
+// Fixture: 68000_subset_request_bug -- permanent regression test for a
+// real bug found during independent verification of export_68000.py.
+//
+// Bug: render_c89_split's AoS struct-emission used
+// _topo_sort_defines(reg) with no scoping -- every define in the WHOLE
+// registry, not just what's reachable from the requested types.
+// Requesting a genuine subset (just Item here, not Creature) used to
+// fail outright: it still tried to emit Creature's struct too, and
+// crashed because Creature's own domain (CreatureKind) was never
+// gathered for the request in the first place -- gathering was
+// already correctly scoped; only the struct-order computation wasn't.
+//
+// This fixture exercises BOTH halves of the fix in one file, not just
+// the minimum "two independent types" the task asked for:
+//   - Item composes Object (define Object, TRANSITIVELY required even
+//     though only Item was requested directly) -- must still be
+//     included.
+//   - Creature and CreatureKind share NO dependency with Item/Object/
+//     ItemRarity at all -- must NEVER leak into a request for Item
+//     alone, regardless of composition depth on the Item side.
+//
+// Requesting only "Item" must produce output containing Item's and
+// Object's structs and ItemRarity's domain, and NOTHING naming
+// Creature or CreatureKind anywhere.
+
+identifier ItemRarity u8
+	common = "Common tier"
+	rare   = "Rare tier"
+
+identifier CreatureKind u8
+	beast  = "Beast-type creature"
+	undead = "Undead-type creature"
+
+define Object
+	weight = u8
+
+define Item
+	rarity = ItemRarity
+	object = Object
+
+define Creature
+	kind = CreatureKind
+	hp   = u8
+
+Item Sword
+	rarity = ItemRarity.common
+	object
+		weight = 5
+
+Creature Goblin
+	kind = CreatureKind.beast
+	hp   = 10

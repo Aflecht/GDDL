@@ -312,22 +312,33 @@ def render_c89_split(domains: List[DomainInfo], types: List[TypeInfo], reg,
             header.append(f"#define {d.name}_{key} (({d.name}){index})")
         header.append("")
 
-    # _topo_sort_defines returns every define in reg.defines, in
-    # dependency order (nested types before whatever composes them) --
-    # not just the ones being directly exported. That's fine and
-    # correct here: a composed dependency (e.g. Object, composed into
-    # Item) needs its struct defined even if Object itself wasn't
-    # separately requested for export, since Item's struct references
-    # it by name.
-    define_order = _topo_sort_defines(reg)
+    # BUG FIX (found during independent verification, confirmed with a
+    # direct repro before touching anything): _topo_sort_defines(reg)
+    # with no roots visits EVERY define in the whole registry, not just
+    # what's reachable from the requested `types`. Requesting a genuine
+    # subset (e.g. just Item from a file that also defines an unrelated
+    # Creature) used to fail outright -- this tried to emit Creature's
+    # struct too, and crashed because Creature's own domain needs were
+    # never gathered for the request in the first place (gathering was
+    # already correctly scoped; only this struct-order computation
+    # wasn't). Fixed by passing roots=[requested type names] -- pulls
+    # in exactly {requested} union {everything they transitively
+    # compose}, never an unrelated type that merely happens to share
+    # the registry. The old "over-emitting an unused struct definition
+    # is harmless" reasoning below was wrong: it's harmless ONLY when
+    # the unused type's own dependencies (a domain, in the case that
+    # surfaced this) were already gathered too, which isn't guaranteed
+    # once gathering itself is correctly request-scoped.
+    define_order = _topo_sort_defines(reg, roots=[t.name for t in types])
 
     if layout == "aos":
         # ---- 2. struct definitions -- AoS only. SoA never needs a
         # struct type at all (full flattening, §13.1), same rule
-        # already established for C++ and 6502. Emit every define
-        # reachable from the exported set, in dependency order --
-        # over-emitting an unused struct definition is harmless in a
-        # header, and this pass doesn't need a reachability prune. ----
+        # already established for C++ and 6502. define_order is now
+        # already reachability-pruned to exactly {requested types} plus
+        # whatever they transitively compose (see the bug-fix comment
+        # above define_order's computation) -- this loop can simply
+        # emit every name in it. ----
         for type_name in define_order:
             d = reg.defines[type_name]
             header.append(f"/* --- type: {type_name} --- */")
@@ -407,3 +418,80 @@ def render_c89_split(domains: List[DomainInfo], types: List[TypeInfo], reg,
     header.append("")
 
     return "\n".join(header), "\n".join(c)
+
+
+def _cli():
+    """§18 multi-file input via combine.py, matching every other
+    exporter's CLI exactly (Z80/6502/C++/binary): --type is a
+    required, repeatable option rather than a second positional list,
+    since argparse cannot disambiguate two adjacent variable-length
+    positionals (confirmed directly during §18's own work -- a bare
+    second nargs='+' silently misparses which arguments belong to
+    which list, rather than erroring). -o/--output behaves like C++'s
+    split mode (the only mode 68000 has: render_c89_split always
+    produces a header/.c pair, never a single file) -- writes
+    <stem>.h and <stem>.c, same convention as export_cpp.py's split
+    output, adapted to this target's own .h/.c (C89) extensions rather
+    than .h/.cpp."""
+    import argparse
+    import os
+    import sys
+    from combine import resolve_inputs, compile_multi, CombineError
+
+    ap = argparse.ArgumentParser(description="GDDL -> 68000 exporter (vbcc, C89)")
+    ap.add_argument("source", nargs="+",
+                     help="one or more .gddl source files, glob patterns "
+                          "(with or without an extension), or ** for "
+                          "explicit recursion (§18.4). No extension is "
+                          "assumed anywhere -- name it or match it "
+                          "explicitly.")
+    ap.add_argument("--type", dest="types", action="append", required=True,
+                     help="define type name to export -- repeat for "
+                          "multiple types (e.g. --type Creature --type "
+                          "Item). Required, at least once.")
+    ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
+                     help="AoS (default, dense instance array + Find()) "
+                          "or SoA (one extern array per leaf field, no "
+                          "struct, no lookup) data layout (§13/§15.4)")
+    ap.add_argument("--emit-all-domains", action="store_true",
+                     help="emit every width-declared domain's typedef "
+                          "and constants even if no exported field "
+                          "references it (§8.5). Off by default: a "
+                          "domain with no references in the exported "
+                          "types is silently omitted. A domain with no "
+                          "declared width is unaffected either way.")
+    ap.add_argument("-o", "--output", required=True,
+                     help="output path stem -- writes <stem>.h and "
+                          "<stem>.c (this target always produces a "
+                          "header/.c pair, never a single file)")
+    args = ap.parse_args()
+
+    try:
+        paths = resolve_inputs(args.source)
+    except CombineError as e:
+        ap.error(str(e))
+
+    result = compile_multi(paths)
+    if result["status"] == "parse_error":
+        err = result["error"]
+        print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
+        sys.exit(1)
+    resolver = result["resolver"]
+
+    domains, types = gather_ir(resolver.reg, resolver, args.types,
+                                emit_all_domains=args.emit_all_domains)
+
+    header_name = f"{args.output}.h"
+    c_name = f"{args.output}.c"
+    header, c = render_c89_split(domains, types, resolver.reg,
+                                  layout=args.layout,
+                                  header_filename=os.path.basename(header_name))
+    with open(header_name, "w") as f:
+        f.write(header)
+    with open(c_name, "w") as f:
+        f.write(c)
+    print(f"wrote {header_name} and {c_name}")
+
+
+if __name__ == "__main__":
+    _cli()

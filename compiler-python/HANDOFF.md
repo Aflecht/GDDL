@@ -690,6 +690,141 @@ right.
   correctly stay out of `corpus/`, confirmed by the fixture count not
   moving).
 
+## 68000 subset-request bug fix, and `export_68000.py`'s new CLI
+
+Two pieces, done in dependency order (the CLI's own validation reuses
+the bug-fix fixture, so the fix had to land first).
+
+### The bug
+
+Found during independent verification, confirmed with a direct repro
+before touching anything: `render_c89_split`'s AoS struct-emission used
+`define_order = _topo_sort_defines(reg)` -- every define in the WHOLE
+registry, not just what's reachable from the requested `type_names`.
+Requesting every type in a file together worked fine (nothing to
+over-include); requesting a genuine subset (e.g. just `Item` from a
+file that also defines an unrelated `Creature`) failed outright -- it
+still tried to emit `Creature`'s struct too, and crashed because
+`Creature`'s own domain (`CreatureKind`) was never gathered for the
+request in the first place. Gathering (`gather_ir`) was already
+correctly scoped to the request; only this struct-order computation
+wasn't. The comment sitting right above the bug said "this pass
+doesn't need a reachability prune" -- it did.
+
+**Checked every other exporter for the same class of bug before fixing
+anything, per the explicit instruction not to assume**, using the same
+subset-request repro against each:
+  - **C++**: structurally impossible. `generate_header`/`generate_split`
+    take no `type_names` parameter at all -- there is no subset-request
+    concept; everything in the schema is always exported. Confirmed by
+    reading the actual function signatures, not inferred.
+  - **6502, Z80, binary exporter**: all three correctly isolate a
+    requested subset, confirmed with the identical repro against each
+    (adjusted only for field-width support -- the first attempt used
+    `u32`, which 6502/Z80 don't support at all regardless of this bug;
+    caught the confound and re-ran with `u16` before concluding
+    anything).
+  - **68000's own SoA branch**: NOT affected -- confirmed empirically
+    (ran the repro under `layout="soa"`), not just by reading that it
+    iterates `types` (already correctly scoped by `gather_ir`) rather
+    than `define_order`.
+
+**Fix**: `_topo_sort_defines` (in `export_cpp.py`, shared by both
+targets) gained an optional `roots=None` parameter. `roots=None`
+(unchanged default) preserves every EXISTING caller's behavior exactly
+-- C++'s header/split generation and §17.5's schema table both
+deliberately want "every type in the schema," and neither was touched.
+`export_68000.py`'s call site now passes
+`roots=[t.name for t in types]`, pulling in exactly {requested types}
+union {everything they transitively compose} -- confirmed both halves
+independently: a transitively-composed dependency (`Item` composing
+`Object`) is still correctly included, and the unrelated `Creature`
+never leaks in. Verified `roots=None` is byte-identical to the
+pre-change behavior before building anything on top of it, and that
+the existing, previously-validated `composition_nested_u16_fields.gddl`
+68000 output is byte-identical after the fix (the "request everything
+together" case, which the bug never affected, confirmed genuinely
+unaffected by the fix too).
+
+**Permanent fixture**: `export_68000_test/subset_request_bug.gddl` --
+deliberately exercises both halves of the fix in one file, not just
+the task's minimum "two independent types": `Item` composes `Object`
+(must be included, transitively required) while `Creature`/
+`CreatureKind` share no dependency with `Item` at all (must never leak
+in). One real snag caught along the way: the first draft used invalid
+inline-struct syntax (`object = { weight = 5 }`) -- caught by checking
+the actual `compile_report` output rather than assuming the fixture
+was fine, fixed to the real bare-field-block syntax already established
+elsewhere in this project's fixtures.
+
+Real toolchain validation: `test_68000_subset_request_bug.c` +
+`run_subset_request_bug_test.sh`, real `vbcc` compile, real `vamos`
+execution, confirmed working from a clean rebuild via the committed
+script (not just the first ad hoc run). Notably, for this specific
+bug, successfully COMPILING the generated output at all is real
+evidence the fix works, not a formality -- before the fix, requesting
+just `Item` crashed the exporter itself before any C file was even
+written.
+
+### The new CLI
+
+Matches the other four exporters' shape exactly: `--type` (required,
+repeatable, `action="append"`) rather than a second positional list --
+same argparse ambiguity §18's own work already found and solved
+(confirmed directly: a bare second `nargs="+"` alongside a variadic
+`source` silently MISPARSES which arguments belong to which list,
+rather than erroring). Multi-file input via `combine.py`, unmodified.
+`-o`/`--output` writes `<stem>.h`/`<stem>.c` -- this target's only mode
+(`render_c89_split` always produces a header/.c pair, never a single
+file), same convention as C++'s split mode adapted to C89's own
+extensions. `-h`/`--help` came free from `argparse` the moment a real
+`ArgumentParser` existed, confirmed by actually running `--help` and
+checking every flag has real, substantive help text (not a
+placeholder) -- matched against the other four exporters' existing
+quality bar.
+
+Found one real bug before running anything, by checking rather than
+assuming: the CLI used `os.path.basename()` but `export_68000.py`
+never imports `os` anywhere in the file -- caught by grepping for the
+import, not by hitting a crash first. Fixed by adding the import
+locally in `_cli()`.
+
+**Validated through the REAL CLI throughout** (`argparse`, real
+subprocess invocation) -- not just the underlying `gather_ir`/
+`render_c89_split` function calls piece 1 already exercised directly,
+since that distinction is exactly what caught a real gap on §18's own
+work and applies here too:
+  - Single-file invocation: correct output.
+  - Multi-file invocation (the §18 fixture, all four files, both
+    forward and backward references): correct output.
+  - **The subset-request bug fix, re-confirmed through the CLI
+    specifically, not just the direct-function-call testing from piece
+    1** -- requesting only `Item` succeeds, `Object` correctly
+    included, `Creature` correctly absent.
+  - Every error path: missing `--type`, nonexistent literal file,
+    zero-match glob pattern -- all three correctly rejected with clear
+    messages, matching the other exporters' error shape exactly.
+  - Shell-independence: a `subprocess.run()` list-argv call with no
+    shell anywhere in the chain, confirming the glob pattern was
+    expanded by the program itself.
+
+One more self-caught bug during this validation: the first version of
+the `--help` content check compared raw substrings against
+`result.stdout`, but `argparse` wraps help text across lines at its
+own discretion -- "repeat for multiple types" was split across two
+lines in the real output, failing a naive substring check that had
+nothing wrong with the actual CLI content. Fixed by normalizing
+whitespace before comparing, caught by running the check and getting a
+specific, honest failure rather than trusting the check on inspection.
+
+Permanent test suite: `export_68000_test/test_68000_cli.py`, all six
+checks above, run directly as a real subprocess against the actual
+`export_68000.py` file every time -- not a mock, not a direct function
+call standing in for CLI behavior.
+
+**Regression**: 72-fixture corpus, 0 diffs, lock-completeness passing
+throughout both pieces.
+
 ## Known open questions
 
 - **Lock staleness is a third, distinct property from both completeness

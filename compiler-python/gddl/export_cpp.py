@@ -476,10 +476,29 @@ def emit_soa_type(lines, type_name, reg, resolver, is_last_type):
         lines.append("")
 
 
-def _topo_sort_defines(reg):
+def _topo_sort_defines(reg, roots=None):
     """Dependency order: nested types before whatever composes them.
     Simple DFS-based topological sort over 'define X has a field of
-    type define Y' edges."""
+    type define Y' edges.
+
+    roots=None (default, UNCHANGED from before this parameter existed):
+    visits every define in reg.defines -- "every type in the schema."
+    This is deliberately what every EXISTING caller wants: C++'s
+    generate_header/generate_split have no subset-request concept at
+    all (everything is always exported), and §17.5's schema table is
+    explicitly "for every type in the schema" per spec text, not a
+    per-request view.
+
+    roots=[...] (new): visits ONLY those names and whatever they
+    transitively compose, in the same dependency order -- for a
+    genuinely per-request caller (export_68000.py's AoS struct
+    emission) that must NOT pull in an unrelated type's struct just
+    because it happens to sit elsewhere in the same registry. Fixes a
+    real bug: requesting a subset of types from a file that also
+    defines unrelated types used to fail outright, because the
+    unrelated type's own domain/composition needs were never gathered
+    for the request in the first place -- confirmed directly, not
+    assumed, before this fix existed."""
     order = []
     visited = set()
     visiting = set()
@@ -503,7 +522,7 @@ def _topo_sort_defines(reg):
         visited.add(name)
         order.append(name)
 
-    for name in reg.defines:
+    for name in (reg.defines if roots is None else roots):
         visit(name)
     return order
 
