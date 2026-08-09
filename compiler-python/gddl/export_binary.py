@@ -363,19 +363,34 @@ def export_binary(reg, resolver, type_names, out_stem: str):
 
 def _cli():
     import argparse
-    from parser import parse_file
-    from resolve import resolve_all
+    import sys
+    from combine import resolve_inputs, compile_multi, CombineError
 
     ap = argparse.ArgumentParser(description="GDDL -> standalone binary exporter (§17)")
-    ap.add_argument("source", help="path to a .gddl source file")
-    ap.add_argument("types", nargs="+", help="define type name(s) to export")
+    ap.add_argument("source", nargs="+",
+                     help="one or more .gddl source files, glob patterns "
+                          "(with or without an extension), or ** for "
+                          "explicit recursion (§18.4). No extension is "
+                          "assumed anywhere.")
+    ap.add_argument("--type", dest="types", action="append", required=True,
+                     help="define type name to export -- repeat for "
+                          "multiple types. Required, at least once.")
     ap.add_argument("-o", "--output", required=True,
                      help="output stem -- writes <stem>.gddldata.bin and "
                           "<stem>.gddlmeta.json")
     args = ap.parse_args()
 
-    prog = parse_file(args.source)
-    resolver = resolve_all(prog)
+    try:
+        paths = resolve_inputs(args.source)
+    except CombineError as e:
+        ap.error(str(e))
+
+    result = compile_multi(paths)
+    if result["status"] == "parse_error":
+        err = result["error"]
+        print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
+        sys.exit(1)
+    resolver = result["resolver"]
     export_binary(resolver.reg, resolver, args.types, args.output)
     print(f"wrote {args.output}.gddldata.bin and {args.output}.gddlmeta.json")
 

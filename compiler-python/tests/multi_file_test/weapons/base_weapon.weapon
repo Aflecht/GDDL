@@ -1,0 +1,19 @@
+// Fixture: multi_file_test, file 1 of 5 (see HANDOFF.md for the full
+// combination order and what each cross-file reference direction
+// exercises).
+//
+// Deliberately a non-.gddl extension (.weapon) -- proves §18.3's
+// "no assumed extension" claim is real, not just asserted. This file
+// must be named explicitly on the CLI or via a pattern that doesn't
+// assume .gddl; an unqualified extension-agnostic pattern (items/*)
+// or an explicit .weapon pattern both work.
+//
+// Sword references Weapon (define, in weapon_type.gddl, LATER in
+// combination order -- a FORWARD reference) and Element.fire
+// (identifier, in elements.gddl, also LATER -- a FORWARD identifier
+// reference). Both must resolve correctly per §18.2's confirmed
+// forward-reference behavior.
+
+Weapon Sword
+	damage  = 10
+	element = Element.fire

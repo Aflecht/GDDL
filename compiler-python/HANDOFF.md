@@ -549,6 +549,147 @@ task's own instruction.
 68-fixture corpus regression: unaffected, 0 diffs, lock-completeness
 passing throughout.
 
+## §18 Multi-File Compilation (`gddl/combine.py`)
+
+One shared module, not per-exporter logic, exactly as scoped. Three
+responsibilities: `resolve_inputs()` (CLI args -> ordered real files,
+§18.4/§18.5), `combine_sources()` (concatenate + record per-file line
+offsets, §18.2), `compile_multi()` (run the existing, UNMODIFIED
+pipeline against the combined text, then remap every line number back
+to (source file, original line) -- the one piece of new logic touching
+the pipeline's output).
+
+**Confirmed empirically before building anything, not assumed from the
+spec's prose**: forward references across concatenated text (a direct
+test: instance placed before its own `define` in combined text still
+resolves correctly), Python `glob`'s `**`-vs-`*` distinction under
+`recursive=True` (a non-`**` pattern does NOT recurse just because the
+flag is set), and the 1-based line-numbering convention every existing
+error already uses (tested against a cleanly-attributed duplicate-key
+error, not the unterminated-string case, which has its own known
+off-by-one-from-EOF quirk unrelated to this work -- caught the
+difference by testing both, not assuming they behave the same).
+
+**A small, purely-additive change to `parser.GDDLParseError`**: it now
+also stores `raw_message` (the message body, without the "line N: "
+prefix baked into `str(e)`/`e.args[0]` at construction time) --
+`CompileError`/`CompileWarning` compute their string form fresh on
+every call from a mutable `.line`, so remapping just needs to read
+`.message` (already the raw body) and `.line`; `GDDLParseError` had no
+such raw form to read before this. Verified byte-identical for the one
+existing caller (`export_golden.py`) before building on top of it, and
+the full 72-fixture regression stayed clean after this change alone,
+before any of `combine.py` existed.
+
+**A real argparse ambiguity found and solved, not worked around**:
+`source` becoming `nargs="+"` alongside the existing `types`
+positional (also `nargs="+"`) is genuinely ambiguous -- confirmed
+directly with a minimal repro that argparse doesn't error on this, it
+silently MISPARSES which arguments belong to which list. Solved by
+converting `types` to a required, repeatable `--type` option
+(`action="append"`) across the three exporters that have it
+(`export_z80.py`, `export_6502.py`, `export_binary.py`;
+`export_cpp.py` never had a `types` positional at all -- it exports
+every type in the schema automatically, so `source` alone becoming
+variadic there has no ambiguity to resolve).
+
+**This is a real CLI syntax change, flagged explicitly rather than
+implied as purely additive**: `export_z80.py file.gddl Creature Item`
+becomes `export_z80.py file.gddl --type Creature --type Item`. Checked
+before making this change that nothing committed in this repo invokes
+these CLIs via subprocess (every test harness calls the underlying
+Python functions directly, bypassing `_cli()`/argparse entirely) and
+that no HANDOFF.md prose documents the old positional syntax as a copy-
+pasteable example -- so nothing here is left broken, but anyone with an
+external script calling the old `--type`-less form will need to update
+it. `-o`/`--output` behavior is unchanged (§18.6), confirmed by testing
+single-file invocation through every exporter, not just re-reading the
+code.
+
+**Deliberate, considered design choices, stated rather than left
+implicit**:
+- Glob matches across multiple patterns are deduplicated (first sorted
+  occurrence kept); a glob match coinciding with a literal-argument
+  file is dropped from the glob group (the literal's position wins).
+  Neither is pinned down by §18's spec text; both are the obvious
+  reading of "compiling the same file twice would be wrong."
+- The CLI does NOT surface `duplicate_errors`/warnings to the user
+  beyond what the existing single-file CLIs already did (nothing) --
+  compilation proceeds and exports whatever resolved, silently, exactly
+  matching pre-§18 single-file behavior for an in-file duplicate. Not
+  an oversight: checked what existing single-file CLIs do today (none
+  of them check `resolver.reg.duplicate_errors` at all) before deciding
+  not to introduce new blocking behavior multi-file didn't ask for.
+  Worth a real follow-up question for whoever owns future CLI polish --
+  a multi-file collision is arguably more surprising to a user than an
+  in-file one, and a stderr warning would be cheap -- but that's a
+  scope decision for someone to make deliberately, not something to
+  fold in unasked here.
+
+**Fixture**: 5 files under `tests/multi_file_test/` (`weapons/`,
+`domains/`, `defs/`), CLI combination order deliberately chosen so
+every required reference direction is exercised: `Sword`
+(`weapons/base_weapon.weapon`, a non-.gddl extension) forward-
+references `Weapon` (`defs/weapon_type.gddl`) and `Element.fire`
+(`domains/elements.gddl`), both declared LATER in combination order;
+`Bow` (`weapons/more_weapons.gddl`) backward-references both, declared
+EARLIER. `weapons/duplicate.weapon` is the deliberate collision --
+redeclares `Sword`.
+
+Exact combined-text line arithmetic computed BY HAND from each file's
+real line count before ever running anything, then confirmed to match
+exactly: colliding declaration at `duplicate.weapon:13`, original at
+`base_weapon.weapon:17`. Both independently verifiable -- the colliding
+one from the `duplicate_name` error's own remapped location, the
+original from `resolver.reg.instances['Sword'].line` remapped the same
+way -- not just "somewhere in the combined text."
+
+**A real bug found in the TEST's own verification logic, not in
+`combine.py`**: the first version of `test_multi_file.py` searched for
+the string `"Weapon Sword"` as a substring across every line to locate
+the predicted declaration line -- but `duplicate.weapon`'s own header
+comment ALSO contains that exact phrase (`// Declares "Weapon Sword"
+again...`), so the naive search matched the COMMENT (line 3) instead of
+the real declaration (line 13). `combine.py`'s actual remapping was
+already correct (line 13, confirmed independently before the test
+script existed) -- this was purely a bug in how the test computed its
+OWN prediction. Fixed by requiring the match to be an unindented line
+start (`line.startswith("Weapon Sword")`), confirmed against real file
+content that declarations and comments are structurally distinguishable
+this way. Caught by running the test and getting a clear, specific
+failure, not by re-reading the search logic and deciding it looked
+right.
+
+**Validation, matching every point in the task's own requirements**:
+- `test_multi_file.py` (5 checks): forward/backward references in both
+  directions for both defines and identifiers; the collision's
+  dual-location attribution, both locations independently verified
+  against hand-computed predictions; the zero-match error path, both
+  forms (nonexistent literal, zero-match pattern); shell-independence,
+  proven two ways -- a `subprocess.run()` list-argv call with NO
+  `shell=True` at all (the OS execs python3 directly; if this succeeds,
+  only the program could have expanded the pattern, since no shell was
+  ever in the call chain to have done it) AND a real `bash -c`
+  invocation with the pattern single-quoted so bash genuinely cannot
+  expand it even though a real shell is present -- simulating the
+  actual Windows cmd.exe/PowerShell case this requirement exists for;
+  and the non-.gddl-extension claim, both as a literal path and via an
+  extension-specific glob pattern.
+- `test_multi_file_z80_harness.asm` / `test_multi_file_z80_run.py`:
+  the 4-file clean fixture (no collision) compiled through the real
+  `export_z80.py` CLI, assembled with real SjASMPlus, executed on the
+  real z80 emulator -- both instances' both fields, accessed through
+  the real `Weapon_Find` subroutine, confirmed correct. Reuses the
+  existing `z80_test_helper.py` rather than reimplementing symbol
+  loading a second time.
+- Single-file invocation re-confirmed through all four exporters after
+  the CLI changes, using already-existing fixtures, not just the new
+  multi-file ones -- correct output in every case.
+- 72-fixture corpus regression: unaffected, 0 diffs, lock-completeness
+  passing throughout (`multi_file_test/`'s own `.gddl`/`.weapon` files
+  correctly stay out of `corpus/`, confirmed by the fixture count not
+  moving).
+
 ## Known open questions
 
 - **Lock staleness is a third, distinct property from both completeness

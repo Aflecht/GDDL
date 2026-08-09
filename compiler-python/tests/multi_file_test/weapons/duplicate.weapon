@@ -1,0 +1,15 @@
+// Fixture: multi_file_test, file 5 of 5 -- the DELIBERATE collision.
+//
+// Declares "Weapon Sword" again, colliding with base_weapon.weapon's
+// own Sword (file 1, local line 17). This must be caught as a
+// duplicate_name error (phase 4), attributed to THIS file and THIS
+// line -- confirmed in the permanent validation script
+// (test_multi_file.py), not just asserted here. First declaration
+// (file 1's Sword, damage=10) wins; this one is ignored, per the
+// language's existing, unmodified duplicate-name policy -- §18
+// doesn't change that policy, only makes it operate across files
+// exactly as it already does within one file.
+
+Weapon Sword
+	damage  = 999
+	element = Element.ice

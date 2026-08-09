@@ -1,0 +1,13 @@
+// Fixture: multi_file_test, file 3 of 5.
+//
+// Weapon is referenced BACKWARD from base_weapon.weapon (an earlier
+// file -- Sword uses Weapon as its type before Weapon is declared in
+// combination order, a FORWARD reference from that file's
+// perspective) and BACKWARD from more_weapons.gddl (a later file,
+// ordinary backward reference). This file's own `element = Element`
+// field type is itself a BACKWARD reference to elements.gddl, the
+// file immediately before this one in combination order.
+
+define Weapon
+	damage  = u8
+	element = Element

@@ -371,12 +371,21 @@ def _cli():
     added because a real selection mechanism is the actual point of
     this flag existing at all, not just a design description."""
     import argparse
-    from parser import parse_file
-    from resolve import resolve_all
+    from combine import resolve_inputs, compile_multi, CombineError
 
     ap = argparse.ArgumentParser(description="GDDL -> 6502 exporter")
-    ap.add_argument("source", help="path to a .gddl source file")
-    ap.add_argument("types", nargs="+", help="define type name(s) to export")
+    ap.add_argument("source", nargs="+",
+                     help="one or more .gddl source files, glob patterns "
+                          "(with or without an extension), or ** for "
+                          "explicit recursion (§18.4). No extension is "
+                          "assumed anywhere.")
+    ap.add_argument("--type", dest="types", action="append", required=True,
+                     help="define type name to export -- repeat for "
+                          "multiple types. Required, at least once. A "
+                          "repeatable option rather than a second "
+                          "positional list, since argparse cannot "
+                          "disambiguate two adjacent variable-length "
+                          "positionals.")
     ap.add_argument("--dialect", choices=["acme", "kickassembler", "64tass"],
                      default="acme", help="assembler dialect (§10.3)")
     ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
@@ -397,8 +406,18 @@ def _cli():
 
     zp_base = _parse_zp_base(args.zp_base)
 
-    prog = parse_file(args.source)
-    resolver = resolve_all(prog)
+    try:
+        paths = resolve_inputs(args.source)
+    except CombineError as e:
+        ap.error(str(e))
+
+    result = compile_multi(paths)
+    if result["status"] == "parse_error":
+        import sys
+        err = result["error"]
+        print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
+        sys.exit(1)
+    resolver = result["resolver"]
     domains, types = gather_ir(resolver.reg, resolver, args.types, zp_base,
                                 emit_all_domains=args.emit_all_domains)
     asm = render(domains, types, dialect=args.dialect, layout=args.layout, zp_base=zp_base)

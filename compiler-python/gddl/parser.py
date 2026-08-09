@@ -49,6 +49,17 @@ class GDDLParseError(Exception):
     def __init__(self, message: str, line: int):
         super().__init__(f"line {line}: {message}")
         self.line = line
+        # Purely additive (§18 multi-file support): str(e)/e.args[0] are
+        # UNCHANGED from before this line existed -- every existing
+        # caller that only ever used those two continues to see
+        # identical output. This is for combine.py's line-remapping,
+        # which needs the message body WITHOUT the "line N:" prefix
+        # baked in at construction time (unlike CompileError below,
+        # whose __str__ computes that prefix fresh on every call from
+        # a mutable .line, GDDLParseError bakes it into the frozen
+        # exception string immediately -- there was no raw-message
+        # attribute to remap from before this addition).
+        self.raw_message = message
 
 
 class _StringEscapeError(Exception):

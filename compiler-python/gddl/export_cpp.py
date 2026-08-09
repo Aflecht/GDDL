@@ -1170,10 +1170,19 @@ def _cli():
     completeness, matching how the task frames these as compiler
     flags."""
     import argparse
-    from parser import parse_file
+    import sys
+    from combine import resolve_inputs, compile_multi, CombineError
 
     ap = argparse.ArgumentParser(description="GDDL -> C++ exporter")
-    ap.add_argument("source", help="path to a .gddl source file")
+    ap.add_argument("source", nargs="+",
+                     help="one or more .gddl source files, glob patterns "
+                          "(with or without an extension), or ** for "
+                          "explicit recursion (§18.4). No extension is "
+                          "assumed anywhere. export_cpp.py has no --type "
+                          "flag (every type in the schema is exported "
+                          "automatically), so this is the sole positional "
+                          "-- no ambiguity to resolve here the way the "
+                          "other exporters' --type flag exists for.")
     ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
                      help="AoS (default) or SoA data layout (§13)")
     ap.add_argument("--force-single-header", action="store_true",
@@ -1192,8 +1201,17 @@ def _cli():
                           "for split mode)")
     args = ap.parse_args()
 
-    prog = parse_file(args.source)
-    resolver = resolve_all(prog)
+    try:
+        paths = resolve_inputs(args.source)
+    except CombineError as e:
+        ap.error(str(e))
+
+    result = compile_multi(paths)
+    if result["status"] == "parse_error":
+        err = result["error"]
+        print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
+        sys.exit(1)
+    resolver = result["resolver"]
 
     if args.force_single_header:
         header = generate_header(resolver.reg, resolver, layout=args.layout,
@@ -1217,5 +1235,4 @@ def _cli():
 
 
 if __name__ == "__main__":
-    from resolve import resolve_all
     _cli()

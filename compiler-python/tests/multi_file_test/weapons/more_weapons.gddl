@@ -1,0 +1,11 @@
+// Fixture: multi_file_test, file 4 of 5.
+//
+// Bow references Weapon (defs/weapon_type.gddl, EARLIER in combination
+// order -- a BACKWARD reference) and Element.lightning (domains/
+// elements.gddl, also EARLIER -- a BACKWARD identifier reference).
+// Together with base_weapon.weapon's forward references, this covers
+// every direction §18's fixture requirements ask for.
+
+Weapon Bow
+	damage  = 5
+	element = Element.lightning

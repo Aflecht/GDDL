@@ -1,0 +1,13 @@
+// Fixture: multi_file_test, file 2 of 5.
+//
+// Element is referenced FORWARD (from base_weapon.weapon, an earlier
+// file in combination order -- Sword.element = Element.fire) and
+// BACKWARD (from more_weapons.gddl, a later file -- Bow.element =
+// Element.lightning, and from weapon_type.gddl's own `element =
+// Element` field-type declaration). One identifier domain, both
+// reference directions exercised against it.
+
+identifier Element u8
+	fire      = "Fire damage"
+	ice       = "Ice damage"
+	lightning = "Lightning damage"
