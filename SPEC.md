@@ -574,7 +574,7 @@ Currently defined warnings:
 
 ## 13. Data Layout: Array-of-Structs vs. Struct-of-Arrays (Cross-Target)
 
-GDDL's language model (defines composed of fields, instances filling them) naturally produces one canonical resolved representation per instance — semantically, "one instance = one complete record." **Array-of-Structs (AoS)** is the direct, natural export of that representation: one contiguous block per instance, instances laid out consecutively. This is what every export target does by default, and what every exporter built so far (C++) has produced.
+GDDL's language model (defines composed of fields, instances filling them) naturally produces one canonical resolved representation per instance — semantically, "one instance = one complete record." **Array-of-Structs (AoS)** is the direct, natural export of that representation: each instance's fields kept together as one record, rather than split apart by field the way SoA does. This is what every export target does by default. (Whether an AoS export's instance records end up genuinely contiguous in memory, or separately addressed with a pointer table pointing at each, is a real, target-specific distinction — see §13.7 for the precise breakdown; nothing in this section's use of "AoS" should be read as promising contiguity for every target.)
 
 **Struct-of-Arrays (SoA)** is a pure re-shaping of the exact same resolved data, generated automatically at export time — never a separate authoring format, never anything the GDDL source itself needs to express twice. Instead of one array of instance-blocks, every leaf field gets its own independent, tightly-packed array, with the same index across every field's array referring to the same instance.
 
@@ -616,6 +616,29 @@ This is a deliberate choice, not an oversight: AoS vs. SoA has no bearing on whe
 **"Both simultaneously" (§13.5) is achieved by running the compiler twice — once per flag value — not by one invocation producing two outputs at once.** The natural, sensible workflow this leads to (though not compiler-enforced): a developer organizes `.gddl` source files so that types intended for one layout live together, and types intended for the other live together, then feeds each group to its own run with the matching flag.
 
 Composition is unaffected by files being split this way: SoA's full-flattening rule (§13.1) already breaks a nested composed field down into its own leaf arrays as part of flattening its containing type — regardless of whether the nested type is *also*, separately, exported standalone as AoS in a different run. The two projections don't need to agree or coordinate; they're independent. And since instance/identifier stable IDs are always deterministic (§4.1.1, §6.8 — the same qualified name always hashes the same value), an AoS run and an SoA run of the same source will always agree on identity for the same instance, even though they're two separate compiler executions (Core Principle 5).
+
+### 13.7 The Three Concrete Layouts, Named Precisely
+
+"AoS" and "SoA" describe the semantic model (§13's opening), not a specific memory layout. In practice there are **three** concrete layouts across every export target, and confusingly, two of them have both been called "AoS" up to this point despite being genuinely different at the byte level:
+
+- **AoS pointer list**: each instance is a separately-addressed record — nothing guarantees adjacency between one instance and the next — and a lookup structure holds a *pointer* (or, on 8-bit targets, a split address) to each one. Looking up instance *i* means reading the lookup structure, then following the pointer it contains.
+- **AoS linear list**: every instance's record lives in one genuinely contiguous array, back to back, no gaps. Looking up instance *i* is direct address arithmetic (`base + i * record_size`) into that one array — no pointer indirection, nothing to "follow."
+- **SoA linear list**: every leaf field gets its own contiguous array (§13's main text); instance *i*'s data is row *i* across every one of those arrays, never grouped back into a single record anywhere in the output.
+
+**Verified directly against real generated output, not inferred from source comments, as of this writing:**
+
+| Target | AoS pointer list | AoS linear list | SoA linear list |
+|---|---|---|---|
+| C++ | Yes (default) | Planned (`--layout=aos-linear`) | Yes (`--layout=soa`) |
+| 6502 | Yes (always; no alternative exists, and none is planned — see below) | Not implemented | Yes (`--layout=soa`) |
+| Z80 | See note below | Yes (baseline, always) | **Not implemented** |
+| 68000 | Not implemented | Yes (only mode) | Yes (`--layout=soa`) |
+
+**Z80 is a genuine hybrid, not a clean member of either AoS bucket.** Its instance data is *always* laid out as a true linear list — confirmed directly, `Item_Instances` in generated Z80 output is one contiguous run of records regardless of any flag. `--z80-pointer-table=on` doesn't replace that layout; it adds an *optional* index-to-pointer lookup table alongside the same underlying contiguous data, for cases where the multiply-based direct-index math (§16.2's crossover table) would cost more than a single indexed pointer load. With the flag off, Z80 already gives direct linear-list indexing with nothing extra built. So Z80 is fairly described as "AoS linear list, with an optional pointer-list-style index layered on top" — not a binary choice between the two AoS flavors the way C++'s `--layout` flag is a binary choice between AoS and SoA.
+
+**Why 6502 has no linear-list alternative, and none is planned:** 6502 has no hardware multiply at all. A linear list's direct-index arithmetic (`base + i * record_size`) would need a software multiply on every single access, for a `record_size` that's usually not a convenient power of two — and on the most cycle-starved of these four targets, that would lose to the existing pointer-list approach in essentially every real case. This isn't an oversight; it mirrors the exact reasoning (§13's main text) for why SoA exists on 6502 in the first place.
+
+**Why C++ historically had no linear-list alternative, despite nothing preventing one:** unlike 6502, this was never a hardware constraint — modern hardware multiplication is effectively free. C++ chose named-per-instance globals plus a pointer-holding registry (§14.2) specifically so calling code can write `Item_Instances::Sword.power` directly, which a pure-array design gives up in exchange for guaranteed contiguity. **This tradeoff no longer has to be a forced choice: C++ is planned to support a third, opt-in layout** (`--layout=aos-linear`, alongside the existing `aos` and `soa` values on the same flag, per §13.6's "one flag, one job" precedent) — instances stored directly in one `std::array<T, N>`, matching what 68000 already proves out for the underlying pattern, with `Find()` still returning `const Item*` (computed as `&All[i]`, not a lookup-table pointer) so existing pointer-list calling code needs no changes beyond recompiling against the new layout.
 
 ---
 
