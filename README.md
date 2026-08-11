@@ -93,7 +93,7 @@ const Creature Human_Fighter = { 205 };
 
 The math happens once, at compile time. `Human_Fighter` doesn't carry `BaseCreature`'s formula around at runtime, it's already just `205`.
 
-[`docs/templates-guide.md`](docs/templates-guide.md) covers multi-generation template chains, referencing other fields in the same expression, and the full set of operators available. *(coming soon)*
+[`docs/templates-guide.md`](docs/templates-guide.md) covers multi-generation template chains, referencing other fields in the same expression, and the full set of operators available.
 
 ## Jump tables from data
 

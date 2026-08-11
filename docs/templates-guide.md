@@ -250,3 +250,81 @@ WARNING [phase 3, empty_bare_field] - line 16: bare field 'stats' (modify-only f
 ```
 
 It still compiles, `Placeholder` just ends up with `Base`'s stats completely untouched. There's no third option in between full replace and modify-only, no mode that keeps old values except where something new happens to be provided. That's deliberate: a field silently keeping a stale value because nobody remembered to list it would look identical to a field someone genuinely meant to leave alone.
+
+## What happens to the result
+
+Every expression on this page eventually gets stored into a field, and that storage step enforces two more rules, on every value, regardless of whether it came from a literal, an op-statement, a copy, or a cross-field reference.
+
+Storing a whole number into a floating-point field always just works, promoted automatically:
+
+```gddl
+define Item
+	scale = f32
+
+Item Test
+	scale = 100 + 50   // an integer result, but the field is f32
+```
+
+```cpp
+const Item Test = { 150.0f };
+```
+
+Going the other way is where it matters. A fractional value stored into an integer field is a real error if any precision would actually be lost:
+
+```gddl
+define Item
+	count = i32
+
+Item Test
+	count = 10 / 3   // 3.333..., a fraction, into an integer field
+```
+
+```
+Test: ERROR [phase 6, numeric_coercion] - line 5: 'count' is typed 'i32' (integer), but its computed value 3.3333333333333335 has a fractional part -- narrowing with fractional loss is a compile-time error (spec §5, Numeric Type Coercion)
+```
+
+Change the numbers so nothing is actually lost, and the exact same shape compiles fine:
+
+```gddl
+define Item
+	count = i32
+
+Item Test
+	count = 12 / 3   // exactly 4.0, no fraction to lose
+```
+
+```cpp
+const Item Test = { 4 };
+```
+
+Range works the same way, checked at the same moment, on the same final value. Every numeric type has a real, fixed range, and storing something outside it is always a compile-time error:
+
+```gddl
+define Item
+	durability = u8
+
+Item Test
+	durability = 300   // u8 only goes up to 255
+```
+
+```
+Test: ERROR [phase 6, numeric_range] - line 5: 'durability' is typed 'u8', but its computed value 300 is outside u8's range (0..255) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec §5, Numeric Range Enforcement)
+```
+
+Never silently wrapped or clamped is the point. `300` into a `u8` becoming `44` with no error anywhere is exactly the failure mode this rule exists to prevent.
+
+Only the value that actually gets stored is checked, though, not every step along the way there:
+
+```gddl
+define Item
+	durability = u8
+
+Item Test
+	durability = 200 + 100 - 250   // 300 mid-expression, briefly over u8's max of 255
+```
+
+```cpp
+const Item Test = { 50 };
+```
+
+`200 + 100` is `300`, already past `u8`'s ceiling, but that's never stored anywhere, it's just a number partway through evaluating a longer expression. Only `50`, the actual final result, ever gets checked and stored.
