@@ -57,6 +57,18 @@ for (const auto& entry : GDDL::Item_Registry::Table)
 
 That's your item list, ready to use in your game.
 
+## Multiple data layouts
+
+You can choose which data layout to export into, switching is just a flag, same source either way:
+
+- **AoS pointer list** (the default): one struct per item, plus a small list of pointers so you can look any of them up.
+- **AoS, linear**: array-of-structures, one contiguous array holding every item's struct directly, no pointers at all.
+- **SoA, linear**: structure-of-arrays, each field gets its own array instead, every item's value for that field sitting together.
+
+Each layout is fastest in a different place. SoA is what 6502 needs (it has no hardware multiply) and what an ECS-style engine wants generally, since a system updates one component at a time across many entities. Linear AoS gives the most direct access wherever a multiply is cheap, like modern PC and console hardware.
+
+[`docs/data-layouts.md`](docs/data-layouts.md) walks through all three side by side, with real code for each. *(coming soon)*
+
 ## Templates you copy, not classes you extend
 
 Reuse in GDDL isn't inheritance, `define`s never inherit from each other, deliberately, so a struct's full field list is always visible in one place, not scattered across parent definitions. What you get instead is compile-time copying: build a base instance once, then copy and adjust it as many times as you need, with real arithmetic on the way.
@@ -82,18 +94,6 @@ const Creature Human_Fighter = { 205 };
 The math happens once, at compile time. `Human_Fighter` doesn't carry `BaseCreature`'s formula around at runtime, it's already just `205`.
 
 [`docs/templates-guide.md`](docs/templates-guide.md) covers multi-generation template chains, referencing other fields in the same expression, and the full set of operators available. *(coming soon)*
-
-## Multiple data layouts
-
-You can choose which data layout to export into, switching is just a flag, same source either way:
-
-- **AoS pointer list** (the default): one struct per item, plus a small list of pointers so you can look any of them up.
-- **AoS, linear**: array-of-structures, one contiguous array holding every item's struct directly, no pointers at all.
-- **SoA, linear**: structure-of-arrays, each field gets its own array instead, every item's value for that field sitting together.
-
-Each layout is fastest in a different place. SoA is what 6502 needs (it has no hardware multiply) and what an ECS-style engine wants generally, since a system updates one component at a time across many entities. Linear AoS gives the most direct access wherever a multiply is cheap, like modern PC and console hardware.
-
-[`docs/data-layouts.md`](docs/data-layouts.md) walks through all three side by side, with real code for each. *(coming soon)*
 
 ## Jump tables from data
 
