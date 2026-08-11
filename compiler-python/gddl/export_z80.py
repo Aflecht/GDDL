@@ -195,6 +195,23 @@ def gather_type_info(reg, resolver, type_name) -> TypeInfo:
     return TypeInfo(name=type_name, leaves=leaves, instances=infos)
 
 
+def gather_soa_columns(type_info):
+    """§13.7/§13.4: transpose row-major (per-instance) leaf_values,
+    already fully flattened through composition by gather_type_info
+    regardless of layout, into column-major (per-field) arrays -- one
+    per leaf, values in the same declaration order the dense AoS index
+    already uses (§13.4: SoA needs no separate lookup at all on a
+    dense-index target; the same index that finds an AoS instance
+    indexes every SoA field array too). No re-flattening or re-
+    rendering here -- leaf_values already went through
+    _render_leaf_value once in gather_type_info; reused as-is."""
+    columns = []
+    for li, (path, type_tokens) in enumerate(type_info.leaves):
+        values = [inst.leaf_values[li] for inst in type_info.instances]
+        columns.append((path, type_tokens, values))
+    return columns
+
+
 def gather_ir(reg, resolver, type_names, emit_all_domains: bool = False):
     """Full shared IR for a Z80 export of the given types. Validates
     the width rule first (fails fast, before gathering anything), same
@@ -328,17 +345,21 @@ def needs_index_copy(n: int) -> bool:
 
 
 def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "asm",
-           pointer_table: bool = None, find_macro: bool = False, reg=None):
+           pointer_table: bool = None, find_macro: bool = False, reg=None,
+           layout: str = "aos"):
     """Single dispatch point (§16.3): --z80-toolchain=sjasmplus|z88dk,
     --z88dk-output=asm|c (meaningful only for z88dk; rejected otherwise,
     same "flag combination must make sense together" discipline as
-    --dialect/--layout for 6502), --z80-pointer-table=on|off.
+    --dialect/--layout for 6502), --z80-pointer-table=on|off,
+    --layout=aos|soa (§13.7).
 
     `pointer_table` is deliberately `None`-by-default rather than True or
     False: §16.2 makes it a mandatory, no-default flag (the --zp-base
     precedent), so omitting it is an error rather than something the
     exporter quietly guesses. Returns a str for the assembly paths, and
     a {filename_suffix: text} dict for C mode's header/.c split (§16.2.1)."""
+    if layout not in ("aos", "soa"):
+        raise ValueError(f"layout must be 'aos' or 'soa', got {layout!r}")
     if pointer_table is None:
         raise ExportZ80Error(
             "--z80-pointer-table=on|off is required for every Z80 export "
@@ -354,12 +375,12 @@ def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "as
                 "--z80-toolchain=z88dk (§16.3)")
         from export_z80_sjasmplus import render_sjasmplus
         return render_sjasmplus(domains, types, pointer_table=pointer_table,
-                                find_macro=find_macro, reg=reg)
+                                find_macro=find_macro, reg=reg, layout=layout)
     if toolchain == "z88dk":
         if z88dk_output == "asm":
             from export_z80_z88dk_asm import render_z88dk_asm
             return render_z88dk_asm(domains, types, pointer_table=pointer_table,
-                                    find_macro=find_macro, reg=reg)
+                                    find_macro=find_macro, reg=reg, layout=layout)
         if z88dk_output == "c":
             # §16.3: --z80-find-macro is meaningless for C mode (the
             # compiler makes its own inlining decision) and is a
@@ -419,8 +440,9 @@ def _cli():
                           "§16.2 resource/performance tradeoff with no "
                           "exporter-guessable default")
     ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
-                     help="data layout (§13.6). Z80 currently implements "
-                          "AoS only")
+                     help="data layout (§13.6, §13.7). SoA implemented "
+                          "for sjasmplus and z88dk-asm; not yet for "
+                          "--z88dk-output=c")
     ap.add_argument("--z80-find-macro", choices=["on", "off"], default="off",
                      help="also emit an inline MACRO variant of {Type}_Find "
                           "alongside the callable subroutine, saving the "
@@ -448,11 +470,11 @@ def _cli():
               "(§16.2) -- SoA data is already flattened into per-field "
               "arrays with nothing to point at.", file=sys.stderr)
         pointer_table = False
-        raise NotImplementedError(
-            "--layout=soa is not implemented for Z80 yet (AoS only, as "
-            "stated in each renderer's header). The warning above is the "
-            "specified flag-composition behaviour and fires first, "
-            "deliberately, so it stays correct once SoA lands.")
+        if args.z88dk_output == "c":
+            ap.error("--layout=soa is not implemented for --z88dk-output=c "
+                     "(§13.7 scopes this pass to the two assembly paths, "
+                     "sjasmplus and z88dk-asm; C mode SoA is a deliberate, "
+                     "separate gap, not a silent omission)")
 
     if args.z88dk_output == "c" and args.z80_find_macro == "on":
         ap.error("--z80-find-macro applies to the assembly output paths "
@@ -474,7 +496,8 @@ def _cli():
                                 emit_all_domains=args.emit_all_domains)
     out = render(domains, types, toolchain=args.z80_toolchain,
                  z88dk_output=args.z88dk_output, pointer_table=pointer_table,
-                 find_macro=args.z80_find_macro == "on", reg=resolver.reg)
+                 find_macro=args.z80_find_macro == "on", reg=resolver.reg,
+                 layout=args.layout)
 
     if isinstance(out, dict):
         # C mode: header/.c split (§16.2.1), never a single file for real

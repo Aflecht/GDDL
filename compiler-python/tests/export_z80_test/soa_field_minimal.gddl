@@ -1,0 +1,19 @@
+identifier Rarity u8
+	common = "Common item"
+	rare = "Rare item"
+
+define Item
+	power = u16
+	rarity = Rarity
+
+Item Sword
+	power = 42
+	rarity = Rarity.rare
+
+Item Bow
+	power = 15
+	rarity = Rarity.common
+
+Item Shield
+	power = 8
+	rarity = Rarity.common

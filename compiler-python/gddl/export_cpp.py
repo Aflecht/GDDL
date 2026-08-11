@@ -608,8 +608,8 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
     existed before SoA support was added -- verified as an explicit
     regression check, not just assumed, since this is a correctness
     requirement, not a nice-to-have."""
-    if layout not in ("aos", "soa"):
-        raise ValueError(f"layout must be 'aos' or 'soa', got {layout!r}")
+    if layout not in ("aos", "aos-linear", "soa"):
+        raise ValueError(f"layout must be 'aos', 'aos-linear', or 'soa', got {layout!r}")
 
     lines = []
     lines.append(f"#ifndef {guard_name}")
@@ -663,9 +663,11 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
     # inspection, not by any test failing, since nothing in SoA mode
     # ever references them either). define_order itself is still needed
     # by BOTH layouts below (section 3 iterates it either way) -- only
-    # the struct TEXT emission is AoS-only. ----
+    # the struct TEXT emission is AoS-only (aos or aos-linear; SoA
+    # never needs the plain struct, aos-linear needs it since
+    # std::array<T,N> requires T to be a defined type). ----
     define_order = _topo_sort_defines(reg)
-    if layout == "aos":
+    if layout in ("aos", "aos-linear"):
         for type_name in define_order:
             d = reg.defines[type_name]
             lines.append(f"struct {type_name}")
@@ -689,6 +691,10 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
 
         if layout == "soa":
             emit_soa_type(lines, type_name, reg, resolver, is_last_type)
+            continue
+
+        if layout == "aos-linear":
+            _emit_aos_linear_type(lines, type_name, d, instances, reg, is_last_type)
             continue
 
         # ---- AoS (default): byte-for-byte identical to the code that
@@ -813,6 +819,128 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
     return "\n".join(lines)
 
 
+def _emit_aos_linear_type(lines, type_name, d, instances, reg, is_last_type):
+    """§13.7 AoS-linear layout, single-header mode: instances stored
+    contiguously in one `std::array<T, N> All`, not as separate named
+    globals plus a pointer-holding Entry registry.
+
+    KEY IMPLEMENTATION DETAIL -- double-brace initializer is REQUIRED,
+    not optional: `std::array<T, N>` wraps a raw C array internally,
+    and the outer `{` opens the `std::array` itself while the inner
+    `{{` opens the C array it contains. Using a single `{` gives "too
+    many initializers" on g++17 even with -Wall (confirmed directly by
+    attempting it -- see HANDOFF.md). This is a known subtlety with
+    `std::array` aggregate initialization that's easy to get wrong on
+    first pass.
+
+    Find() returns `const T*` (= `&All[i]`), NOT an index -- this
+    preserves the existing AoS signature exactly. SoA has no choice
+    (there's no single struct left to point at after full flattening);
+    aos-linear still has real T records in the array, so there's no
+    reason to break calling code that was already working against
+    regular AoS. Confirmed in the spec: §13.7 explicitly states the
+    pointer-returning Find() signature is preserved.
+
+    Contiguity guaranteed structurally by std::array (confirmed
+    directly with pointer arithmetic: &All[1] - &All[0] == 1, i.e.
+    exactly sizeof(T) bytes apart -- see test_generated_aos_linear.cpp).
+    """
+    n = len(instances)
+
+    # ---- instances namespace: one constexpr std::array<T, N> All ----
+    lines.append(f"namespace {type_name}_Instances")
+    lines.append("{")
+    if n > 0:
+        lines.append(f"    inline constexpr std::array<{type_name}, {n}> All = {{{{")
+        for name, value in instances:
+            parts = [_cpp_value_literal(value.fields[f.name], f.type_tokens, reg)
+                      for f in d.fields]
+            init = ", ".join(parts)
+            lines.append(f"        {{ {init} }},  // {name}")
+        lines.append("    }};")
+    else:
+        lines.append(f"    inline constexpr std::array<{type_name}, 0> All = {{}};")
+
+    # per-instance index constants: same 0-based dense ordering as AoS.
+    # Placed inside _Instances namespace rather than at file scope to
+    # keep them next to what they index, same discipline as §13.2's
+    # _Index constants that already live in _Instances.
+    lines.append("")
+    for i, (name, _value) in enumerate(instances):
+        lines.append(f"    inline constexpr std::size_t {name}_Index = {i};")
+    lines.append("}")
+    lines.append("")
+
+    # ---- registry namespace: lookup by ID and by name ----
+    entries = []
+    for name, _value in instances:
+        iid = reg.get_instance_id(type_name, name)
+        entries.append((iid, name))
+    entries.sort(key=lambda e: e[0])
+
+    lines.append(f"namespace {type_name}_Registry")
+    lines.append("{")
+    lines.append("    struct Entry")
+    lines.append("    {")
+    lines.append("        uint64_t instance_id;")
+    lines.append("        std::string_view name;")
+    lines.append("        std::size_t index;")
+    lines.append("    };")
+    lines.append("")
+
+    if entries:
+        lines.append(f"    inline constexpr std::array<Entry, {len(entries)}> Table =")
+        lines.append("    {")
+        for iid, name in entries:
+            idx = next(i for i, (nm, _) in enumerate(instances) if nm == name)
+            lines.append(f"        Entry{{ 0x{iid}ULL, \"{name}\", {idx} }},")
+        lines.append("    };")
+    else:
+        lines.append(f"    inline constexpr std::array<Entry, 0> Table = {{}};")
+    lines.append("")
+
+    lines.append(f"    constexpr const {type_name}* Find(uint64_t instance_id)")
+    lines.append("    {")
+    lines.append("        std::size_t lo = 0, hi = Table.size();")
+    lines.append("")
+    lines.append("        while (lo < hi)")
+    lines.append("        {")
+    lines.append("            std::size_t mid = lo + (hi - lo) / 2;")
+    lines.append("")
+    lines.append("            if (Table[mid].instance_id < instance_id)")
+    lines.append("            {")
+    lines.append("                lo = mid + 1;")
+    lines.append("            } else {")
+    lines.append("                hi = mid;")
+    lines.append("            }")
+    lines.append("        }")
+    lines.append("")
+    lines.append("        if (lo < Table.size() && Table[lo].instance_id == instance_id)")
+    lines.append("        {")
+    lines.append(f"            return &{type_name}_Instances::All[Table[lo].index];")
+    lines.append("        }")
+    lines.append("")
+    lines.append("        return nullptr;")
+    lines.append("    }")
+    lines.append("")
+
+    lines.append(f"    constexpr const {type_name}* Find(std::string_view name)")
+    lines.append("    {")
+    lines.append("        for (const auto& entry : Table)")
+    lines.append("        {")
+    lines.append("            if (entry.name == name)")
+    lines.append("            {")
+    lines.append(f"                return &{type_name}_Instances::All[entry.index];")
+    lines.append("            }")
+    lines.append("        }")
+    lines.append("")
+    lines.append("        return nullptr;")
+    lines.append("    }")
+    lines.append(f"}} // namespace {type_name}_Registry")
+    if not is_last_type:
+        lines.append("")
+
+
 def _emit_aos_split_type(header_lines, cpp_lines, type_name, d, instances, reg, is_last_type):
     """§14.3, AoS: extern declarations + Find() signatures in the
     header; actual const definitions + Find() bodies (no longer
@@ -908,6 +1036,128 @@ def _emit_aos_split_type(header_lines, cpp_lines, type_name, d, instances, reg, 
     cpp_lines.append("            if (entry.name == name)")
     cpp_lines.append("            {")
     cpp_lines.append("                return entry.data;")
+    cpp_lines.append("            }")
+    cpp_lines.append("        }")
+    cpp_lines.append("")
+    cpp_lines.append("        return nullptr;")
+    cpp_lines.append("    }")
+    cpp_lines.append(f"}} // namespace {type_name}_Registry")
+    if not is_last_type:
+        cpp_lines.append("")
+
+
+def _emit_aos_linear_split_type(header_lines, cpp_lines, type_name, d, instances, reg, is_last_type):
+    """§13.7 AoS-linear layout, split mode: extern declaration for one
+    std::array<T, N> All (header) + the actual array + Find() bodies
+    (no longer constexpr, matching _emit_aos_split_type's own reasoning
+    for why split-mode bodies aren't constexpr) in the .cpp. Mirrors
+    _emit_aos_linear_type's single-header shape structurally, same as
+    _emit_aos_split_type mirrors generate_header's inline AoS block --
+    a fresh implementation, not a refactor, so single-header mode's
+    regression guarantee stays untouched.
+
+    Same two properties as the single-header version, unchanged by the
+    split: double-brace initializer required for std::array<T, N>
+    aggregate init, and Find() returns const T* (= &All[i]), not an
+    index, preserving the existing AoS Find() signature exactly.
+    """
+    n = len(instances)
+
+    # ---- header: extern decl for the one instance array ----
+    header_lines.append(f"namespace {type_name}_Instances")
+    header_lines.append("{")
+    header_lines.append(f"    extern const std::array<{type_name}, {n}> All;")
+    header_lines.append("")
+    for i, (name, _value) in enumerate(instances):
+        header_lines.append(f"    inline constexpr std::size_t {name}_Index = {i};")
+    header_lines.append("}")
+    header_lines.append("")
+
+    entries = []
+    for name, _value in instances:
+        iid = reg.get_instance_id(type_name, name)
+        entries.append((iid, name))
+    entries.sort(key=lambda e: e[0])
+
+    header_lines.append(f"namespace {type_name}_Registry")
+    header_lines.append("{")
+    header_lines.append("    struct Entry")
+    header_lines.append("    {")
+    header_lines.append("        uint64_t instance_id;")
+    header_lines.append("        std::string_view name;")
+    header_lines.append("        std::size_t index;")
+    header_lines.append("    };")
+    header_lines.append("")
+    header_lines.append(f"    extern const std::array<Entry, {len(entries)}> Table;")
+    header_lines.append("")
+    header_lines.append(f"    const {type_name}* Find(uint64_t instance_id);")
+    header_lines.append("")
+    header_lines.append(f"    const {type_name}* Find(std::string_view name);")
+    header_lines.append(f"}} // namespace {type_name}_Registry")
+    if not is_last_type:
+        header_lines.append("")
+
+    # ---- cpp: actual array contents + Find() bodies ----
+    cpp_lines.append(f"namespace {type_name}_Instances")
+    cpp_lines.append("{")
+    if n > 0:
+        cpp_lines.append(f"    const std::array<{type_name}, {n}> All = {{{{")
+        for name, value in instances:
+            parts = [_cpp_value_literal(value.fields[f.name], f.type_tokens, reg)
+                      for f in d.fields]
+            init = ", ".join(parts)
+            cpp_lines.append(f"        {{ {init} }},  // {name}")
+        cpp_lines.append("    }};")
+    else:
+        cpp_lines.append(f"    const std::array<{type_name}, 0> All = {{}};")
+    cpp_lines.append(f"}} // namespace {type_name}_Instances")
+    cpp_lines.append("")
+
+    cpp_lines.append(f"namespace {type_name}_Registry")
+    cpp_lines.append("{")
+    if entries:
+        cpp_lines.append(f"    const std::array<Entry, {len(entries)}> Table =")
+        cpp_lines.append("    {")
+        for iid, name in entries:
+            idx = next(i for i, (nm, _) in enumerate(instances) if nm == name)
+            cpp_lines.append(f"        Entry{{ 0x{iid}ULL, \"{name}\", {idx} }},")
+        cpp_lines.append("    };")
+    else:
+        cpp_lines.append(f"    const std::array<Entry, 0> Table = {{}};")
+    cpp_lines.append("")
+
+    cpp_lines.append(f"    const {type_name}* Find(uint64_t instance_id)")
+    cpp_lines.append("    {")
+    cpp_lines.append("        std::size_t lo = 0, hi = Table.size();")
+    cpp_lines.append("")
+    cpp_lines.append("        while (lo < hi)")
+    cpp_lines.append("        {")
+    cpp_lines.append("            std::size_t mid = lo + (hi - lo) / 2;")
+    cpp_lines.append("")
+    cpp_lines.append("            if (Table[mid].instance_id < instance_id)")
+    cpp_lines.append("            {")
+    cpp_lines.append("                lo = mid + 1;")
+    cpp_lines.append("            } else {")
+    cpp_lines.append("                hi = mid;")
+    cpp_lines.append("            }")
+    cpp_lines.append("        }")
+    cpp_lines.append("")
+    cpp_lines.append("        if (lo < Table.size() && Table[lo].instance_id == instance_id)")
+    cpp_lines.append("        {")
+    cpp_lines.append(f"            return &{type_name}_Instances::All[Table[lo].index];")
+    cpp_lines.append("        }")
+    cpp_lines.append("")
+    cpp_lines.append("        return nullptr;")
+    cpp_lines.append("    }")
+    cpp_lines.append("")
+
+    cpp_lines.append(f"    const {type_name}* Find(std::string_view name)")
+    cpp_lines.append("    {")
+    cpp_lines.append("        for (const auto& entry : Table)")
+    cpp_lines.append("        {")
+    cpp_lines.append("            if (entry.name == name)")
+    cpp_lines.append("            {")
+    cpp_lines.append(f"                return &{type_name}_Instances::All[entry.index];")
     cpp_lines.append("            }")
     cpp_lines.append("        }")
     cpp_lines.append("")
@@ -1081,8 +1331,8 @@ def generate_split(reg, resolver, guard_name="GDDL_GENERATED_H",
     Find() bodies -- ordinary runtime functions now, not constexpr,
     since nothing outside this one file needs their body visible.
     """
-    if layout not in ("aos", "soa"):
-        raise ValueError(f"layout must be 'aos' or 'soa', got {layout!r}")
+    if layout not in ("aos", "aos-linear", "soa"):
+        raise ValueError(f"layout must be 'aos', 'aos-linear', or 'soa', got {layout!r}")
 
     header_lines = []
     header_lines.append(f"#ifndef {guard_name}")
@@ -1131,10 +1381,11 @@ def generate_split(reg, resolver, guard_name="GDDL_GENERATED_H",
             header_lines.append("};")
             header_lines.append("")
 
-    # ---- 2. structs: header only, AoS only -- same rule as
-    # generate_header (SoA fully flattens, never needs a struct type). ----
+    # ---- 2. structs: header only, AoS or AoS-linear -- same rule as
+    # generate_header (SoA fully flattens, never needs a struct type;
+    # aos-linear needs it since std::array<T,N> requires T defined). ----
     define_order = _topo_sort_defines(reg)
-    if layout == "aos":
+    if layout in ("aos", "aos-linear"):
         for type_name in define_order:
             d = reg.defines[type_name]
             header_lines.append(f"struct {type_name}")
@@ -1158,6 +1409,8 @@ def generate_split(reg, resolver, guard_name="GDDL_GENERATED_H",
 
         if layout == "soa":
             _emit_soa_split_type(header_lines, cpp_lines, type_name, reg, resolver, is_last_type)
+        elif layout == "aos-linear":
+            _emit_aos_linear_split_type(header_lines, cpp_lines, type_name, d, instances, reg, is_last_type)
         else:
             _emit_aos_split_type(header_lines, cpp_lines, type_name, d, instances, reg, is_last_type)
 
@@ -1202,8 +1455,9 @@ def _cli():
                           "automatically), so this is the sole positional "
                           "-- no ambiguity to resolve here the way the "
                           "other exporters' --type flag exists for.")
-    ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
-                     help="AoS (default) or SoA data layout (§13)")
+    ap.add_argument("--layout", choices=["aos", "aos-linear", "soa"], default="aos",
+                     help="AoS pointer-list (default), AoS linear-list, "
+                          "or SoA data layout (§13, §13.7)")
     ap.add_argument("--force-single-header", action="store_true",
                      help="single monolithic header, inline constexpr "
                           "throughout (§14.3) -- the original behavior, "

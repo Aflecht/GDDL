@@ -1636,3 +1636,76 @@ the git repo, and keeping `golden_output.json` inside the project folder
 future session picking this up — doesn't require reconstructing intent
 from scratch, but none of that substitutes for confirming against the
 real source of truth when one exists elsewhere.
+
+## Z80 SoA support (§13.7), closing the "not implemented yet" gap
+
+Implemented `--layout=soa` for both Z80 assembly paths (SjASMPlus,
+z88dk-z80asm). Previously raised `NotImplementedError` deliberately;
+that's now real, working output on both dialects, real toolchain
+verified. C mode (`--z88dk-output=c`) explicitly stays out of scope for
+this pass -- rejected cleanly with a clear error if combined with
+`--layout=soa`, not silently mishandled.
+
+**Design, grounded in §13.4/§13.7 before writing anything**: any
+dense-index target (6502, 68000, Z80) needs no lookup mechanism at all
+in SoA mode -- the same index that finds an AoS instance already
+indexes every SoA field array. No Find(), no registry, just parallel
+arrays. `gather_type_info` already fully flattens through composition
+regardless of layout, so the only new IR-side logic needed was
+`gather_soa_columns`, a transpose from row-major (per-instance) to
+column-major (per-field), directly mirroring `export_68000.py`'s own
+identically-named, identically-shaped helper -- not a new idea,
+applying an already-proven pattern to a third target.
+
+**Z80-specific reasoning, not a port of 6502's SoA renderer**: 6502
+splits every field wider than a byte into separate lo/hi arrays,
+because 6502 can only do 8-bit indexed loads. Z80 has real 16-bit
+registers and 16-bit indexed addressing, so a `u16` SoA field array is
+one straightforward array of 16-bit words, indexed with a single cheap
+shift (`add hl,hl` for x2), never lo/hi splitting. Confirmed for real,
+not just reasoned about: the harness computes `Item_power + index*2`
+via exactly that shift and reads back the correct value on real
+hardware emulation.
+
+**`string N` fields are explicitly rejected in SoA mode**, matching
+6502's own precedent exactly: a string field's width isn't guaranteed
+a power of two, so indexing it would need a genuine multiply, not a
+shift, and that renderer hasn't been designed. Raises a clear
+`ExportZ80Error` at the emission site if attempted, not a silent gap.
+
+**`--z80-pointer-table`'s existing warn-and-ignore-under-SoA logic was
+left completely untouched** -- it was already correctly specified and
+tested before this work started; confirmed it still fires correctly
+(including when the flag is explicitly `on`, not just when omitted)
+now that SoA actually produces real output instead of erroring
+immediately after the warning.
+
+**Validation, both dialects, real toolchains throughout:**
+- Rebuilt `sjasmplus` from source per this file's own documented
+  recipe (confirmed working via the same `LD A,42`/`RET` -> `3e 2a c9`
+  smoke test already on record). Rebuilt `z88dk-z80asm` the same way,
+  targeted `make` in `src/z80asm/` per this file's own documented
+  shortcut, avoiding the unrelated `z88dk-appmake` build failure.
+- Permanent fixture: `export_z80_test/soa_field_minimal.gddl` -- a
+  `u16` field and an identifier-typed (`u8` domain) field, specifically
+  chosen to exercise both the shift-indexed case and the plain-indexed
+  case in one fixture.
+- Real assemble + real execute on both dialects:
+  `test_z80_soa_harness.asm`/`test_z80_soa_run.py` (SjASMPlus),
+  `test_z80_soa_harness_z88dk.asm`/`test_z80_soa_z88dk_run.py`
+  (z88dk-z80asm) -- both confirmed passing from a clean run, not just
+  the first ad hoc pass.
+- Confirmed existing AoS output and tests are completely unaffected:
+  full 72-fixture regression clean, plus explicit re-run of the
+  existing `test_z80_composition_u16_run.py` (real SjASMPlus assemble
+  + real execute) to confirm nothing about touching shared code
+  (`render()`, `gather_ir`, the two dialect renderers) disturbed the
+  AoS path it already validated.
+- Confirmed the pointer-table warning and the new C-mode+SoA rejection
+  both fire correctly via direct CLI invocation, not just by reading
+  the code.
+
+**Known limitation, honestly recorded, not silently left implicit**:
+`--z88dk-output=c` + `--layout=soa` remains unimplemented, rejected
+cleanly rather than attempted. `string N` fields remain unsupported in
+Z80 SoA on both assembly paths, same scope limit 6502 already has.
