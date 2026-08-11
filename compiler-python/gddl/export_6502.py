@@ -376,33 +376,19 @@ def _cli():
 
     ap = argparse.ArgumentParser(description="GDDL -> 6502 exporter")
     ap.add_argument("source", nargs="+",
-                     help="one or more .gddl source files, glob patterns "
-                          "(with or without an extension), or ** for "
-                          "explicit recursion (§18.4). No extension is "
-                          "assumed anywhere.")
+                     help="one or more .gddl files or glob patterns")
     ap.add_argument("--type", dest="types", action="append", required=True,
-                     help="define type name to export -- repeat for "
-                          "multiple types. Required, at least once. A "
-                          "repeatable option rather than a second "
-                          "positional list, since argparse cannot "
-                          "disambiguate two adjacent variable-length "
-                          "positionals.")
+                     help="type to export (repeatable)")
     ap.add_argument("--dialect", choices=["acme", "kickassembler", "64tass"],
-                     default="acme", help="assembler dialect (§10.3)")
+                     default="acme", help="assembler dialect")
     ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
-                     help="AoS (default) or SoA data layout (§13)")
+                     help="aos (default) or soa data layout")
     ap.add_argument("--zp-base", required=True,
-                     help="required zero-page base address, no default (§10.2) -- "
-                          "e.g. 0x02, $02, or 2")
+                     help="zero-page base address, required (e.g. 0x02)")
     ap.add_argument("--emit-all-domains", action="store_true",
-                     help="emit every width-declared domain's constant table "
-                          "even if no exported field references it (§8.5). "
-                          "Off by default. Useful when hand-written code needs "
-                          "a domain's indexed constants without any GDDL struct "
-                          "ever storing a value from it. A domain with no "
-                          "declared width is unaffected either way.")
+                     help="emit every domain's constants, even unreferenced ones (default: off)")
     ap.add_argument("-o", "--output", default=None,
-                     help="output .asm path (default: stdout)")
+                     help="output path (default: stdout)")
     args = ap.parse_args()
 
     zp_base = _parse_zp_base(args.zp_base)

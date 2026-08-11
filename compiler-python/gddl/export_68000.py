@@ -441,30 +441,15 @@ def _cli():
 
     ap = argparse.ArgumentParser(description="GDDL -> 68000 exporter (vbcc, C89)")
     ap.add_argument("source", nargs="+",
-                     help="one or more .gddl source files, glob patterns "
-                          "(with or without an extension), or ** for "
-                          "explicit recursion (§18.4). No extension is "
-                          "assumed anywhere -- name it or match it "
-                          "explicitly.")
+                     help="one or more .gddl files or glob patterns")
     ap.add_argument("--type", dest="types", action="append", required=True,
-                     help="define type name to export -- repeat for "
-                          "multiple types (e.g. --type Creature --type "
-                          "Item). Required, at least once.")
+                     help="type to export (repeatable)")
     ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
-                     help="AoS (default, dense instance array + Find()) "
-                          "or SoA (one extern array per leaf field, no "
-                          "struct, no lookup) data layout (§13/§15.4)")
+                     help="aos (default) or soa data layout")
     ap.add_argument("--emit-all-domains", action="store_true",
-                     help="emit every width-declared domain's typedef "
-                          "and constants even if no exported field "
-                          "references it (§8.5). Off by default: a "
-                          "domain with no references in the exported "
-                          "types is silently omitted. A domain with no "
-                          "declared width is unaffected either way.")
+                     help="emit every domain's constants, even unreferenced ones (default: off)")
     ap.add_argument("-o", "--output", required=True,
-                     help="output path stem -- writes <stem>.h and "
-                          "<stem>.c (this target always produces a "
-                          "header/.c pair, never a single file)")
+                     help="output path stem (writes <stem>.h and <stem>.c)")
     args = ap.parse_args()
 
     try:

@@ -1449,31 +1449,15 @@ def _cli():
 
     ap = argparse.ArgumentParser(description="GDDL -> C++ exporter")
     ap.add_argument("source", nargs="+",
-                     help="one or more .gddl source files, glob patterns "
-                          "(with or without an extension), or ** for "
-                          "explicit recursion (§18.4). No extension is "
-                          "assumed anywhere. export_cpp.py has no --type "
-                          "flag (every type in the schema is exported "
-                          "automatically), so this is the sole positional "
-                          "-- no ambiguity to resolve here the way the "
-                          "other exporters' --type flag exists for.")
+                     help="one or more .gddl files or glob patterns")
     ap.add_argument("--layout", choices=["aos", "aos-linear", "soa"], default="aos",
-                     help="AoS pointer-list (default), AoS linear-list, "
-                          "or SoA data layout (§13, §13.7)")
+                     help="aos (default), aos-linear, or soa data layout")
     ap.add_argument("--force-single-header", action="store_true",
-                     help="single monolithic header, inline constexpr "
-                          "throughout (§14.3) -- the original behavior, "
-                          "no longer the default")
+                     help="single header instead of split .h/.cpp")
     ap.add_argument("--emit-all-domains", action="store_true",
-                     help="emit the _Indexed companion enum for every "
-                          "width-declared domain regardless of whether "
-                          "any @Domain field references it (§14.7 / §8.5). "
-                          "Off by default: a companion is only emitted when "
-                          "something actually uses @Domain for it.")
+                     help="emit every domain's constants, even unreferenced ones (default: off)")
     ap.add_argument("-o", "--output", default="generated",
-                     help="output path stem (default: stdout for "
-                          "single-header mode; 'generated.h'/'generated.cpp' "
-                          "for split mode)")
+                     help="output path stem (default: stdout for single-header, 'generated' otherwise)")
     args = ap.parse_args()
 
     try:

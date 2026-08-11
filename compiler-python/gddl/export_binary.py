@@ -367,18 +367,13 @@ def _cli():
     import sys
     from combine import resolve_inputs, compile_multi, CombineError
 
-    ap = argparse.ArgumentParser(description="GDDL -> standalone binary exporter (§17)")
+    ap = argparse.ArgumentParser(description="GDDL -> standalone binary exporter")
     ap.add_argument("source", nargs="+",
-                     help="one or more .gddl source files, glob patterns "
-                          "(with or without an extension), or ** for "
-                          "explicit recursion (§18.4). No extension is "
-                          "assumed anywhere.")
+                     help="one or more .gddl files or glob patterns")
     ap.add_argument("--type", dest="types", action="append", required=True,
-                     help="define type name to export -- repeat for "
-                          "multiple types. Required, at least once.")
+                     help="type to export (repeatable)")
     ap.add_argument("-o", "--output", required=True,
-                     help="output stem -- writes <stem>.gddldata.bin and "
-                          "<stem>.gddlmeta.json")
+                     help="output stem (writes <stem>.gddldata.bin and <stem>.gddlmeta.json)")
     args = ap.parse_args()
 
     try:

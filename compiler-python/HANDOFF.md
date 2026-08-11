@@ -1823,3 +1823,36 @@ just the shared function in isolation**:
 This closes a real, previously-unnoticed gap in a core guarantee this
 project has stated repeatedly: bad data is always a compile error,
 never something that ships silently. It wasn't, until now.
+
+## -h help text trimmed across all five exporters
+
+Every exporter's --help output had grown quite verbose over the
+course of this project -- §-references pointing at SPEC.md, argparse
+design rationale ("a repeatable option rather than a second
+positional list, since argparse cannot disambiguate..."), and asides
+explaining *why* a flag works a certain way rather than just *what*
+it does. That's genuinely useful context, but it belongs in this file
+or SPEC.md, not in something meant to be read at a glance on the
+command line.
+
+Trimmed every flag's help= string (and export_binary.py's description
+line, which had its own stray §17) down to what a user actually needs:
+what the flag does, valid choices, and whether it's required. Net
+reduction of 77 lines across the five files, roughly a third to a half
+the length per exporter depending on how verbose it started.
+
+**Scope, deliberately narrow**: only help= and description= string
+literals were touched, nothing else. Runtime error messages (the
+actual ap.error() calls, the --z88dk-output=c + --layout=soa
+rejection, the --z80-pointer-table required-flag error, etc.) were
+left completely untouched -- those are diagnostics a user sees only
+when something's actually wrong, and full context there is still the
+right call, unlike the --help text everyone sees on every invocation
+regardless of whether anything's wrong.
+
+**Validated**: all five files confirmed parsing, all five -h outputs
+read and confirmed genuinely shorter with zero remaining § references,
+and a real functional invocation of each exporter confirmed unaffected
+(same generated output, same flags, same behavior). The Z80 C-mode +
+SoA rejection specifically re-checked to confirm its full runtime
+error text is untouched. Full 72-fixture regression clean throughout.

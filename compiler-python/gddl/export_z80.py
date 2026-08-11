@@ -410,54 +410,27 @@ def _cli():
 
     ap = argparse.ArgumentParser(description="GDDL -> Z80 exporter")
     ap.add_argument("source", nargs="+",
-                     help="one or more .gddl source files, glob patterns "
-                          "(with or without an extension), or ** for "
-                          "explicit recursion (§18.4). No extension is "
-                          "assumed anywhere -- name it or match it "
-                          "explicitly.")
+                     help="one or more .gddl files or glob patterns")
     ap.add_argument("--type", dest="types", action="append", required=True,
-                     help="define type name to export -- repeat for "
-                          "multiple types (e.g. --type Creature --type "
-                          "Item). Required, at least once. A repeatable "
-                          "option rather than a second positional list, "
-                          "since argparse cannot disambiguate two "
-                          "adjacent variable-length positionals (confirmed "
-                          "directly: a bare second nargs='+' silently "
-                          "misparses which arguments belong to which list, "
-                          "rather than erroring -- not a theoretical risk).")
+                     help="type to export (repeatable)")
     ap.add_argument("--z80-toolchain", choices=["sjasmplus", "z88dk"],
-                     default="sjasmplus", help="Z80 toolchain (§16.3)")
+                     default="sjasmplus", help="Z80 toolchain")
     ap.add_argument("--z88dk-output", choices=["asm", "c"], default="asm",
-                     help="z88dk output form, only meaningful with "
-                          "--z80-toolchain=z88dk (§16.3)")
+                     help="z88dk output form (only with --z80-toolchain=z88dk)")
     # Mandatory, no default -- §16.2/§16.3, following --zp-base (§10.2).
     # argparse `required=True` is what actually enforces "no default";
     # render() independently rejects None so the library API can't be
     # called without a decision either.
     ap.add_argument("--z80-pointer-table", choices=["on", "off"], required=True,
-                     help="emit a {Type}_Registry pointer table alongside "
-                          "{Type}_Instances (on), or address instances "
-                          "directly as index*sizeof (off). REQUIRED -- "
-                          "§16.2 resource/performance tradeoff with no "
-                          "exporter-guessable default")
+                     help="pointer table (on) or direct addressing (off), required")
     ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
-                     help="data layout (§13.6, §13.7). SoA implemented "
-                          "for sjasmplus and z88dk-asm; not yet for "
-                          "--z88dk-output=c")
+                     help="aos (default) or soa data layout (soa not available with --z88dk-output=c)")
     ap.add_argument("--z80-find-macro", choices=["on", "off"], default="off",
-                     help="also emit an inline MACRO variant of {Type}_Find "
-                          "alongside the callable subroutine, saving the "
-                          "call+ret (27 T-states) per call site at the cost "
-                          "of code size per expansion. Opt-in: the callable "
-                          "form remains the default for every consumer")
+                     help="also emit an inline macro variant of Find (default: off)")
     ap.add_argument("--emit-all-domains", action="store_true",
-                     help="emit every width-declared domain's constant table "
-                          "even if no exported field references it (§8.5). "
-                          "Off by default.")
+                     help="emit every domain's constants, even unreferenced ones (default: off)")
     ap.add_argument("-o", "--output", default=None,
-                     help="output path (default: stdout). For "
-                          "--z88dk-output=c this is the stem: <stem>.h and "
-                          "<stem>.c are both written (§16.2.1)")
+                     help="output path (default: stdout; stem for --z88dk-output=c)")
     args = ap.parse_args()
 
     pointer_table = args.z80_pointer_table == "on"
