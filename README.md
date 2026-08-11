@@ -1,6 +1,6 @@
 # GDDL: Game Data Definition Language
 
-GDDL lets you define your game's structured data once: item stats, character definitions, ability tables, loot tables, anything with a fixed shape you'd otherwise hand-write as a struct or a spreadsheet. You compile it into whatever your game actually needs: real C++ structs, retro 6502/Z80/68000 assembly or C, or a portable binary file your game loads at runtime.
+GDDL lets you define your game's structured data once: item stats, character definitions, ability tables, loot tables, anything with a fixed shape you'd otherwise hand-write as a struct or a spreadsheet. You compile it into whatever your game actually needs: real C++ structs, 6502 or Z80 assembly, C89 for 68000, or a portable binary file your game loads at runtime.
 
 Every export target is generated from the same compiled, validated representation, so your C++ build and your loadable mod data can never silently drift apart from each other.
 
@@ -204,7 +204,7 @@ Bad data, an out-of-range number, an over-length string, two things claiming the
 
 ## Status
 
-Actively developed. C++, 6502 (ACME, KickAssembler, 64tass), Z80 (SjASMPlus, z88dk), and 68000 (Amiga, Atari ST) export are complete and validated against real toolchains, each with its own command-line tool. The standalone binary export format is complete too, including the compile-time check a game uses to confirm loaded data actually matches its own schema. Compiling several `.gddl` files together, so definitions and instances can live in separate files, is also done.
+Actively developed. C++, 6502 (ACME, KickAssembler, 64tass), Z80 (SjASMPlus, z88dk), and 68000 (C89 via vbcc, Amiga and Atari ST) export are complete and validated against real toolchains, each with its own command-line tool. The standalone binary export format is complete too, including the compile-time check a game uses to confirm loaded data actually matches its own schema. Compiling several `.gddl` files together, so definitions and instances can live in separate files, is also done.
 
 **Python compiler (`compiler-python/`): v0.9.** Run any exporter with `--version` to confirm.
 
