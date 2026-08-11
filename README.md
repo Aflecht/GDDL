@@ -55,17 +55,142 @@ for (const auto& entry : GDDL::Item_Registry::Table)
     entry.data->power;
 ```
 
-That's your item list, ready to use in your game. The same source, unchanged, can also produce 6502 or Z80 assembly with the same three items laid out as a dense, zero-overhead table, or a standalone binary file your game can load, hot-reload, or mod at runtime.
+That's your item list, ready to use in your game.
 
-Every export also comes in two layouts: one struct per item (what's shown above), or one flat array per field, all items' `power` values sitting together in memory. The second layout, called SoA, is what you want on 6502 specifically, since it avoids a multiply the chip doesn't have in hardware, and it's also the layout an ECS-style engine wants, since a system updating one component type across many entities is exactly the access pattern SoA is built for. Same source, same command, just a flag.
+## Templates you copy, not classes you extend
 
-Every 6502, Z80, and 68000 export path was built and tested against real assemblers and real emulators, not just generated and assumed correct. Bad data (an out-of-range number, an over-length string, two things claiming the same ID) is a compile error, never a silent bug you find later.
+Reuse in GDDL isn't inheritance, `define`s never inherit from each other, deliberately, so a struct's full field list is always visible in one place, not scattered across parent definitions. What you get instead is compile-time copying: build a base instance once, then copy and adjust it as many times as you need, with real arithmetic on the way.
 
-### Mods without a coordinator
+```gddl
+define Creature
+	hitpoints = i32
 
-Most games that support mods need some way to hand out unique IDs: the base game claims a range, mod A claims another, and everyone has to agree in advance who owns what. Get that wrong and two mods pick the same ID, and one of them silently breaks.
+Creature BaseCreature delete
+	hitpoints = 100
 
-GDDL sidesteps this. Every item's ID is computed by hashing its own name, not assigned from a shared counter. Two mods built by people who have never talked to each other, each adding their own new items, will end up with different IDs almost certainly, without either author reserving anything or registering with anyone first. Your game can also check, at load time, whether a mod's data actually matches the schema it was built against, so a mismatched or out-of-date mod fails to load cleanly instead of corrupting something. This is what makes GDDL's standalone binary export genuinely usable for real mod support, not just data storage.
+Creature Human_Fighter = BaseCreature
+	hitpoints * 2
+	hitpoints + 5
+```
+
+`delete` marks `BaseCreature` as a template: it compiles, but it's never exported on its own, only usable as something to copy. `Human_Fighter` copies it, then runs its own statements against that copy, in order: `100 * 2 + 5 = 205`.
+
+```cpp
+const Creature Human_Fighter = { 205 };
+```
+
+The math happens once, at compile time. `Human_Fighter` doesn't carry `BaseCreature`'s formula around at runtime, it's already just `205`.
+
+[`docs/templates-guide.md`](docs/templates-guide.md) covers multi-generation template chains, referencing other fields in the same expression, and the full set of operators available. *(coming soon)*
+
+## Multiple data layouts
+
+You can choose which data layout to export into, switching is just a flag, same source either way:
+
+- **AoS pointer list** (the default): one struct per item, plus a small list of pointers so you can look any of them up.
+- **AoS, linear**: array-of-structures, one contiguous array holding every item's struct directly, no pointers at all.
+- **SoA, linear**: structure-of-arrays, each field gets its own array instead, every item's value for that field sitting together.
+
+Each layout is fastest in a different place. SoA is what 6502 needs (it has no hardware multiply) and what an ECS-style engine wants generally, since a system updates one component at a time across many entities. Linear AoS gives the most direct access wherever a multiply is cheap, like modern PC and console hardware.
+
+[`docs/data-layouts.md`](docs/data-layouts.md) walks through all three side by side, with real code for each. *(coming soon)*
+
+## Jump tables from data
+
+A roguelike's attacks can live in an identifier domain, with each enemy just naming which one it uses:
+
+```gddl
+identifier AttackType u8
+	slash = "A melee slashing attack"
+	stab = "A melee piercing attack"
+
+define Enemy
+	attack = AttackType
+
+Enemy Goblin
+	attack = AttackType.slash
+```
+
+On PC, that domain compiles to a real enum, each value a genuine 64-bit hash of its own description:
+
+```cpp
+enum class AttackType : uint64_t
+{
+    slash = 0x53dfb22ff04e626dULL,
+    stab = 0xbd6b7396f60a93e5ULL,
+};
+```
+
+That's a real key you can dispatch on directly, an `unordered_map<AttackType, ...>` from value to handler function is all it takes:
+
+```cpp
+std::unordered_map<AttackType, void(*)(Enemy&)> handlers = {
+    { AttackType::slash, DoSlash },
+    { AttackType::stab, DoStab },
+};
+
+handlers[goblin.attack](goblin);
+```
+
+Because the ID comes from the text itself rather than a shared counter, a mod can add `AttackType.fireball` for some new enemy without ever touching the base game's own domain, more on exactly why below.
+
+On 6502, where checking a 64-bit hash on every single attack would be far too slow, the identical domain compiles into something else entirely: a dense, declaration-order jump table, real assembly, no hashing anywhere:
+
+```asm
+; --- domain: AttackType (indexed form, width u8) ---
+AttackType_slash = 0
+AttackType_stab = 1
+
+AttackType_JumpTable_Lo:
+	!byte <AttackType_slash_Handler
+	!byte <AttackType_stab_Handler
+AttackType_JumpTable_Hi:
+	!byte >AttackType_slash_Handler
+	!byte >AttackType_stab_Handler
+
+AttackType_DispatchPtr = $04
+
+AttackType_Dispatch:
+	LDA AttackType_JumpTable_Lo,X
+	STA AttackType_DispatchPtr
+	LDA AttackType_JumpTable_Hi,X
+	STA AttackType_DispatchPtr+1
+	JMP (AttackType_DispatchPtr)
+```
+
+Load the table entry for whichever attack was picked, jump straight to it. No comparisons, no hashing, no lookup loop.
+
+[`docs/dispatch-guide.md`](docs/dispatch-guide.md) walks through this example end to end, including the real, assembled-and-executed version of the code above. *(coming soon)*
+
+## Built and validated for real
+
+Every 6502, Z80, and 68000 export path is checked against real assemblers and real emulators, not just generated and assumed correct.
+
+Bad data, an out-of-range number, an over-length string, two things claiming the same ID, is a compile error, never a silent bug you find later.
+
+## Mods without a coordinator
+
+Most moddable games need some way to hand out unique IDs by hand: the base game claims a range, each mod claims another, and everyone has to coordinate in advance to avoid collisions.
+
+Say a mod wants to add its own attack. It writes its own, completely separate `.gddl` file:
+
+```gddl
+identifier AttackType u8
+	fireball = "A fire-based ranged attack"
+```
+
+Compiled entirely on its own, with no access to the base game's source, that gets a real hash of its own:
+
+```cpp
+enum class AttackType : uint64_t
+{
+    fireball = 0x9a8624540909f0f7ULL,
+};
+```
+
+Nowhere near `slash`'s `0x53dfb22ff04e626d` or `stab`'s `0xbd6b7396f60a93e5` from above, and realistically never will be: the ID comes from hashing the mod's own description text, not a shared counter, so two mods built by people who've never even heard of each other end up with different IDs without either one reserving anything in advance.
+
+What that doesn't cover on its own is whether a mod's data still matches what the game actually expects. Your game can check, at load time, whether a mod's data matches the schema it was built against, so an out-of-date or incompatible mod fails to load cleanly instead of corrupting something.
 
 ## Repository layout
 
