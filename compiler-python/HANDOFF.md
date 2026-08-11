@@ -1709,3 +1709,58 @@ immediately after the warning.
 `--z88dk-output=c` + `--layout=soa` remains unimplemented, rejected
 cleanly rather than attempted. `string N` fields remain unsupported in
 Z80 SoA on both assembly paths, same scope limit 6502 already has.
+
+## C++ SoA Find() not-found sentinel: Table.size() -> static_cast<std::size_t>(-1)
+
+Changed both `Find(uint64_t)` and `Find(std::string_view)` overloads,
+in both single-header and split rendering (4 call sites total), from
+returning `Table.size()` to returning `static_cast<std::size_t>(-1)`
+on a miss.
+
+**Reasoning, not just a style change**: `Table.size()` and
+`static_cast<std::size_t>(-1)` fail very differently if a caller
+forgets to check the return value before indexing with it. `size()`
+used unchecked is exactly one past the end -- undefined behavior that
+may not crash at all, silently reading whatever memory happens to sit
+next, producing a plausible-looking but wrong value rather than an
+obvious failure. `static_cast<std::size_t>(-1)` used unchecked is
+`SIZE_MAX`, catastrophically out of bounds -- an immediate crash or an
+instant ASan catch, not a quiet bug that ships. The new value is also
+numerically identical to `std::string::npos` (confirmed directly:
+`static_cast<std::size_t>(-1) == std::numeric_limits<std::size_t>::max()`),
+matching an established standard-library idiom rather than inventing
+a new one.
+
+**Confirmed no other exporter is affected.** Checked directly, not
+assumed: 6502/Z80/68000's own `{Type}_Find` functions take an
+already-known compile-time index and convert it straight to an
+address (direct array arithmetic or a pointer-table read) -- there is
+no runtime search and therefore no "not found" case to have a
+sentinel for at all. `export_binary.py` has no `Find()`-style
+functions of its own. C++'s own AoS pointer-list and AoS-linear
+`Find()` overloads are also unaffected, since they return `const
+Item*`, and `nullptr` was already the natural, unambiguous sentinel
+for a pointer -- this question only ever applied to SoA specifically,
+since SoA is the one layout where `Find()` can't return a pointer at
+all.
+
+**Validated**: real `g++17` compile and execution, checked under
+`-Wall -Wextra -Wconversion` specifically (the strictest relevant
+flag for an implicit-sign-conversion concern) -- zero warnings.
+Confirmed both the found and not-found cases directly, single-header
+and split. Updated the two existing committed test files that
+asserted against the old sentinel value (`test_generated_indexed_soa.cpp`,
+`test_split_soa_main.cpp`) and regenerated their committed generated
+output. Full 72-fixture regression clean throughout. `SPEC.md` checked
+directly -- no SoA `Find()` worked example exists there, so nothing
+needed updating on that side.
+
+**One incidental, clearly-separated finding, not part of the requested
+change**: regenerating `generated_indexed_soa.h` and
+`generated_indexed_split_soa.h` revealed both were already stale
+before this fix, missing the entire §17.5 `SchemaTable` section --
+these two committed fixtures predate that work and were never
+regenerated after it landed. Kept the fix, since reverting it would
+have knowingly reintroduced a known-stale committed artifact, but
+calling it out as its own thing rather than folding it silently into
+the sentinel change's diff.

@@ -77,6 +77,26 @@ namespace Item_SoA_Registry
 
     std::size_t Find(std::string_view name);
 } // namespace Item_SoA_Registry
+
+// §17.5: compile-time schema table, for comparison against
+// whatever a loaded .gddldata.bin/.gddlmeta.json pair claims at
+// runtime (§17.6). schema_hash/record_size here are computed by
+// the EXACT SAME functions the .gddldata.bin exporter calls --
+// see export_cpp.py's compute_schema_hash/compute_record_size,
+// shared with export_binary.py, never a second implementation.
+struct SchemaEntry
+{
+    std::string_view type_name;
+    uint64_t schema_hash;
+    uint32_t record_size;
+};
+
+inline constexpr std::array<SchemaEntry, 2> SchemaTable =
+{
+    SchemaEntry{ "Object", 0xc3b65b8d9dc943b8ULL, 8 },
+    SchemaEntry{ "Item", 0x2c99385395d2d57eULL, 37 },
+};
+
 } // namespace GDDL
 
 #endif // GDDL_GENERATED_H

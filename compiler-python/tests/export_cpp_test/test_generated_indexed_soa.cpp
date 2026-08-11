@@ -55,7 +55,7 @@ int main() {
     // ---- §13.4: parallel lookup table resolves ID/name to the
     // correct row, and that row correctly indexes every field array ----
     std::size_t row = GDDL::Item_SoA_Registry::Find(std::string_view("ItemViaBareModify"));
-    assert(row != GDDL::Item_SoA_Registry::Table.size()); // found (not the not-found sentinel)
+    assert(row != static_cast<std::size_t>(-1)); // found (not the not-found sentinel)
     assert(GDDL::Item_SoA::object_something1[row] == 99);
     assert(GDDL::Item_SoA::weight[row] == 7);
     assert(GDDL::Item_SoA::element[row] == GDDL::Element::ice);
@@ -67,9 +67,9 @@ int main() {
     std::size_t row_by_id = GDDL::Item_SoA_Registry::Find(0x8ad19844df88b655ULL);
     assert(row_by_id == row);
 
-    // Miss: not-found sentinel is Table.size(), not some other value.
-    assert(GDDL::Item_SoA_Registry::Find(std::string_view("NoSuchItem")) == GDDL::Item_SoA_Registry::Table.size());
-    assert(GDDL::Item_SoA_Registry::Find(0xdeadbeefULL) == GDDL::Item_SoA_Registry::Table.size());
+    // Miss: not-found sentinel is static_cast<std::size_t>(-1), the same value as std::string::npos.
+    assert(GDDL::Item_SoA_Registry::Find(std::string_view("NoSuchItem")) == static_cast<std::size_t>(-1));
+    assert(GDDL::Item_SoA_Registry::Find(0xdeadbeefULL) == static_cast<std::size_t>(-1));
 
     // ---- Object's SoA (a type with no composition, simpler case,
     // larger instance count) -- every entry via the parallel lookup ----

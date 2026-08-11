@@ -22,14 +22,14 @@ int main() {
 
     // parallel lookup -- ordinary runtime function now
     std::size_t row = GDDL::Item_SoA_Registry::Find(std::string_view("ItemViaBareModify"));
-    assert(row != GDDL::Item_SoA_Registry::Table.size());
+    assert(row != static_cast<std::size_t>(-1));
     assert(GDDL::Item_SoA::weight[row] == 7);
     assert(GDDL::Item_SoA::element[row] == GDDL::Element::ice);
 
     std::size_t row_by_id = GDDL::Item_SoA_Registry::Find(0x8ad19844df88b655ULL);
     assert(row_by_id == row);
 
-    assert(GDDL::Item_SoA_Registry::Find(std::string_view("NoSuchItem")) == GDDL::Item_SoA_Registry::Table.size());
+    assert(GDDL::Item_SoA_Registry::Find(std::string_view("NoSuchItem")) == static_cast<std::size_t>(-1));
 
     // Object's SoA -- larger table, every entry via the lookup
     for (const auto& entry : GDDL::Object_SoA_Registry::Table) {

@@ -45,7 +45,7 @@ namespace Object_SoA_Registry
             return Table[lo].row;
         }
 
-        return Table.size();
+        return static_cast<std::size_t>(-1);
     }
 
     std::size_t Find(std::string_view name)
@@ -58,7 +58,7 @@ namespace Object_SoA_Registry
             }
         }
 
-        return Table.size();
+        return static_cast<std::size_t>(-1);
     }
 } // namespace Object_SoA_Registry
 
@@ -110,7 +110,7 @@ namespace Item_SoA_Registry
             return Table[lo].row;
         }
 
-        return Table.size();
+        return static_cast<std::size_t>(-1);
     }
 
     std::size_t Find(std::string_view name)
@@ -123,7 +123,7 @@ namespace Item_SoA_Registry
             }
         }
 
-        return Table.size();
+        return static_cast<std::size_t>(-1);
     }
 } // namespace Item_SoA_Registry
 } // namespace GDDL

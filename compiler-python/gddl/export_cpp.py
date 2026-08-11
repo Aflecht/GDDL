@@ -359,10 +359,11 @@ def emit_soa_type(lines, type_name, reg, resolver, is_last_type):
     string fields become one flat N*count byte array (§13.2), and a
     parallel lookup table (§13.4) mirrors the AoS registry's exact
     shape/style but returns a row INDEX rather than a pointer (there's
-    no single struct object to point to in SoA), using Table.size() as
-    the not-found sentinel -- the same convention nullptr serves in AoS,
-    just adapted to an index rather than a pointer, avoiding any need
-    for <optional> or a second sentinel scheme."""
+    no single struct object to point to in SoA). The not-found sentinel
+    is static_cast<std::size_t>(-1) -- numerically identical to
+    std::string::npos, and deliberately loud if misused unchecked as an
+    index: an out-of-bounds crash or an ASan catch, not the silent
+    one-past-the-end read a Table.size() sentinel would risk instead."""
     d = reg.defines[type_name]
     instances = export_instances_for_type(type_name, reg, resolver)
     leaves = _flatten_leaves(type_name, reg)
@@ -455,7 +456,7 @@ def emit_soa_type(lines, type_name, reg, resolver, is_last_type):
     lines.append("            return Table[lo].row;")
     lines.append("        }")
     lines.append("")
-    lines.append("        return Table.size();")
+    lines.append("        return static_cast<std::size_t>(-1);")
     lines.append("    }")
     lines.append("")
 
@@ -469,7 +470,7 @@ def emit_soa_type(lines, type_name, reg, resolver, is_last_type):
     lines.append("            }")
     lines.append("        }")
     lines.append("")
-    lines.append("        return Table.size();")
+    lines.append("        return static_cast<std::size_t>(-1);")
     lines.append("    }")
     lines.append(f"}} // namespace {type_name}_SoA_Registry")
     if not is_last_type:
@@ -1284,7 +1285,7 @@ def _emit_soa_split_type(header_lines, cpp_lines, type_name, reg, resolver, is_l
     cpp_lines.append("            return Table[lo].row;")
     cpp_lines.append("        }")
     cpp_lines.append("")
-    cpp_lines.append("        return Table.size();")
+    cpp_lines.append("        return static_cast<std::size_t>(-1);")
     cpp_lines.append("    }")
     cpp_lines.append("")
 
@@ -1298,7 +1299,7 @@ def _emit_soa_split_type(header_lines, cpp_lines, type_name, reg, resolver, is_l
     cpp_lines.append("            }")
     cpp_lines.append("        }")
     cpp_lines.append("")
-    cpp_lines.append("        return Table.size();")
+    cpp_lines.append("        return static_cast<std::size_t>(-1);")
     cpp_lines.append("    }")
     cpp_lines.append(f"}} // namespace {type_name}_SoA_Registry")
     if not is_last_type:
