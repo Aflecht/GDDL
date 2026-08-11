@@ -182,3 +182,71 @@ const Creature Ogre = { 60 };
 ```
 
 Left to right, same as always: `100`, then `20 + 100 * 0.5` reads as `(20 + 100) * 0.5`, which is `60`.
+
+## Two ways to touch a nested field
+
+This next fork only shows up on struct-typed fields. A scalar field like `hitpoints` has nothing to enter, `hitpoints = 100` is always a plain overwrite. A struct-typed field, one holding another `define`'s worth of data, has two genuinely different ways to be touched.
+
+```gddl
+define Stats
+	hp = i32
+	mp = i32
+
+define Creature
+	stats = Stats
+	name = string 20
+
+Stats OtherStats delete
+	hp = 1
+	mp = 2
+
+Creature Base
+	stats
+		hp = 100
+		mp = 50
+	name = "Base"
+
+Creature FullReplace = Base
+	stats = OtherStats   // discards Base's stats entirely, adopts OtherStats's instead
+	name = "FullReplace"
+
+Creature ModifyOnly = Base
+	stats
+		mp = 999   // only mp changes; hp stays whatever Base already had
+	name = "ModifyOnly"
+```
+
+```cpp
+const Creature FullReplace = { Stats{ 1, 2 }, "FullReplace" };
+const Creature ModifyOnly = { Stats{ 100, 999 }, "ModifyOnly" };
+```
+
+`stats = OtherStats` is full replace: `Base`'s `hp = 100, mp = 50` is thrown away completely, and `FullReplace` ends up with `OtherStats`'s values instead. A bare `stats` with no `=` is the opposite, modify-only: it enters `Base`'s already-inherited stats and changes only what's actually listed, `mp` becomes `999`, `hp` stays exactly what it already was.
+
+A bare field with nothing indented under it at all is legal, a genuine no-op, but it's usually a mistake, so a warning is generated:
+
+```gddl
+define Stats
+	hp = i32
+	mp = i32
+
+define Creature
+	stats = Stats
+	name = string 20
+
+Creature Base
+	stats
+		hp = 100
+		mp = 50
+	name = "Base"
+
+Creature Placeholder = Base
+	stats
+	name = "Placeholder"
+```
+
+```
+WARNING [phase 3, empty_bare_field] - line 16: bare field 'stats' (modify-only form) has no indented sub-statements -- this enters the field's scope but changes nothing in it, which is valid but usually unintentional (e.g. every statement under it got commented out)
+```
+
+It still compiles, `Placeholder` just ends up with `Base`'s stats completely untouched. There's no third option in between full replace and modify-only, no mode that keeps old values except where something new happens to be provided. That's deliberate: a field silently keeping a stale value because nobody remembered to list it would look identical to a field someone genuinely meant to leave alone.
