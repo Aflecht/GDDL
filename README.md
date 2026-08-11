@@ -162,12 +162,6 @@ Load the table entry for whichever attack was picked, jump straight to it. No co
 
 [`docs/dispatch-guide.md`](docs/dispatch-guide.md) walks through this example end to end, including the real, assembled-and-executed version of the code above. *(coming soon)*
 
-## Built and validated for real
-
-Every 6502, Z80, and 68000 export path is checked against real assemblers and real emulators, not just generated and assumed correct.
-
-Bad data, an out-of-range number, an over-length string, two things claiming the same ID, is a compile error, never a silent bug you find later.
-
 ## Mods without a coordinator
 
 Most moddable games need some way to hand out unique IDs by hand: the base game claims a range, each mod claims another, and everyone has to coordinate in advance to avoid collisions.
@@ -191,6 +185,12 @@ enum class AttackType : uint64_t
 Nowhere near `slash`'s `0x53dfb22ff04e626d` or `stab`'s `0xbd6b7396f60a93e5` from above, and realistically never will be: the ID comes from hashing the mod's own description text, not a shared counter, so two mods built by people who've never even heard of each other end up with different IDs without either one reserving anything in advance.
 
 What that doesn't cover on its own is whether a mod's data still matches what the game actually expects. Your game can check, at load time, whether a mod's data matches the schema it was built against, so an out-of-date or incompatible mod fails to load cleanly instead of corrupting something.
+
+## Built and validated for real
+
+Every 6502, Z80, and 68000 export path is checked against real assemblers and real emulators, not just generated and assumed correct.
+
+Bad data, an out-of-range number, an over-length string, two things claiming the same ID, is a compile error, never a silent bug you find later.
 
 ## Repository layout
 
