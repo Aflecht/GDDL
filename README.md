@@ -132,6 +132,8 @@ std::unordered_map<AttackType, void(*)(Enemy&)> handlers = {
 handlers[goblin.attack](goblin);
 ```
 
+New to `identifier` blocks or this `@`/64-bit-ID syntax? [`docs/language-basics.md`](docs/language-basics.md) covers the fundamentals on their own, outside any specific example.
+
 Because the ID comes from the text itself rather than a shared counter, a mod can add `AttackType.fireball` for some new enemy without ever touching the base game's own domain, more on exactly why below.
 
 On 6502, where checking a 64-bit hash on every single attack would be far too slow, the identical domain compiles into something else entirely: a dense, declaration-order jump table, real assembly, no hashing anywhere:
