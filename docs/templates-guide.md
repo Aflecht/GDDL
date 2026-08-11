@@ -92,3 +92,93 @@ GoblinBoss: ERROR [phase 4, circular_dependency] - line 7: circular instance-cop
 
 It names the exact cycle. The message appears twice in a slightly different shape, once as a general diagnostic, once attributed to each specific instance it blocks, but it's the same real error both times, caught before any resolution work even begins, not partway through.
 
+## Every operator there is, and the rule that catches people off guard
+
+Four operators exist: `+`, `-`, `*`, `/`. Nothing else, no modulo, no bitwise, no comparison.
+
+What catches people off guard is how they combine. There's no precedence table, `*` and `/` don't bind tighter than `+` and `-` the way they would in ordinary math. Everything evaluates strictly left to right, exactly as written:
+
+```gddl
+define Item
+	value = i32
+
+Item NoParens
+	value = 20 + 10 * 3   // left to right: (20 + 10) * 3, not 20 + (10 * 3)
+
+Item WithParens
+	value = 20 + (10 * 3)   // explicit grouping forces the other order
+```
+
+```cpp
+const Item NoParens = { 90 };
+const Item WithParens = { 50 };
+```
+
+Same numbers, same operators, two different real results, `90` versus `50`, depending only on whether parentheses are there to force the grouping ordinary math would assume for free. Nothing here is a special case for assign statements either, op-statements follow the exact same rule, with the field's own current value counting as the true leftmost operand:
+
+```gddl
+Item Test
+	value = 10
+	value * 2 + 1   // (10 * 2) + 1, not 10 * (2 + 1)
+```
+
+```cpp
+const Item Test = { 21 };
+```
+
+## Referencing other fields
+
+An expression isn't limited to literals and its own field's current value. It can read any other field already set on the same instance:
+
+```gddl
+define Item
+	weight = u32
+	count = u32
+	total_weight = u32
+
+Item Crate
+	weight = 10
+	count = 5
+	total_weight = weight * count   // reads two other fields on this same instance
+```
+
+```cpp
+const Item Crate = { 10, 5, 50 };
+```
+
+This only ever reaches fields on the current instance, nothing on any other instance is in scope, by design.
+
+Read a field before it's set, and it's the same uninitialized-field error as before:
+
+```gddl
+define Item
+	weight = u32
+	count = u32
+	total_weight = u32
+
+Item Crate
+	total_weight = weight * count   // weight and count are read here, but not set yet
+	weight = 10
+	count = 5
+```
+
+```
+Crate: ERROR [phase 6, uninitialized_read] - line 7: 'weight' is read before being initialized -- reading an uninitialized field is always a compile-time error, delete-marked instances included
+```
+
+A field can even reference its own current value on a plain assign, and unlike op-statement shorthand, that self-reference doesn't have to lead the expression, it can sit anywhere:
+
+```gddl
+define Creature
+	hitpoints_maximum = i32
+
+Creature Ogre
+	hitpoints_maximum = 100
+	hitpoints_maximum = 20 + hitpoints_maximum * 0.5   // reads hitpoints_maximum before this line overwrites it
+```
+
+```cpp
+const Creature Ogre = { 60 };
+```
+
+Left to right, same as always: `100`, then `20 + 100 * 0.5` reads as `(20 + 100) * 0.5`, which is `60`.
