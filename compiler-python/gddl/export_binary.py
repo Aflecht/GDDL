@@ -133,6 +133,7 @@ from export_cpp import (
     compute_schema_hash, compute_record_size, SchemaComputationError,
 )
 from resolve import StructValue, IdentifierRef
+from validate import check_and_report
 
 MAGIC = b"GDBD"
 FORMAT_VERSION = 1
@@ -391,6 +392,8 @@ def _cli():
         print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
         sys.exit(1)
     resolver = result["resolver"]
+    if not check_and_report(resolver):
+        sys.exit(1)
     export_binary(resolver.reg, resolver, args.types, args.output)
     print(f"wrote {args.output}.gddldata.bin and {args.output}.gddlmeta.json")
 

@@ -62,6 +62,7 @@ from export_cpp import (
     _string_n,
 )
 from resolve import IdentifierRef, StructValue
+from validate import check_and_report
 
 
 class Export68000Error(Exception):
@@ -477,6 +478,8 @@ def _cli():
         print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
         sys.exit(1)
     resolver = result["resolver"]
+    if not check_and_report(resolver):
+        sys.exit(1)
 
     domains, types = gather_ir(resolver.reg, resolver, args.types,
                                 emit_all_domains=args.emit_all_domains)

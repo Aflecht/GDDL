@@ -53,6 +53,7 @@ from export_cpp import (
     _flatten_leaves, _flatten_value, _string_n, export_instances_for_type,
 )
 from resolve import IdentifierRef
+from validate import check_and_report
 
 
 class Export6502Error(Exception):
@@ -418,6 +419,9 @@ def _cli():
         print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
         sys.exit(1)
     resolver = result["resolver"]
+    import sys
+    if not check_and_report(resolver):
+        sys.exit(1)
     domains, types = gather_ir(resolver.reg, resolver, args.types, zp_base,
                                 emit_all_domains=args.emit_all_domains)
     asm = render(domains, types, dialect=args.dialect, layout=args.layout, zp_base=zp_base)

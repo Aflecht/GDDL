@@ -1764,3 +1764,62 @@ regenerated after it landed. Kept the fix, since reverting it would
 have knowingly reintroduced a known-stale committed artifact, but
 calling it out as its own thing rather than folding it silently into
 the sentinel change's diff.
+
+## Real bug fix: compile errors were being silently swallowed by every exporter
+
+Found while verifying documentation content for docs/templates-guide.md
+(specifically, checking that "uninitialized field is a compile-time
+error" was actually true before writing it down). It wasn't, reliably.
+
+**The actual defect**: `validate.py`'s phase-8 completeness check
+(`final_validate`/`compile_report`/`print_report`) is well-designed and
+was already described accurately in SPEC.md, but nothing in the entire
+codebase ever imported or called it. Separately, `resolver.errors`,
+`resolver.blocked`, and `resolver.reg.duplicate_errors` -- all real,
+correctly-populated by phases 4-6 -- were also never checked by any
+exporter CLI. Confirmed directly: `resolver.errors['Sword']` already
+contained a precise, correct `CompileError` naming the exact line and
+problem for a reference to a nonexistent domain member, but the CLI
+proceeded straight to rendering anyway. Since a broken instance never
+makes it into `resolver.cache`, the renderer's own (deliberate, correct)
+"only emit fully-resolved instances" logic just silently excluded it.
+End result: `exit 0`, a "successful" compile, with an instance quietly
+missing from the output and no indication anything was wrong. The
+uninitialized-field case hit the same root cause from a different
+angle -- crashed with a raw, unhandled Python traceback instead of
+vanishing silently, but the missing piece was identical.
+
+**The fix**: added `check_and_report(resolver) -> bool` to `validate.py`,
+sitting alongside the already-correct `print_report` but printing only
+genuine problems (error/blocked/incomplete/duplicate_errors) to stderr,
+in the exact same message formats `print_report` already established,
+warnings included but non-blocking. Wired into all five exporter CLIs
+(`export_cpp.py`, `export_6502.py`, `export_z80.py`, `export_68000.py`,
+`export_binary.py`), immediately after obtaining `resolver`, before any
+rendering begins. Every CLI now exits 1 with a precise diagnostic and
+writes no output at all if anything is wrong, exactly matching what
+SPEC.md already promised was true.
+
+**Validated across all five exporters, each one individually, not
+just the shared function in isolation**:
+- A genuine resolution error (reference to a nonexistent domain
+  member) now fails cleanly with `Sword: ERROR [phase 5,
+  domain_typing] - line 8: 'Rarity.nonexistent' is not a known member
+  of domain 'Rarity'`, exit 1, no output files written -- confirmed
+  directly on every exporter.
+- An uninitialized field now fails cleanly with `Goblin: INCOMPLETE
+  [phase 8] - export-blocking, uninitialized field(s): name`, exit 1,
+  instead of a Python traceback.
+- A circular copy reference (`A = B`, `B = A`) was already correctly
+  detected at phase 4 and now correctly blocks the build too, naming
+  the exact cycle.
+- A childless bare field correctly prints its existing warning and
+  does NOT block the build -- confirmed the file still gets written,
+  exit 0.
+- Every clean, valid fixture still compiles silently and successfully,
+  confirmed both individually and via the full 72-fixture regression,
+  clean throughout.
+
+This closes a real, previously-unnoticed gap in a core guarantee this
+project has stated repeatedly: bad data is always a compile error,
+never something that ships silently. It wasn't, until now.

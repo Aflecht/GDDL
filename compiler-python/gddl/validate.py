@@ -21,6 +21,7 @@ nothing to check for it -- already reported once by phase 6.
 """
 
 from resolve import StructValue, UNINIT, Resolver
+import sys
 
 
 def _find_uninitialized(value: StructValue, path_prefix: str = ""):
@@ -89,3 +90,44 @@ def print_report(resolver: Resolver):
         elif status == "incomplete":
             fields = ", ".join(detail)
             print(f"{name}: INCOMPLETE [phase 8] - export-blocking, uninitialized field(s): {fields}")
+
+
+def check_and_report(resolver: Resolver) -> bool:
+    """The actual build-blocking gate every exporter CLI must call
+    after compile_multi() returns a resolver and before any rendering
+    begins. Unlike print_report (which unconditionally prints a line
+    per instance, 'OK' included -- meant for an explicit report/debug
+    view), this prints ONLY genuine problems to stderr, using the same
+    message formats print_report already established, and returns
+    False if the build should be blocked.
+
+    Exists because phases 4-8 were already computing real, precise
+    errors (resolver.errors, resolver.blocked, resolver.reg.duplicate_errors,
+    and this module's own phase-8 incompleteness check) that nothing
+    was ever calling -- an instance with a genuine, correctly-detected
+    error simply never made it into resolver.cache, so it silently
+    vanished from rendered output instead of failing the build. This
+    closes that gap; every exporter CLI calls this once, right after
+    obtaining a resolver, and exits nonzero without writing any output
+    if it returns False."""
+    ok = True
+    if resolver.reg.duplicate_errors:
+        for err in resolver.reg.duplicate_errors:
+            print(f"[phase {err.phase}, {err.check}] {err}", file=sys.stderr)
+            ok = False
+    if resolver.warnings:
+        for w in resolver.warnings:
+            print(f"WARNING [phase {w.phase}, {w.check}] - {w}", file=sys.stderr)
+    report = compile_report(resolver)
+    for name, (status, detail) in report.items():
+        if status == "error":
+            print(f"{name}: ERROR [phase {detail.phase}, {detail.check}] - {detail}", file=sys.stderr)
+            ok = False
+        elif status == "blocked":
+            print(f"{name}: BLOCKED - depends on '{detail}'", file=sys.stderr)
+            ok = False
+        elif status == "incomplete":
+            fields = ", ".join(detail)
+            print(f"{name}: INCOMPLETE [phase 8] - export-blocking, uninitialized field(s): {fields}", file=sys.stderr)
+            ok = False
+    return ok

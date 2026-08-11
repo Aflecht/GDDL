@@ -63,6 +63,7 @@ single-line initializers rather than reformatted under this rule.
 
 from resolve import StructValue, IdentifierRef
 from registry import fnv1a_64
+from validate import check_and_report
 
 
 _CPP_INT_TYPES = {
@@ -1486,6 +1487,8 @@ def _cli():
         print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
         sys.exit(1)
     resolver = result["resolver"]
+    if not check_and_report(resolver):
+        sys.exit(1)
 
     if args.force_single_header:
         header = generate_header(resolver.reg, resolver, layout=args.layout,

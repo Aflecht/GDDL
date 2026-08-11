@@ -75,6 +75,7 @@ from typing import List, Tuple
 
 from export_cpp import export_instances_for_type, _flatten_leaves, _flatten_value, _string_n
 from resolve import IdentifierRef
+from validate import check_and_report
 
 
 class ExportZ80Error(Exception):
@@ -492,6 +493,8 @@ def _cli():
         print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
         sys.exit(1)
     resolver = result["resolver"]
+    if not check_and_report(resolver):
+        sys.exit(1)
     domains, types = gather_ir(resolver.reg, resolver, args.types,
                                 emit_all_domains=args.emit_all_domains)
     out = render(domains, types, toolchain=args.z80_toolchain,
