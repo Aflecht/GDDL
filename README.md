@@ -132,7 +132,7 @@ std::unordered_map<AttackType, void(*)(Enemy&)> handlers = {
 handlers[goblin.attack](goblin);
 ```
 
-New to `identifier` blocks or this `@`/64-bit-ID syntax? [`docs/language-basics.md`](docs/language-basics.md) covers the fundamentals on their own, outside any specific example.
+New to `identifier` blocks or this `@`/64-bit-ID syntax? [`docs/language-basics.md`](docs/language-basics.md) covers how they are used.
 
 Because the ID comes from the text itself rather than a shared counter, a mod can add `AttackType.fireball` for some new enemy without ever touching the base game's own domain, more on exactly why below.
 
