@@ -67,7 +67,7 @@ You can choose which data layout to export into, switching is just a flag, same 
 
 Each layout is fastest in a different place. SoA is what 6502 needs (it has no hardware multiply) and what an ECS-style engine wants generally, since a system updates one component at a time across many entities. Linear AoS gives the most direct access wherever a multiply is cheap, like modern PC and console hardware.
 
-[`docs/data-layouts.md`](docs/data-layouts.md) walks through all three side by side, with real code for each. *(coming soon)*
+[`docs/data-layouts.md`](docs/data-layouts.md) walks through all three side by side, with real code for each.
 
 ## Templates you copy, not classes you extend
 
@@ -160,7 +160,7 @@ AttackType_Dispatch:
 
 Load the table entry for whichever attack was picked, jump straight to it. No comparisons, no hashing, no lookup loop.
 
-[`docs/dispatch-guide.md`](docs/dispatch-guide.md) walks through this example end to end, including the real, assembled-and-executed version of the code above. *(coming soon)*
+[`docs/dispatch-guide.md`](docs/dispatch-guide.md) walks through this example end to end, including the real, assembled-and-executed version of the code above.
 
 ## Mods without a coordinator
 
