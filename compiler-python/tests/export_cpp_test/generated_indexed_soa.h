@@ -12,22 +12,22 @@ namespace GDDL
 
 enum class ActionAttack : uint64_t
 {
-    melee_weapon = 0x5c96a731d7d47e03ULL,
-    ranged_weapon = 0xaa92e2b5323e5154ULL,
+    melee_weapon  = 0x5c96a731d7d47e03ULL, // Standard attack done with a melee weapon
+    ranged_weapon = 0xaa92e2b5323e5154ULL, // Standard attack done with a ranged weapon
 };
 
 enum class ActionAttack_Indexed : uint8_t
 {
-    melee_weapon = 0,
-    ranged_weapon = 1,
+    melee_weapon  = 0, // Standard attack done with a melee weapon
+    ranged_weapon = 1, // Standard attack done with a ranged weapon
 };
 
 enum class Element : uint64_t
 {
-    fire = 0x9bcf40f6874d9103ULL,
-    ice = 0x8304148e0f4f19acULL,
-    lightning = 0x2ac1c587b5474f2dULL,
-    poison = 0xfa09e3b805721ebfULL,
+    fire      = 0x9bcf40f6874d9103ULL, // Elemental fire damage type
+    ice       = 0x8304148e0f4f19acULL, // Elemental ice damage type
+    lightning = 0x2ac1c587b5474f2dULL, // Elemental lightning damage type
+    poison    = 0xfa09e3b805721ebfULL, // Elemental poison damage type
 };
 
 namespace Object_SoA

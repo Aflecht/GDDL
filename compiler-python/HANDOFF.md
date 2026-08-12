@@ -1928,3 +1928,110 @@ lines) -- a real but contained change, scoped per-block as requested,
 not global. Left for a follow-up decision given its larger surface
 (which structures, which exporters, C++ only vs. also 68000's C89
 output as suggested) rather than built unprompted.
+
+## Column-aligned enum/struct output (C++ and 68000), and a real policy decision surfaced along the way
+
+Requested directly from real usage: align member/field names, values,
+and comments into consistent columns within each individual enum or
+struct block (never globally across the file), for easier reading.
+Scope confirmed explicitly: both C++ and 68000's C89 output.
+
+**Implementation**: added `_align_columns()` to export_cpp.py (a
+general two-pass helper: collect a block's rows, pad every column
+except the last to that column's own widest entry within the block,
+join). 68000 imports it from export_cpp.py, matching the project's
+existing pattern of sharing utilities between the two rather than
+duplicating them.
+
+Applied to four locations in export_cpp.py (struct definitions and
+identifier enums, both plain and the _Indexed companion, in both
+single-header and split modes) and two in export_68000.py (struct
+fields, and the domain #define block, 68000's own functional
+equivalent of an enum). Deliberately did NOT touch the one place with
+an explicit byte-for-byte compatibility guarantee (generate_header's
+default-AoS instance/registry rendering block, which --force-single-
+header depends on reproducing exactly) -- confirmed directly that the
+protection is specifically on that block, not on struct or enum
+definitions, before changing anything.
+
+Validated: real, meaningfully-varying test data (a member name like
+`devastating_overhead_strike` forcing genuine column padding, not a
+trivial no-op case) confirmed actual alignment in every location.
+Confirmed valid, compiling output with real g++17 (C++) and real
+gcc -std=c89 -pedantic (68000) -- vbcc itself isn't available in this
+sandbox instance, so the 68000 side is verified as valid C89 syntax
+directly, not independently re-verified against vbcc specifically,
+named precisely rather than rounded up. Full 72-fixture regression
+clean.
+
+**Found and fixed real staleness this surfaced**, same category as
+before: the alignment change altered actual bytes in several committed
+test fixtures with multi-entry domains or multi-field structs.
+Regenerated 10 files across export_cpp_test/ and
+export_emit_all_domains_test/, each one verified structurally
+(whitespace-collapsed diff against the previous committed version) to
+confirm only the expected additive changes appeared -- new alignment,
+and in a couple of cases the newly-added description comments and a
+previously-undiscovered missing §17.5 SchemaTable section, nothing
+unrelated. Every real hand-written test depending on these fixtures
+re-run and passing. Two other locations (export_binary_test's schema
+table tests, export_68000_test's CLI suite) turned out to regenerate
+their own fixtures fresh via subprocess on every run, so needed no
+manual regeneration, just running them.
+
+**A separate, real bug found in the process, unrelated to alignment**:
+`test_68000_cli.py`'s own --help content check was asserting exact
+substrings from the *pre-trim* help text (`"repeat for multiple
+types"`, `"§8.5"`, etc.) -- stale since the help-text-trim work
+several sessions back, never caught because that work's own regression
+never ran this particular hand-written CLI suite. Fixed by checking
+functional keywords tied to each flag's current, correct meaning
+instead of exact old phrasing, so it won't go stale again the next
+time wording is lightly adjusted.
+
+**A genuine design question surfaced and resolved, touching earlier,
+already-delivered work**: running the real CLI test suites (rather
+than just the corpus regression) surfaced that the earlier
+check_and_report() fix had conflated two different situations.
+resolver.errors (an instance referencing something that flatly doesn't
+resolve, no fallback) is genuinely unrecoverable -- that's the actual
+bug that fix closed. resolver.reg.duplicate_errors is different: the
+registry already has a real, deliberate first-wins policy for a name
+collision, confirmed by a pre-existing test (test_multi_file.py's
+Check 2, calling compile_multi() directly) that predates this fix and
+was never updated for it. The earlier fix silently made a
+collision fatal without that distinction being made explicitly.
+
+Decision, discussed and confirmed directly: duplicate names ARE
+treated as a hard, build-blocking error, in every case, no exception
+for multi-file compilation. Reasoning: §18 multi-file compilation
+combines files at the *source* level, a tighter coupling than the
+runtime mod-loading story (which uses independently-compiled units
+combined only afterward, via hash-based IDs, and is never exposed to
+this at all) -- within one compile, a name collision is realistically
+almost always a genuine mistake, not a legitimate multi-party
+scenario. check_and_report()'s existing behavior (already live) was
+confirmed correct as-is, no code change needed there.
+
+What did need updating: two tests still written against the old,
+silent-collision-tolerant CLI behavior. test_multi_file.py's
+test_shell_independence() and test_68000_cli.py's own version were
+both using an overly-broad glob (*.weapon) that happened to also sweep
+in weapons/duplicate.weapon, a deliberate, permanent collision fixture
+that belongs to a *different* test (test_multi_file.py's own Check 2).
+Neither shell-independence test was actually testing duplicate-name
+handling at all, their real purpose is proving the program itself
+expands glob patterns, not a shell -- narrowed both to base_*.weapon,
+a real wildcard that still proves expansion happens, without sweeping
+in an unrelated fixture. Confirmed Check 2 itself (the test that
+actually owns and exercises the collision) is completely unaffected,
+since it calls compile_multi() directly, bypassing check_and_report()
+entirely -- the library-level first-wins detection and CLI-level
+build-blocking are two different layers, and this whole investigation
+only ever touched the second one.
+
+Full regression, every affected test suite, re-run clean after all of
+the above: export_golden.py (72/72), test_multi_file.py (5/5),
+test_68000_cli.py (6/6), test_binary_export.py, test_schema_table_cpp.py,
+and every real hand-written C++ compile+run test in export_cpp_test/
+and export_emit_all_domains_test/.

@@ -59,7 +59,7 @@ from typing import List, Tuple
 
 from export_cpp import (
     export_instances_for_type, _flatten_leaves, _flatten_value, _topo_sort_defines,
-    _string_n,
+    _string_n, _align_columns,
 )
 from resolve import IdentifierRef, StructValue
 from validate import check_and_report
@@ -309,8 +309,11 @@ def render_c89_split(domains: List[DomainInfo], types: List[TypeInfo], reg,
             raise Export68000Error(f"68000 first pass doesn't support {d.width}-wide domains yet")
         header.append(f"/* --- domain: {d.name} (dense index, width {d.width}) --- */")
         header.append(f"typedef {c_type} {d.name};")
-        for key, index in d.members:
-            header.append(f"#define {d.name}_{key} (({d.name}){index})")
+        define_rows = [
+            (f"#define {d.name}_{key}", f"(({d.name}){index})")
+            for key, index in d.members
+        ]
+        header.extend(_align_columns(define_rows))
         header.append("")
 
     # BUG FIX (found during independent verification, confirmed with a
@@ -345,13 +348,16 @@ def render_c89_split(domains: List[DomainInfo], types: List[TypeInfo], reg,
             header.append(f"/* --- type: {type_name} --- */")
             header.append(f"typedef struct {type_name}")
             header.append("{")
+            field_rows = []
             for f in d.fields:
                 n = _string_n(f.type_tokens)
                 if n is not None:
-                    header.append(f"    char {f.name}[{n}];")
+                    field_rows.append(("char", f"{f.name}[{n}];"))
                 else:
                     c_type = _c_field_type(f.type_tokens, reg, domain_widths)
-                    header.append(f"    {c_type} {f.name};")
+                    field_rows.append((c_type, f"{f.name};"))
+            for row in _align_columns(field_rows):
+                header.append(f"    {row}")
             header.append(f"}} {type_name};")
             header.append("")
 

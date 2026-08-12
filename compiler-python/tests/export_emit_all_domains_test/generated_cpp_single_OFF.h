@@ -12,9 +12,9 @@ namespace GDDL
 
 enum class Rarity : uint64_t
 {
-    common = 0x08977013dc250161ULL,
-    rare = 0x244ea920a683ca6aULL,
-    epic = 0x0caf9a345881c0c9ULL,
+    common = 0x08977013dc250161ULL, // Common tier
+    rare   = 0x244ea920a683ca6aULL, // Rare tier
+    epic   = 0x0caf9a345881c0c9ULL, // Epic tier
 };
 
 struct Item
@@ -78,6 +78,25 @@ namespace Item_Registry
         return nullptr;
     }
 } // namespace Item_Registry
+
+// §17.5: compile-time schema table, for comparison against
+// whatever a loaded .gddldata.bin/.gddlmeta.json pair claims at
+// runtime (§17.6). schema_hash/record_size here are computed by
+// the EXACT SAME functions the .gddldata.bin exporter calls --
+// see export_cpp.py's compute_schema_hash/compute_record_size,
+// shared with export_binary.py, never a second implementation.
+struct SchemaEntry
+{
+    std::string_view type_name;
+    uint64_t schema_hash;
+    uint32_t record_size;
+};
+
+inline constexpr std::array<SchemaEntry, 1> SchemaTable =
+{
+    SchemaEntry{ "Item", 0xb15c717ddff36dd6ULL, 1 },
+};
+
 } // namespace GDDL
 
 #endif // GDDL_GENERATED_H

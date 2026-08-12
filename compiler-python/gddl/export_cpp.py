@@ -83,6 +83,32 @@ def _string_n(type_tokens: str):
     return None
 
 
+def _align_columns(rows):
+    """Column-aligns a block's worth of rows for readability, requested
+    directly from real usage (struct fields, enum entries): every column
+    except the last is padded to the width of its own longest entry
+    *within this call*, never globally across the whole file, so one
+    type's fields don't get dragged wide by some unrelated type's long
+    field name elsewhere in the output. `rows` is a list of tuples,
+    each tuple one row's already-formatted column pieces; the last
+    column is deliberately never padded, so a row with nothing in its
+    final column (no trailing comment, say) doesn't leave invisible
+    trailing whitespace on that line."""
+    if not rows:
+        return []
+    n_cols = len(rows[0])
+    widths = [0] * (n_cols - 1)
+    for row in rows:
+        for i in range(n_cols - 1):
+            widths[i] = max(widths[i], len(row[i]))
+    result = []
+    for row in rows:
+        parts = [row[i].ljust(widths[i]) for i in range(n_cols - 1)]
+        parts.append(row[-1])
+        result.append(" ".join(parts))
+    return result
+
+
 def _cpp_field_type(type_tokens: str, reg):
     """Maps a declared GDDL field type to a C++ type string, per §13.1
     (and §13.6 for the '@Domain' indexed-mode case)."""
@@ -632,9 +658,12 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
     for domain_name, block in reg.identifiers.items():
         lines.append(f"enum class {domain_name} : uint64_t")
         lines.append("{")
+        entry_rows = []
         for entry in block.entries:
             lid = reg.get_logical_id(domain_name, entry.key)
-            lines.append(f"    {entry.key} = 0x{lid}ULL,  // {entry.description}")
+            entry_rows.append((entry.key, f"= 0x{lid}ULL,", f"// {entry.description}"))
+        for row in _align_columns(entry_rows):
+            lines.append(f"    {row}")
         lines.append("};")
         lines.append("")  # always followed by another enum, or the first struct -- never a closer
 
@@ -652,8 +681,11 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
             cpp_width = _CPP_INT_TYPES[width]
             lines.append(f"enum class {domain_name}_Indexed : {cpp_width}")
             lines.append("{")
+            indexed_rows = []
             for index, entry in enumerate(block.entries):  # 0-based, declaration order, §8.4
-                lines.append(f"    {entry.key} = {index},  // {entry.description}")
+                indexed_rows.append((entry.key, f"= {index},", f"// {entry.description}"))
+            for row in _align_columns(indexed_rows):
+                lines.append(f"    {row}")
             lines.append("};")
             lines.append("")
 
@@ -674,13 +706,16 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
             d = reg.defines[type_name]
             lines.append(f"struct {type_name}")
             lines.append("{")
+            field_rows = []
             for f in d.fields:
                 n = _string_n(f.type_tokens)
                 if n is not None:
-                    lines.append(f"    char {f.name}[{n}];")
+                    field_rows.append(("char", f"{f.name}[{n}];"))
                 else:
                     cpp_type = _cpp_field_type(f.type_tokens, reg)
-                    lines.append(f"    {cpp_type} {f.name};")
+                    field_rows.append((cpp_type, f"{f.name};"))
+            for row in _align_columns(field_rows):
+                lines.append(f"    {row}")
             lines.append("};")
             lines.append("")  # always followed by another struct, or the first instances namespace
 
@@ -1387,9 +1422,12 @@ def generate_split(reg, resolver, guard_name="GDDL_GENERATED_H",
     for domain_name, block in reg.identifiers.items():
         header_lines.append(f"enum class {domain_name} : uint64_t")
         header_lines.append("{")
+        entry_rows = []
         for entry in block.entries:
             lid = reg.get_logical_id(domain_name, entry.key)
-            header_lines.append(f"    {entry.key} = 0x{lid}ULL,  // {entry.description}")
+            entry_rows.append((entry.key, f"= 0x{lid}ULL,", f"// {entry.description}"))
+        for row in _align_columns(entry_rows):
+            header_lines.append(f"    {row}")
         header_lines.append("};")
         header_lines.append("")
 
@@ -1399,8 +1437,11 @@ def generate_split(reg, resolver, guard_name="GDDL_GENERATED_H",
             cpp_width = _CPP_INT_TYPES[width]
             header_lines.append(f"enum class {domain_name}_Indexed : {cpp_width}")
             header_lines.append("{")
+            indexed_rows = []
             for index, entry in enumerate(block.entries):
-                header_lines.append(f"    {entry.key} = {index},  // {entry.description}")
+                indexed_rows.append((entry.key, f"= {index},", f"// {entry.description}"))
+            for row in _align_columns(indexed_rows):
+                header_lines.append(f"    {row}")
             header_lines.append("};")
             header_lines.append("")
 
@@ -1413,13 +1454,16 @@ def generate_split(reg, resolver, guard_name="GDDL_GENERATED_H",
             d = reg.defines[type_name]
             header_lines.append(f"struct {type_name}")
             header_lines.append("{")
+            field_rows = []
             for f in d.fields:
                 n = _string_n(f.type_tokens)
                 if n is not None:
-                    header_lines.append(f"    char {f.name}[{n}];")
+                    field_rows.append(("char", f"{f.name}[{n}];"))
                 else:
                     cpp_type = _cpp_field_type(f.type_tokens, reg)
-                    header_lines.append(f"    {cpp_type} {f.name};")
+                    field_rows.append((cpp_type, f"{f.name};"))
+            for row in _align_columns(field_rows):
+                header_lines.append(f"    {row}")
             header_lines.append("};")
             header_lines.append("")
 

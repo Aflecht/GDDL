@@ -169,24 +169,31 @@ def test_shell_independence():
     gddl_dir = os.path.normpath(gddl_dir)
     out_stem = "/tmp/gddl_multi_file_shell_indep_test.asm"
 
+    # base_*.weapon, not *.weapon: weapons/ also holds duplicate.weapon,
+    # a deliberate cross-file name collision fixture for Check 2's own
+    # test, not something this function is testing. Duplicate names are
+    # now a hard build-blocking error (confirmed policy, §18 combines
+    # files at the source level, a genuine collision there is almost
+    # always a real mistake), so a glob that swept it in here would
+    # fail this function for a reason unrelated to what it's actually
+    # checking. A real wildcard is still needed (not the literal
+    # filename) to prove glob expansion actually happens in the
+    # program itself, so narrow the pattern rather than drop the
+    # wildcard entirely.
+
     # List-argv, no shell=True: the OS execs python3 directly. The
     # pattern string arrives in argv completely unexpanded -- there is
     # no shell anywhere in this call to have expanded it.
     pattern = os.path.join(_DIR, "weapons", "more_weapons.gddl")
     result = subprocess.run(
         [sys.executable, os.path.join(gddl_dir, "export_z80.py"),
-         os.path.join(_DIR, "weapons", "*.weapon"),
+         os.path.join(_DIR, "weapons", "base_*.weapon"),
          FILE2_ELEMENTS, FILE3_WEAPON_TYPE,
          "--type", "Weapon", "--z80-pointer-table=on", "-o", out_stem],
         capture_output=True, text=True)
     assert result.returncode == 0, f"subprocess (no shell) failed: {result.stderr}"
     with open(out_stem) as f:
         out = f.read()
-    # weapons/*.weapon matches base_weapon.weapon AND duplicate.weapon
-    # (both .weapon files in that directory) -- confirms the glob was
-    # genuinely expanded by the program, not passed through literally
-    # (a literal unexpanded pattern would have failed resolve_inputs
-    # entirely, since "weapons/*.weapon" is not itself a real file).
     assert "Weapon_Sword:" in out, "glob expansion did not occur -- no shell was involved to do it"
     print("  list-argv subprocess (zero shell involvement): glob correctly expanded by the program")
 
@@ -194,7 +201,7 @@ def test_shell_independence():
     # it even though a real shell is genuinely present -- simulates
     # what actually happens on Windows cmd.exe/PowerShell.
     cmd = (f"{sys.executable} {os.path.join(gddl_dir, 'export_z80.py')} "
-           f"'{os.path.join(_DIR, 'weapons', '*.weapon')}' "
+           f"'{os.path.join(_DIR, 'weapons', 'base_*.weapon')}' "
            f"{FILE2_ELEMENTS} {FILE3_WEAPON_TYPE} "
            f"--type Weapon --z80-pointer-table=on -o {out_stem}")
     result2 = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)

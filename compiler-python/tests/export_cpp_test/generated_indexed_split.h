@@ -12,22 +12,22 @@ namespace GDDL
 
 enum class ActionAttack : uint64_t
 {
-    melee_weapon = 0x5c96a731d7d47e03ULL,
-    ranged_weapon = 0xaa92e2b5323e5154ULL,
+    melee_weapon  = 0x5c96a731d7d47e03ULL, // Standard attack done with a melee weapon
+    ranged_weapon = 0xaa92e2b5323e5154ULL, // Standard attack done with a ranged weapon
 };
 
 enum class ActionAttack_Indexed : uint8_t
 {
-    melee_weapon = 0,
-    ranged_weapon = 1,
+    melee_weapon  = 0, // Standard attack done with a melee weapon
+    ranged_weapon = 1, // Standard attack done with a ranged weapon
 };
 
 enum class Element : uint64_t
 {
-    fire = 0x9bcf40f6874d9103ULL,
-    ice = 0x8304148e0f4f19acULL,
-    lightning = 0x2ac1c587b5474f2dULL,
-    poison = 0xfa09e3b805721ebfULL,
+    fire      = 0x9bcf40f6874d9103ULL, // Elemental fire damage type
+    ice       = 0x8304148e0f4f19acULL, // Elemental ice damage type
+    lightning = 0x2ac1c587b5474f2dULL, // Elemental lightning damage type
+    poison    = 0xfa09e3b805721ebfULL, // Elemental poison damage type
 };
 
 struct Object
@@ -38,10 +38,10 @@ struct Object
 
 struct Item
 {
-    Object object;
-    uint32_t weight;
-    Element element;
-    char name[16];
+    Object               object;
+    uint32_t             weight;
+    Element              element;
+    char                 name[16];
     ActionAttack_Indexed fast_dispatch;
 };
 
@@ -93,6 +93,26 @@ namespace Item_Registry
 
     const Item* Find(std::string_view name);
 } // namespace Item_Registry
+
+// §17.5: compile-time schema table, for comparison against
+// whatever a loaded .gddldata.bin/.gddlmeta.json pair claims at
+// runtime (§17.6). schema_hash/record_size here are computed by
+// the EXACT SAME functions the .gddldata.bin exporter calls --
+// see export_cpp.py's compute_schema_hash/compute_record_size,
+// shared with export_binary.py, never a second implementation.
+struct SchemaEntry
+{
+    std::string_view type_name;
+    uint64_t schema_hash;
+    uint32_t record_size;
+};
+
+inline constexpr std::array<SchemaEntry, 2> SchemaTable =
+{
+    SchemaEntry{ "Object", 0xc3b65b8d9dc943b8ULL, 8 },
+    SchemaEntry{ "Item", 0x2c99385395d2d57eULL, 37 },
+};
+
 } // namespace GDDL
 
 #endif // GDDL_GENERATED_H

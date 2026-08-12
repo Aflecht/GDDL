@@ -53,9 +53,14 @@ def test_help():
     assert "--emit-all-domains" in normalized
     assert "-o OUTPUT" in normalized or "--output" in normalized
     # Every argument gets real, substantive help text, not a placeholder.
+    # Checked against functional keywords tied to each flag's actual
+    # meaning, not exact phrasing -- help text was deliberately trimmed
+    # for readability since this check was first written (removing
+    # §-references and design-rationale asides), and checking for
+    # specific old wording here would just make this test go stale
+    # again the next time phrasing gets lightly adjusted.
     for flag_help_fragment in (
-        "glob patterns", "repeat for multiple types", "AoS", "§8.5",
-        "header/.c pair"
+        "glob patterns", "repeatable", "aos", "domain", ".h and"
     ):
         assert flag_help_fragment in normalized, \
             f"expected substantive help text containing {flag_help_fragment!r}, not found"
@@ -155,7 +160,14 @@ def test_shell_independence():
     # python3 directly. The glob pattern string arrives in argv
     # completely unexpanded -- if this succeeds, only the program
     # itself could have expanded it.
-    pattern = os.path.join(_MULTI_FILE_DIR, "weapons", "*.weapon")
+    # base_*.weapon, not *.weapon: weapons/ also holds duplicate.weapon,
+    # a deliberate cross-file name collision fixture for
+    # test_multi_file.py's own duplicate-detection test, not something
+    # this function is testing. A real wildcard is still needed here
+    # (not just the literal filename) to prove glob expansion actually
+    # happens in the program itself, so narrow the pattern rather than
+    # drop the wildcard entirely.
+    pattern = os.path.join(_MULTI_FILE_DIR, "weapons", "base_*.weapon")
     result = _run([
         pattern,
         os.path.join(_MULTI_FILE_DIR, "domains", "elements.gddl"),
