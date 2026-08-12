@@ -56,10 +56,10 @@ wrote items_output.h and items_output.cpp
 
 `export_cpp.py` is one of five exporters, one per target, all living in the same `compiler-python/gddl/` folder:
 
-- `export_cpp.py`: modern C++
+- `export_cpp.py`: modern C++17
 - `export_6502.py`: 6502 (ACME, KickAssembler, 64tass)
 - `export_z80.py`: Z80 (SjASMPlus, z88dk)
-- `export_68000.py`: 68000, for Amiga and Atari ST
+- `export_68000.py`: 68000 (C89 via vbcc), for Amiga and Atari ST
 - `export_binary.py`: a standalone binary data file your game loads at runtime
 
 Each one accepts `--help` for its full flag list; they don't all accept the same flags. The language itself, everything you can actually write in a `.gddl` file, is documented in full in [`SPEC.md`](../SPEC.md).
