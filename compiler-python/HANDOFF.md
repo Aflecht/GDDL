@@ -1856,3 +1856,75 @@ and a real functional invocation of each exporter confirmed unaffected
 (same generated output, same flags, same behavior). The Z80 C-mode +
 SoA rejection specifically re-checked to confirm its full runtime
 error text is untouched. Full 72-fixture regression clean throughout.
+
+## Two real fixes from actual GDDL usage: #include path bug, description comments
+
+Both found and requested directly from a real user actually using the
+compiler, not from internal testing -- exactly the kind of feedback
+this project doesn't get from its own regression suite.
+
+**Bug: #include line embedded the full, unmodified -o path.** Reported
+directly: running `export_cpp.py --layout aos-linear GDDL/* -o
+Generated\Items` on Windows produced `#include "Generated\Items.h"`
+in the .cpp, and Visual Studio failed to resolve it even though both
+files sat in the same folder -- the raw backslash inside a C++ string
+literal is an escape-sequence introducer, not a path separator, and
+corrupts the include.
+
+Root cause: `header_name = f"{args.output}.h"` was embedded verbatim
+into the #include line, when the header and .cpp are always written
+to the same directory by construction (both derived from the same -o
+stem) and the #include never needed a directory component at all.
+
+Fix: added `_include_basename()`, deliberately NOT via os.path.basename
+-- confirmed directly that os.path.basename leaves a Windows-style
+backslash path completely untouched when the exporter itself is
+running on Linux/Mac, since os.path only understands whatever
+separator convention its own host platform uses. The new helper
+splits on both / and \ explicitly, regardless of host OS.
+
+Validated: reproduced the exact reported scenario byte-for-byte
+(confirmed the bug first, then confirmed the fix), tested six path
+shapes including the literal reported one and a Windows drive-letter
+path, confirmed the ordinary no-directory case is completely
+unaffected, and confirmed the fixed output genuinely compiles with
+real g++17 from a real matching directory layout, not just that the
+string looks right. Full 72-fixture regression clean.
+
+**Feature: description text as a comment on each enum entry.**
+Requested directly: the quoted description text is already
+self-documenting in the .gddl source, and having it repeated as a
+`//` comment on the corresponding C++ enum line means a developer
+never has to jump back to the .gddl file to know what an enum value
+means.
+
+`entry.description` was already retained on the parsed entry object,
+fully unescaped through the same `_unescape_string_content` path
+regular string field values use (confirmed directly with a quote-
+containing description; an apparent backslash in one early check
+turned out to be a display artifact of how the tool result got
+rendered, not a real byte in the file -- confirmed via Python's own
+repr() against the actual file content). Added to all four places an
+enum gets emitted: the plain hash enum and the _Indexed companion
+enum, in both single-header and split-mode header generation.
+
+Validated: real generated output confirmed correct in all four
+locations, confirmed genuinely valid, compilable C++ with real g++17
+(zero warnings), confirmed correct with a quote-containing description
+specifically. Full 72-fixture regression clean.
+
+**Feasibility investigated but not implemented: column-aligned enum
+and struct output.** Asked as an open question, not a direct request.
+Real technical finding worth recording: hash values in the plain enum
+are already zero-padded to a fixed 16 hex digits (`f"{h:016x}"`, `0x`
++ 16 hex + `ULL` = always exactly 21 characters), so that column
+doesn't actually need padding, only the member-name column does. The
+_Indexed companion enum's plain integer values and struct field types
+genuinely do vary in width and would need real padding logic. Would
+require restructuring the relevant emission loops from single-pass
+(emit each line immediately) to two-pass (collect the block's
+name/value/comment triples, compute max widths, then emit padded
+lines) -- a real but contained change, scoped per-block as requested,
+not global. Left for a follow-up decision given its larger surface
+(which structures, which exporters, C++ only vs. also 68000's C89
+output as suggested) rather than built unprompted.
