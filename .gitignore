@@ -22,6 +22,7 @@ compiler-python/tools/
 **/export_6502_test/*.prg
 **/export_6502_test/*.sym
 **/export_6502_test/*.labels
+**/export_6502_test/*.lst
 **/export_68000_test/test_68000_minimal
 **/export_68000_test/test_68000_aos_split
 **/export_68000_test/test_68000_soa

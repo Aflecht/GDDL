@@ -2386,3 +2386,126 @@ available (flagged two entries above as blocked on exactly this), and
 building any equivalent driver/toolchain setup for the 6502
 (ACME/64tass/KickAssembler + py65) or 68000 (vbcc + vamos) targets,
 which remain unset-up on this machine as of this entry.
+
+## Real 6502 toolchain installed and verified on this Windows machine, all three dialects
+
+Requested directly, same shape as the Z80 entry above: get real
+ACME/64tass/KickAssembler assemble-and-execute validation actually
+working here. All three dialects' existing `test_6502_*_run.py` scripts
+(ACME, `_tass`, `_ka` suffixes) were already real (real assemble, real
+`py65` execution) -- same gap as Z80 had, the assembler invocation only
+ever documented as prose in each script's own docstring.
+
+**ACME**: official distribution is on SourceForge
+(sourceforge.net/projects/acme-crossass), not GitHub -- checked before
+assuming a from-source build was needed (this project's prior Linux
+sandbox sessions built it from source, but that's a C codebase and this
+machine has no C compiler). The `win32/acme0.97win.zip` release asset
+is a real, ready `acme.exe`, no compiler needed. Installed at
+`compiler-python/tools/acme/acme.exe`.
+
+**64tass**: same SourceForge-hosted shape in principle
+(sourceforge.net/projects/tass64), but this specific project's file
+host is behind real Cloudflare bot-management (`cf_bm` cookie + 403,
+confirmed genuine -- not a simple redirect gate like ACME's project has)
+that neither `curl` nor PowerShell's `Invoke-WebRequest` could get
+through with any header/mirror combination tried (several were: direct
+`-L`, forcing the same mirror ACME's download had succeeded through,
+carrying cookies across a two-request session). Worked around by
+sourcing the same official binary through OlderGeeks.com, a long-
+established clean freeware archive (no bundling, confirmed by
+inspecting the extracted contents before trusting it: real GPL/LGPL
+license files matching 64tass's actual licensing, the genuine
+`README.md`/`manual.pdf`, and real 64tass example `.asm` files) --
+version 1.59.3120 rather than the SourceForge page's latest
+1.60.3243, one version behind, not pinned to for any technical reason,
+just what that mirror happened to host. Installed at
+`compiler-python/tools/64tass/64tass.exe`. Confirmed genuinely
+equivalent for this project's purposes by real use, not just trusted:
+all three real-execution checks that use it passed with correct
+computed values.
+
+**KickAssembler**: HANDOFF.md's own prior entries recorded
+`theweb.dk` as blocked by the OLD sandbox's network egress proxy,
+requiring the person to manually upload a working jar. Checked directly
+whether that's still true here rather than assuming it carries over --
+it is NOT: `theweb.dk` is fully reachable from this machine (real `curl`
+200 responses throughout), so the real `KickAssembler.zip` was
+downloaded directly from the primary/official source, no manual upload
+needed this time. Got `KickAss.jar` v5.25 -- confirmed the exact same
+version number the old sandbox's manually-uploaded copy was, by
+coincidence of timing (this project hasn't needed a KickAssembler
+update since), not by design. Installed at
+`compiler-python/tools/kickassembler/KickAss.jar`.
+
+**A new dependency this project didn't have before**: KickAssembler is
+a Java jar, and this machine has no JRE at all (confirmed:
+`java` not found). Rather than a full JDK/installer (bigger footprint,
+needs an installer with its own permissions/registration), used
+Eclipse Temurin's portable JRE 17 Windows x64 zip (via the official
+Adoptium GitHub releases, `api.adoptium.net`'s own latest-release API
+used to get the exact current download URL rather than guessing a
+version string) -- a real, no-install-needed runtime, extracted to
+`compiler-python/tools/jre/`. Confirmed working before trusting it:
+`java -version` reports a genuine Temurin 17.0.20 build, and the real
+`KickAss.jar` runs under it (reports its own real "v5.25 by Mads
+Nielsen" banner).
+
+**`py65`** (pure-Python 6502/65C02 emulator, this target's counterpart
+to Z80's `z80` PyPI package): `pip install py65` installed cleanly,
+same as `z80` did -- confirmed via real `MPU()` instantiation, not just
+a successful pip exit code.
+
+**All third-party binaries gitignored, not committed** -- same
+reasoning and same `compiler-python/tools/` location as the Z80 entry
+above; ACME/64tass/KickAssembler/the JRE are all real, independently
+redownloadable open-source or freely-licensed tools, so there's nothing
+here that needs preserving the way the old sandbox needed to preserve
+its one manually-uploaded KickAssembler copy.
+
+**Verified real, all three dialects, all 9 fixture-variant
+combinations** (minimal, string_field, composition_u16, times ACME /
+64tass / KickAssembler): every harness assembled clean and every
+corresponding `test_6502_*_run.py` check passed against the real `py65`
+emulator, including the dispatch/registry-lookup values in the minimal
+harness and the exact hp/mp/weapon_power/level values in the
+composition+u16 harness. The string-field check's `Grübnik` console
+output shows the same PowerShell-codepage mojibake noted in the Z80
+entry above -- confirmed the same way: the actual pass/fail gate is a
+byte-exact comparison and a real Python string equality, neither of
+which touches the console, so this is display-only, not a computation
+bug.
+
+**A real, pre-existing `.gitignore` gap found and fixed while checking
+generated artifacts**: `**/export_6502_test/*.lst` (64tass's `-l`
+label-list output) had no pattern at all -- the existing entries
+covered `.bin`/`.sym`/`.prg`/`.labels`/`*labels*.txt` (ACME and
+KickAssembler's output shapes) but 64tass's own `.lst` extension was
+simply never added, unrelated to the anchoring bug fixed in the entry
+above (this one was a real missing pattern, not a broken one). Added.
+
+**New driver script**, same role and shape as
+`export_z80_test/run_all_z80_tests.py`:
+`export_6502_test/run_all_6502_tests.py`. Runs all three dialects
+against all three fixture variants each (9 total), assembling with the
+real toolchain then invoking the real check script. Tool paths default
+to `compiler-python/tools/` with `ACME`/`TASS64`/`KICKASS_JAR`/`JAVA`
+environment variable overrides. Confirmed working end to end, single
+pass/fail summary line covering all 9.
+
+**Found, not fixed, flagged rather than silently left**: this
+directory also has `test_6502_soa_harness.asm` (plus `_tass`/`_ka`
+variants) and their `generated_6502_soa*.asm` counterparts committed,
+but no corresponding `test_6502_soa*_run.py` check script exists at
+all, unlike every other fixture group here and unlike Z80 (which does
+have a working `test_z80_soa_run.py`). Not clear from anything in this
+file whether that's an intentionally incomplete/abandoned fixture or a
+genuine gap -- searched `HANDOFF.md` for any prior mention of 6502 SoA
+and found none. Not built here, deliberately: writing a new test
+script is a different kind of task than getting the existing ones
+running, and this was never asked for. Worth a real decision from
+whoever owns this next, not a silent assumption either way.
+
+Full `export_golden.py` regression re-run after all of the above:
+72/72, zero content diffs (same path-separator false positive as every
+other entry in this pass, ruled out the same way, left uncommitted).
