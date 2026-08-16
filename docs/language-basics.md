@@ -152,3 +152,103 @@ And a domain simply having more members than its declared width can address, che
 ```
 line 1: identifier domain 'BigDomain' declares indexed width 'u8' (max 256 entries), but has 257 members -- exceeds what this width can address (§8.3)
 ```
+
+## Flags: combinable bits
+
+An `identifier` domain picks exactly one value at a time. Sometimes you want several things true at once, an entity that's both damageable and movable, say, without writing out every possible combination as its own value. That's what `flags` is for: a fixed set of named bits in one integer, combined with the usual bitwise operators.
+
+```gddl
+flags ComponentFlags u64
+	none            = 0
+	is_damageable   = b0
+	is_pickupable
+	is_movable
+	is_controllable
+
+define Entity
+	component_flags = ComponentFlags
+
+Entity Player
+	component_flags = ComponentFlags.is_movable | ComponentFlags.is_controllable
+```
+
+`flags Name WidthType` is required to declare a width, `u8`, `u16`, `u32`, or `u64`, there's no width-less form the way `identifier` has one. Each member takes one of three shapes:
+
+- Leave the value off entirely, and it's handed the next bit nobody else has claimed yet, in declaration order. `is_pickupable`, `is_movable`, and `is_controllable` above get bits 1, 2, and 3 this way.
+- `= bN` claims bit `N` explicitly. `bN` is a real integer literal, `1 << N`, so `is_damageable = b0` above means bit 0, the value `1`.
+- `= 0` is the zero/none sentinel, and doesn't claim a bit at all.
+
+`bN` isn't limited to `flags` declarations, it's a general integer literal, legal anywhere a number is:
+
+```gddl
+Entity DirectBits
+	component_flags = b1 | b3
+```
+
+The field itself is just the raw width type, `uint64_t` here, not a named or wrapped type the way an `identifier` domain gets an `enum class`. Each member becomes a real, combinable constant:
+
+```cpp
+namespace ComponentFlags
+{
+    constexpr uint64_t none            = 0;
+    constexpr uint64_t is_damageable   = 1ULL << 0;
+    constexpr uint64_t is_pickupable   = 1ULL << 1;
+    constexpr uint64_t is_movable      = 1ULL << 2;
+    constexpr uint64_t is_controllable = 1ULL << 3;
+}
+
+struct Entity
+{
+    uint64_t component_flags;
+};
+```
+
+```cpp
+const Entity Player = { 12ULL };
+```
+
+`12` is `is_movable | is_controllable`, `4 | 8`. A plain `namespace` of `constexpr` values, not an `enum class`, so `Player.component_flags & ComponentFlags::is_movable` and every other bitwise operator work directly, with real scoping between domains just like `enum class` gives, but without inheriting its complete lack of built-in operators.
+
+Op-statements work here too, the field's current value is the implicit left operand, same as anywhere else. Copy a base instance, then turn one bit off:
+
+```gddl
+Entity Base delete
+	component_flags = ComponentFlags.none
+
+Entity Stunned = Player
+	component_flags & ~ComponentFlags.is_controllable
+```
+
+```cpp
+const Entity Stunned = { 4ULL };
+```
+
+`12 & ~8` clears the controllable bit, leaving just `is_movable`.
+
+Combining bits only ever uses the bitwise operators, `|`, `&`, `^`, `~`. Arithmetic is rejected outright on a flags-typed field, not just discouraged, since `flag + flag` isn't idempotent the way `flag | flag` is, a real, sharp footgun:
+
+```gddl
+Entity Bad = Base
+	component_flags + 1
+```
+
+```
+Bad: ERROR - line 24: arithmetic operator '+' used on a flags-typed field -- arithmetic is a compile-time error on flags-typed fields, no exceptions; combine flags with bitwise operators (| & ^ ~) only
+```
+
+The same rule runs in the other direction too: bitwise operators are a compile-time error on any field that isn't flags-typed. There's no other bitmask mechanism in the language, so `|`, `&`, `^`, `~` exist only for `flags`, full stop.
+
+Each bit position can only be claimed once, whether it got there explicitly or automatically, checked the moment the domain is registered:
+
+```gddl
+flags Broken u8
+	none            = 0
+	is_damageable   = b2
+	is_pickupable   = b2
+```
+
+```
+line 4: flags member 'is_pickupable' claims bit 2 ('= b2'), but 'is_damageable' (line 3) already claims the same bit in domain 'Broken' -- each bit position must be claimed exactly once
+```
+
+Auto-assignment accounts for every explicit claim in the whole domain, not just ones declared earlier in the file, so reordering members around an explicit `bN` never causes a collision. And, matching `identifier`'s own width check, a domain whose real bit-flag members outnumber what its declared width can address is caught the same way, at registration.

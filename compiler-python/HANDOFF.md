@@ -3323,3 +3323,94 @@ this one).
 `language-basics.md` or a new guide, deliberately undecided until real
 material exists to look at). Stage 5 as scoped in the handover doc is
 complete.
+
+## flags/bN work, stage 6: docs -- the final stage, feature complete
+
+Picked up immediately after stage 5, same session. The handover doc
+deliberately left "fold into `language-basics.md`, or its own guide"
+undecided until real material existed to look at (section 4.4's own
+wording) -- with stages 1-5 all shipped, that material now exists.
+
+**Decision, made now rather than left open**: folded into
+`docs/language-basics.md`, as a new `## Flags: combinable bits`
+section immediately after the existing `## Identifier domains and the
+'@' prefix` section, not a new standalone guide. Reasoning: that page's
+own stated scope is "the actual data types a field can hold" -- flags
+is exactly that, a new field-typeable construct, structurally the same
+weight as the identifier-domains section already there, not a
+cross-cutting topic like `templates-guide.md`'s delete-template
+pattern (which touches every construct) or `dispatch-guide.md`'s
+export-target-specific material. A single section, matched in depth to
+its neighbor (one worked example, the three member-value shapes, real
+generated C++ output, two real error examples -- the identifier
+section itself shows exactly two).
+
+**Every example verified against real output before being written
+down, same standing rule as every other doc page in this project, not
+relaxed here**: the `.gddl` source shown, the C++ namespace/struct
+output, and both error messages were each run through the real
+pipeline (`generate_header` for the C++, `print_report` for the
+errors) and copied verbatim, never typed from memory of the design.
+
+**A real mistake caught by this verification, not by luck**: the
+arithmetic-rejected-on-flags error example is presented as continuing
+the doc's own running example (referencing `Base`, already shown
+earlier in the section), so its real line number depends on every
+snippet before it in the page, not just its own few lines. The first
+draft copied the error text from an isolated standalone test file
+(`component_flags + 1` at line 13 there) and dropped it straight into
+the doc claiming that same line number -- wrong, since the real
+cumulative file (every snippet from `flags ComponentFlags u64` through
+`Entity Bad = Base` typed in sequence, exactly as a reader following
+the page would end up with) puts that statement at line 24. Caught by
+literally reconstructing the full cumulative file and re-running it
+for real before trusting the number, not by re-reading the isolated
+snippet more carefully -- the isolated snippet's OWN output was
+already completely correct, the mismatch was purely from citing it
+against the wrong context. Fixed to `line 24`, confirmed against the
+real cumulative run. The domain-only bit-collision error example, by
+contrast, is deliberately introduced as a fresh, disconnected block
+(`flags Broken u8`, matching the identical convention the identifier
+section's own two error examples already use) -- verified standalone
+correctly, no cumulative-context risk there since it never references
+anything from the running example.
+
+**A second, smaller inconsistency caught on a full re-read**: a
+sentence referenced `flags & ComponentFlags::is_movable` as an
+illustration of the natural bitwise-check pattern, but no variable
+named bare `flags` was ever introduced anywhere in the shown example
+(the real field is `component_flags`, on the `Player` instance
+specifically) -- confusing for a reader trying to map the prose onto
+the actual code just shown. Fixed to `Player.component_flags &
+ComponentFlags::is_movable`, a real, traceable reference to symbols
+the reader has actually seen.
+
+**Content covered**: what `flags` is for and how it differs from
+`identifier` (combinable vs. mutually exclusive); the required-width
+syntax; all three member-value shapes (auto, explicit `bN`, the `= 0`
+sentinel) with a note that `bN` is a general integer literal, not
+scoped to `flags` blocks; the settled C++ export shape and why
+(namespace of `constexpr`, not `enum class`, real bitwise operators
+with real scoping); op-statement combining (the copy-a-base-then-
+toggle-one-bit pattern); the arithmetic-rejected-on-flags rule with
+its real error message; the bitwise-rejected-elsewhere rule (described
+in prose, not a third error example -- keeping this section's depth
+matched to its neighbor rather than exhaustively re-demonstrating a
+rule that's just the mirror image of the one already shown); and the
+bit-collision + width-overflow checks, the latter described in prose
+(matching identifier's own width-overflow error, which the neighboring
+section already demonstrates in exactly this same "described, not
+re-shown" way for its own second error case).
+
+**Validated**: every `.gddl` snippet shown compiles (or fails)
+exactly as the surrounding prose claims, confirmed via direct pipeline
+runs, not visual inspection. Zero em-dashes (checked directly, this
+project's own hard rule, in code comments, commit messages, AND
+documentation alike). Purely additive diff to `language-basics.md`
+(100 lines, nothing else in the file touched) -- no code changed this
+stage, so no regression suite re-run was needed or performed.
+
+**This completes the `flags`/`bN` feature, all six stages, per the
+handover doc's own plan.** Next up per that same plan (section 5):
+arrays, fully designed already but explicitly deferred until `flags`
+shipped in full -- which, as of this entry, it now has.
