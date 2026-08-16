@@ -16,7 +16,12 @@ compiler-python/tools/
 **/export_cpp_test/test_generated_indexed_soa
 **/export_cpp_test/test_split_aos
 **/export_cpp_test/test_split_soa
+**/export_cpp_test/test_generated_composition_nested_u16_fields
+**/export_cpp_test/test_generated_composition_nested_u16_fields_single
+**/export_cpp_test/test_generated_scaleup2
 **/export_cpp_test/*.o
+**/export_cpp_test/*.obj
+**/export_cpp_test/*.exe
 **/export_6502_test/*.bin
 **/export_6502_test/*labels*.txt
 **/export_6502_test/*.prg
@@ -26,6 +31,8 @@ compiler-python/tools/
 **/export_68000_test/test_68000_minimal
 **/export_68000_test/test_68000_aos_split
 **/export_68000_test/test_68000_soa
+**/export_68000_test/test_68000_composition_u16
+**/export_68000_test/test_68000_subset_request_bug
 **/export_68000_test/*.o
 **/export_z80_test/*.bin
 **/export_z80_test/*.sym

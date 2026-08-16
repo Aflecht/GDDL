@@ -2509,3 +2509,273 @@ whoever owns this next, not a silent assumption either way.
 Full `export_golden.py` regression re-run after all of the above:
 72/72, zero content diffs (same path-separator false positive as every
 other entry in this pass, ruled out the same way, left uncommitted).
+
+## Real 68000 toolchain installed and verified on this Windows machine (vbcc + vamos, AmigaOS)
+
+Requested directly, same shape as the Z80 and 6502 entries above.
+Unlike those two, `vbcc`'s own official distribution host
+(`sun.hasenbraten.de`, file host `phoenix.owl.de`) is one of the exact
+hostnames the earlier "68000/vbcc real-toolchain validation setup"
+section already named as blocked by the OLD sandbox's egress proxy
+(same host list the EmuTOS/TOS search covered) -- checked directly
+rather than assumed to still apply here: both are fully reachable from
+this machine (real `curl` 200 responses throughout), so the real
+official binaries were used directly, no from-source rebuild needed
+this time (the prior sessions' two build paths -- a user-uploaded
+prebuilt Linux archive, or building `erique/vbcc_vasm_vlink` from
+source -- are both Linux-specific and moot here regardless).
+
+**vbcc host binary**: `vbcc_bin_win64.zip` from the official archive
+(`phoenix.owl.de/vbcc/2022-03-23/`, the most recent dated release that
+still included a win64 asset -- the newer `2022-05-22` release only
+published target archives, no host binary, confirmed by checking
+before downloading rather than assuming the latest dated folder has
+everything). A real Windows-native zip -- `vc.exe`, `vbccm68k.exe`,
+`vasmm68k_mot.exe`, `vlink.exe`, and the target config profiles
+(`config/aos68k` etc.) all bundled together, no compiler needed to
+build anything. Installed at `compiler-python/tools/vbcc/`.
+
+**vbcc target files** (system headers/libs/startup code for
+`+aos68k`): a separate download, `vbcc_target_m68k-amigaos.lha` --
+**only ever distributed as `.lha`** (Amiga's native archive format,
+confirmed by checking the actual file listing rather than assuming a
+`.zip` alternative exists the way the Atari target happens to have
+one). No LHA extraction tool exists on this machine by default, and
+`7z.exe`/`winget` were not viable in the time available (`winget`
+requires an interactive MS Store terms prompt this non-interactive
+session can't answer even with `--accept-source-agreements`, and a
+backgrounded `winget install 7zip.7zip` attempt was abandoned once a
+faster path was found, not left dangling -- stopped explicitly with
+`TaskStop` rather than silently orphaned). Used GnuWin32's standalone
+`lha.exe` port instead (`gnuwin32.sourceforge.net/packages/lha.htm`,
+real download via `prdownloads.sourceforge.net` -> a real mirror,
+worked cleanly with no Cloudflare friction unlike the 64tass case in
+the entry above). Extracted with `lha.exe x`, then moved the real
+payload up one level to match vbcc's expected
+`<VBCC>/targets/m68k-amigaos/{include,lib}` layout -- the archive's
+own internal structure nests it one level deeper
+(`vbcc_target_m68k-amigaos/targets/m68k-amigaos/...`), confirmed by
+inspecting the actual extracted tree rather than assuming the vendor
+archive's layout matches the destination layout. `lha.exe` itself
+installed at `compiler-python/tools/lha/` -- useful as a general LHA
+extractor for any future need, not just this one archive.
+
+**A real, non-obvious invocation requirement, found by hitting it, not
+by reading docs first**: `vc.exe` needs `VBCC` set as a real Windows
+*environment variable*, not just a value baked into the command
+Python constructs -- the aos68k config file's paths are written as
+`%%VBCC%%/targets/...`, which the config-file templating layer turns
+into a literal `%VBCC%` string in the commands `vc.exe` shells out to
+`vbccm68k`/`vlink` with, relying on the OS's own environment-variable
+substitution to resolve it at that point. The very first driver-script
+attempt only set `PATH`, not `VBCC`, in the subprocess environment --
+compiling failed outright with `No config file!` before it even got to
+the missing-substitution problem. Fixed by explicitly setting
+`env["VBCC"]` (not just relying on it being inherited from the parent
+shell, which won't be true for whoever runs this driver without having
+manually exported it first).
+
+**A second real bug, found the same way**: passing `-I.` (matching
+what the two existing `run_*_test.sh` scripts already used, written
+for bash) made `vc.exe` silently drop the flag and leak a bare `.` into
+the `vlink` command as if it were an input object file to link --
+confirmed directly (the failing `vlink` invocation showed `"."` sitting
+where an object filename belongs, and `vamos` then failed to load the
+resulting non-binary "executable"). Not investigated further as a
+`vc.exe`-internals bug since it didn't need to be: every one of this
+directory's test `.c` files uses a *quoted* `#include "generated_...h"`
+already, which the C standard already resolves relative to the
+including file's own directory before ever consulting `-I` -- so `-I.`
+was always redundant here, on any platform. Fixed by dropping it
+entirely rather than chasing why Windows `vc.exe` mishandles a flag
+the Linux build apparently accepted; confirmed compiling and linking
+cleanly without it.
+
+**`vamos`** (from `amitools`, unchanged from the documented setup):
+`pip install amitools` alone pulls the newest `machine68k` (0.4.1 as
+of this check, same drift the original setup notes already warned
+about), which breaks `vamos` the same documented way. Re-confirmed the
+documented fix still applies here: `pip install "machine68k==0.3.0"
+--force-reinstall` (no `--break-system-packages` needed on this
+machine's Python, unlike the original Linux/apt-managed Python that
+flag existed for). Both packages installed cleanly with real compiled
+wheels, confirmed via real `MPU`/`Z80Machine`-style instantiation
+before trusting either -- same discipline as `z80`/`py65` in the
+entries above.
+
+**Smoke-tested exactly like the original setup notes did, before
+trusting any of this for real fixtures**: a real `hello, world` C
+program (`printf`, not the trivial `return 42` first attempt -- which
+actually surfaced its own unrelated PowerShell mistake, `Write-Host`
+piped into `Out-File` producing a genuinely empty source file, caught
+by checking the file's actual byte length rather than assuming the
+write succeeded), compiled with `vc +aos68k`, run under `vamos`,
+printed `hello, world` correctly.
+
+**Verified real, all four existing fixture pairs**: `vc +aos68k
+<test>.c <generated>.c -o <stem>` then `vamos <stem>`, matching the two
+already-committed `run_composition_u16_test.sh` /
+`run_subset_request_bug_test.sh` recipes exactly (minus the redundant
+`-I.`), plus the two that never had a committed script at all
+(`test_68000_soa.c` + `generated_68000_soa.c`, `test_68000_aos_split.c`
++ `generated_68000_minimal.c`) -- all four compiled clean and all four
+printed their own real pass line (`hp=60000 mp=12000 weapon_power=500
+level=42`, `rarity=0 object.weight=5`, the SoA and AoS width/string
+pass lines), `vamos` propagating exit code 0 in every case, confirmed
+via the driver script's own exit-code check, not just eyeballing
+stdout.
+
+**New driver script**, same role and shape as the Z80/6502 ones:
+`export_68000_test/run_all_68000_tests.py`. Runs all four fixture
+pairs, compiling with real `vc +aos68k` then executing with real
+`vamos`. Tool paths default to `compiler-python/tools/` with
+`VBCC`/`VAMOS` environment variable overrides. Confirmed working end
+to end, single pass/fail summary line covering all 4.
+
+**Deliberately out of scope, matching the original setup notes' own
+conclusion**: the Atari/`hatari`/EmuTOS path. The original 68000/vbcc
+setup section explicitly concluded AmigaOS/`vamos` alone is sufficient
+real validation ("the task only required real compile + real execution
+on *some* 68000 environment... without needing the Atari/`hatari`/
+EmuTOS path too") -- nothing here revisits that conclusion, and
+`run_atari_test.sh` remains exactly as documented, untouched, for
+whoever picks up Atari/TOS coverage specifically as a deliberate
+choice later.
+
+**A real, pre-existing `.gitignore` gap found and fixed, same class as
+the 6502 `.lst` one above**: `test_68000_composition_u16` and
+`test_68000_subset_request_bug` (the two fixture pairs that already
+had a committed `.sh` recipe) had no matching ignore entry at all --
+only `test_68000_minimal`/`test_68000_aos_split`/`test_68000_soa` were
+listed, by exact binary name (this target's compiled output has no
+extension at all under AmigaOS, so the existing `*.o` pattern doesn't
+cover it either). Added both missing exact-name entries.
+
+Full `export_golden.py` regression re-run after all of the above:
+72/72, zero content diffs (same path-separator false positive as every
+other entry in this pass, ruled out the same way, left uncommitted).
+
+## Real C++ toolchain installed and verified on this Windows machine (MSVC, not g++)
+
+Requested directly, same shape as every entry above, but a genuinely
+different toolchain: this machine has no g++ (every prior session in
+this project's whole history validated C++ output with real g++17
+specifically), but does have Visual Studio 2022 and Visual Studio 18
+already installed, both with the C++ workload -- confirmed via
+`vswhere.exe` before doing anything else rather than assumed from the
+person's own statement, per this project's standing "verify before
+recommending" discipline: real `MSVC.Component.VC.Tools.x86.x64`,
+`cl.exe` 19.50 under VS 18. Used MSVC (`/std:c++17 /EHsc`) rather than
+attempting to install a second, redundant compiler -- GDDL's generated
+headers are portable standard C++, not GCC-specific, so this is a
+genuine independent-compiler validation, not a lesser substitute for
+g++.
+
+**No committed build recipe existed for this directory at all**,
+unlike every other export target (Z80/6502/68000 each had at least a
+docstring-documented command, some had real `.sh` scripts). Every
+prior HANDOFF.md mention of C++ validation says "real g++17" but never
+preserves an actual invocation. The (sources, output name) groupings
+for all 16 real test binaries were reconstructed directly from each
+`.cpp` file's own `#include`/`int main()` presence, not guessed --
+confirmed each grouping compiles and links cleanly before trusting it,
+same as the exact-command reconstructions in the Z80/6502/68000
+entries above. Three of the sixteen
+(`test_generated_composition_nested_u16_fields[.cpp/_single.cpp]`,
+`test_generated_scaleup2.cpp`) had no `.gitignore` entry at all,
+same "validated once, ad hoc, binary manually deleted before anyone
+ran `git status`" pattern already seen in the 6502/68000 entries above
+-- not a sign anything is wrong with them, confirmed by building and
+running all three cleanly.
+
+**Two real Windows-Python subprocess bugs found and fixed, neither
+specific to this project's code, both worth remembering generally**:
+- `vcvars64.bat` (via its nested `vsdevcmd.bat`) sets the PATH variable
+  as `Path` (mixed case), not `PATH` -- Windows env vars are
+  case-insensitive at the OS level, so this is invisible when working
+  interactively, but a naive Python `dict(os.environ)` merge that
+  blindly does `env[k] = v` for a captured `Path` line leaves BOTH
+  `PATH` (stale, no VC directories, inherited from Python's own launch
+  environment) and `Path` (correct) as separate dict keys.
+  `_winapi.CreateProcess`'s handling of an environment block with two
+  differently-cased duplicates of the same logical variable is
+  unreliable -- confirmed directly: the stale one silently won,
+  `cl.exe` was never found despite the captured environment genuinely
+  containing its directory. Fixed by deleting any existing key that
+  matches case-insensitively before inserting the freshly captured
+  one, in `run_all_cpp_tests.py`'s `_msvc_env()`.
+- **Separately**, even after that fix, `subprocess.run(["cl.exe", ...],
+  env=custom_env)` still raised `FileNotFoundError`. Root cause,
+  confirmed by direct, isolated testing rather than assumed: when a
+  bare executable name (no path separator) is given, Python's
+  `subprocess`/`_winapi.CreateProcess` resolves it against the
+  *calling* process's own `os.environ["PATH"]` for the initial lookup,
+  never the custom `env=` dict that's about to be handed to the child
+  -- confirmed by testing the exact same call with a plain, correct
+  `env` dict in isolation, still failing the same way. Not a bug
+  specific to this project; a general, easy-to-hit Python-on-Windows
+  gotcha whenever a subprocess needs a PATH different from the
+  parent's own. Fixed by resolving `cl.exe`'s real absolute path
+  ourselves (`_resolve_on_path()`, walking the captured `Path` value
+  directly) and passing that instead of the bare name.
+- **A third, unrelated MSVC-specific flag issue**: `/Fo:<name>.` (meant
+  to namespace each test's `.obj` file by test name, avoiding
+  collisions across sequential compiles) is only valid for a
+  single-source compile -- MSVC rejects it outright
+  (`D8036: not allowed with multiple source files`) for the
+  cross-translation-unit and split-mode cases, which pass two `.cpp`
+  files to one `cl.exe` invocation. Dropped `/Fo` entirely rather than
+  branching the flag per case; confirmed no real basename collision
+  exists across this directory's actual 16 cases before relying on
+  the default per-source `.obj` naming being safe.
+
+**A real, unrelated mistake caught and cleaned up, not left behind**:
+the very first smoke-test compile (a trivial `hello.cpp`, done before
+any of the driver script existed, to confirm `cl.exe` itself works at
+all) was run with the working directory still at the repo root,
+leaking a stray `hello.obj` there -- caught by running `git status`
+before considering this work done (this project's own standing
+convention: review what's about to be committed), not because
+anything flagged it automatically. Deleted; confirmed gone via a
+second `git status`.
+
+**Verified real, all 16 binaries**: every one compiled clean under
+`/std:c++17 /EHsc` and ran with exit code 0, each printing its own
+real pass line (or, for `test_bsearch_large_constexpr`, correctly
+printing nothing at all -- that file's checks are 100% `static_assert`,
+compile-time only, `main()` just returns 0, confirmed by reading the
+source rather than assuming silence meant something was swallowed).
+
+**New driver script**, same role and shape as the Z80/6502/68000 ones:
+`export_cpp_test/run_all_cpp_tests.py`. Locates the VS installation via
+`vswhere.exe` (overridable via `VCVARS64`), captures the MSVC
+environment once (not once per compile, avoiding vcvars64.bat's own
+real startup cost 16 times over), then compiles and runs all 16 cases.
+Confirmed working end to end, single pass/fail summary line covering
+all 16.
+
+**A real, pre-existing `.gitignore` gap found and fixed, same class as
+the 6502/68000 ones above, but with a twist specific to this
+toolchain switch**: the existing entries were exact bare binary names
+(`test_generated_minimal`, etc.) plus a `*.o` pattern -- both written
+for g++'s Linux/no-extension-executable, `.o`-object convention. MSVC
+uses `.exe` and `.obj` instead, so every single existing pattern in
+this section silently failed to match anything this session's compiles
+produced, on top of the three missing-entirely names already noted
+above. Added blanket `**/export_cpp_test/*.obj` and
+`**/export_cpp_test/*.exe` patterns (covering all 16 outputs, present
+and future, rather than sixteen more exact-name lines) alongside the
+existing bare-name entries, which are left in place unmodified --
+still correct and still useful for a future Linux-hosted g++ session
+on this same repo.
+
+Full `export_golden.py` regression re-run after all of the above:
+72/72, zero content diffs (same path-separator false positive as every
+other entry in this pass, ruled out the same way, left uncommitted).
+
+**This closes out real-toolchain validation for all five GDDL export
+targets on this Windows machine** (C++, 6502, Z80, 68000/AmigaOS, plus
+the portable binary format which never needed a toolchain at all) --
+every target this project's own standard requires "real compile/
+assemble + real execute, not just should work" for now has a working,
+driver-scripted path here.
