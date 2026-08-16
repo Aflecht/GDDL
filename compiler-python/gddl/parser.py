@@ -248,6 +248,12 @@ def split_top_level_equals(content: str) -> Optional[Tuple[str, str]]:
 
 
 _FIELD_NAME_RE = re.compile(r"^[A-Za-z_]\w*$")
+# Arrays design: direct bracket indexing, e.g. 'damage_min_max[1]' -- an
+# array-element reference is a plain field name immediately followed by
+# '[N]', no whitespace between name and bracket, N a plain non-negative
+# integer literal (never an expression; matches how 'bN' flags literals
+# are similarly a closed, non-expression grammar at this phase).
+_INDEXED_FIELD_RE = re.compile(r"^([A-Za-z_]\w*)\[(\d+)\]$")
 
 
 def _require_field_name(tok: str, lineno: int):
@@ -259,26 +265,61 @@ def _require_field_name(tok: str, lineno: int):
             "'field') matches this line", lineno)
 
 
+def _parse_field_ref(tok: str, lineno: int) -> Tuple[str, Optional[int]]:
+    """Validates a statement's leading field reference, which is either a
+    plain field name or an array-element reference 'name[N]' (arrays
+    design: direct bracket indexing for assign/op-statement element
+    access and modification -- deliberately NOT available on the bare/
+    modify-only form, see its own rejection in _classify_statement).
+    Returns (base_name, index) -- index is None for a plain, non-array
+    reference, which is what every statement written before arrays
+    existed still produces."""
+    if _FIELD_NAME_RE.match(tok):
+        return tok, None
+    m = _INDEXED_FIELD_RE.match(tok)
+    if m:
+        return m.group(1), int(m.group(2))
+    raise GDDLParseError(
+        f"statement does not begin with a valid field identifier "
+        f"(found {tok!r}) -- no legal statement shape (assign 'field = "
+        "expr', array-element assign 'field[N] = expr', op-statement "
+        "'field op expr' or 'field[N] op expr', or bare 'field') matches "
+        "this line", lineno)
+
+
 def _classify_statement(lineno: int, content: str) -> Tuple[str, ...]:
-    """Return a tag: ('assign', field, rhs) | ('op', field, op, rhs) |
-    ('bare', field) | ('raw', text). Every shape requires a syntactically
-    valid field identifier in leading position, checked uniformly here."""
+    """Return a tag: ('assign', field, rhs, index) | ('op', field, op,
+    rhs, index) | ('bare', field) | ('raw', text). Every shape requires a
+    syntactically valid field identifier (or, for assign/op, an
+    array-element reference 'field[N]') in leading position, checked
+    uniformly here. `index` is None for every ordinary, non-array
+    reference -- not just a default value nobody sets, the actual result
+    for every statement that doesn't use bracket indexing."""
     eq = split_top_level_equals(content)
     if eq is not None:
         field_name, rhs = eq
-        _require_field_name(field_name, lineno)
-        return ("assign", field_name, rhs)
+        base_name, index = _parse_field_ref(field_name, lineno)
+        return ("assign", base_name, rhs, index)
 
     tokens = content.split()
     first = tokens[0]
-    _require_field_name(first, lineno)
+    base_name, index = _parse_field_ref(first, lineno)
 
     if len(tokens) >= 2:
         rest = content.split(None, 1)[1].strip()
         if rest and rest[0] in OPERATORS:
-            return ("op", first, rest[0], rest[1:].strip())
+            return ("op", base_name, rest[0], rest[1:].strip(), index)
 
     if len(tokens) == 1:
+        if index is not None:
+            raise GDDLParseError(
+                f"bare field '{first}' cannot use bracket indexing -- "
+                "array element access/modification only applies to "
+                "assign ('field[N] = expr') and operator ('field[N] op "
+                "expr') statements, never the bare modify-only form "
+                "(a struct-style nested-block alternative was "
+                "considered for arrays and explicitly rejected in favor "
+                "of direct bracket indexing)", lineno)
         return ("bare", first)
 
     return ("raw", content)
@@ -631,15 +672,15 @@ class Parser:
         i += 1
 
         if tag[0] == "assign":
-            _, field_name, rhs = tag
-            node = AssignStmt(line=rec.lineno, field_name=field_name, rhs=rhs)
+            _, field_name, rhs, index = tag
+            node = AssignStmt(line=rec.lineno, field_name=field_name, rhs=rhs, index=index)
             i2, children = self._parse_statement_block(i, stmt_indent)
             node.children = children
             return node, i2
 
         if tag[0] == "op":
-            _, field_name, op, rhs = tag
-            node = OpStmt(line=rec.lineno, field_name=field_name, op=op, rhs=rhs)
+            _, field_name, op, rhs, index = tag
+            node = OpStmt(line=rec.lineno, field_name=field_name, op=op, rhs=rhs, index=index)
             i2, children = self._parse_statement_block(i, stmt_indent)
             if children:
                 raise GDDLParseError(

@@ -94,19 +94,30 @@ class InstanceDecl(Node):
 @dataclass
 class AssignStmt(Node):
     """field = rhs   (plain overwrite for scalars, full replace-then-modify
-    for struct fields when rhs names a source instance and children follow)"""
+    for struct fields when rhs names a source instance and children follow)
+
+    `index` is not None when this is an array-element reference,
+    `field[N] = rhs` (arrays design, direct bracket indexing) -- None for
+    every ordinary, non-array field assignment, which is the overwhelming
+    majority of existing statements and every one written before arrays
+    existed."""
     field_name: str
     rhs: str
     children: List[Node] = field(default_factory=list)
+    index: Optional[int] = None
 
 
 @dataclass
 class OpStmt(Node):
     """field <op> rhs   e.g. `hitpoints * 2` or `x / 2 + 60`.
-    op is the first operator token; rhs is everything after it, raw."""
+    op is the first operator token; rhs is everything after it, raw.
+
+    `index` is not None for an array-element op-statement, `field[N] <op>
+    rhs` -- same meaning and same default as AssignStmt.index above."""
     field_name: str
     op: str
     rhs: str
+    index: Optional[int] = None
 
 
 @dataclass

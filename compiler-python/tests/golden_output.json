@@ -1854,7 +1854,7 @@
       "error": {
         "phase": 3,
         "line": 20,
-        "message": "line 20: statement does not begin with a valid field identifier (found '*') -- no legal statement shape (assign 'field = expr', op-statement 'field op expr', or bare 'field') matches this line"
+        "message": "line 20: statement does not begin with a valid field identifier (found '*') -- no legal statement shape (assign 'field = expr', array-element assign 'field[N] = expr', op-statement 'field op expr' or 'field[N] op expr', or bare 'field') matches this line"
       }
     },
     "op_statements\\op_statement_missing_leading_field_error.gddl": {
@@ -1862,7 +1862,7 @@
       "error": {
         "phase": 3,
         "line": 26,
-        "message": "line 26: statement does not begin with a valid field identifier (found '20') -- no legal statement shape (assign 'field = expr', op-statement 'field op expr', or bare 'field') matches this line"
+        "message": "line 26: statement does not begin with a valid field identifier (found '20') -- no legal statement shape (assign 'field = expr', array-element assign 'field[N] = expr', op-statement 'field op expr' or 'field[N] op expr', or bare 'field') matches this line"
       }
     },
     "op_statements\\op_statement_operator_precedence.gddl": {

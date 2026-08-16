@@ -3643,3 +3643,125 @@ non-overlap explicitly, the same pattern section 17 already used to
 distinguish itself from section 14.6.
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+## Arrays work, stage 1: bracket-indexed statement parsing
+
+`GDDL_Session_Handover.md` (repo root) has arrays fully designed
+already, section 5, explicitly deferred until `flags` shipped in full
+("flags first because it's smaller and proves the 'new construct, five
+export targets' pipeline before the bigger, riskier array feature gets
+built on top of it"). Flags shipped in full this session (all six
+stages, see above); the identifiers-manifest detour (also above) came
+between flags finishing and this starting, per the user's own explicit
+sequencing this session. Staged the same way flags was: parser first,
+then registry/resolution, then export across all five targets, then
+permanent corpus fixtures, then docs. This entry is stage 1 only.
+
+**Scope, confirmed by actually reading parser.py before writing
+anything, not assumed:** two of the three syntax pieces the design
+calls for turned out to need zero parser changes at all.
+`FieldDef.type_tokens` and `AssignStmt.rhs`/`OpStmt.rhs` were already
+raw, uninterpreted text at the parse level (`split_top_level_equals`
+just splits on the first top-level `=`, nothing about `:` or `,` or
+`{`/`}` is special to the parser) -- so `damage_min_max = i32 : 2` as
+a field type, and `damage_min_max = { 10, 30, 5 }, { 20, 50, 8 }` as a
+value literal, already parse today, unchanged, with the array syntax
+sitting untouched inside a string the parser was never going to look
+inside of at this phase anyway. Interpreting what's inside those raw
+strings is registry.py's job (stage 2), not parser.py's. Confirmed
+this directly with a scratch check (`field.type_tokens ==
+"i32 : 2"`), not just reasoned about.
+
+The one piece that genuinely needed parser changes: **direct bracket
+indexing**, `damage_min_max[1] = 200` / `damage_min_max[1] + 50`
+(assign and op-statement forms; the design explicitly rejected a
+nested-block alternative in favor of this). The existing
+`_classify_statement`/`_require_field_name` machinery validates a
+statement's leading field-name token against `^[A-Za-z_]\w*$`, which a
+bracketed reference doesn't match at all -- every array-element
+statement would have hit the ordinary "not a valid field identifier"
+parse error with zero code changes.
+
+**Implementation:**
+- `ast_nodes.py`: added `index: Optional[int] = None` to `AssignStmt`
+  and `OpStmt` (appended last, after the existing default-valued
+  `children` field on `AssignStmt`, to keep every dataclass's
+  no-default-before-default field ordering valid). `None` for every
+  statement that doesn't use bracket indexing, which is every
+  statement written before this stage existed -- not a new required
+  argument, a new optional one.
+- `parser.py`: added `_INDEXED_FIELD_RE` (`^([A-Za-z_]\w*)\[(\d+)\]$`,
+  digits only, never an expression, matching how `bN` flags literals
+  are similarly a closed non-expression grammar at this phase) and
+  `_parse_field_ref()`, returning `(base_name, index)`. Kept
+  `_require_field_name` as-is rather than replacing it: it's also used
+  by `_parse_flags_entries` for flags member names, which must never
+  accept bracket indexing, so that call site needed to stay
+  untouched, not get pulled toward a shared, unintentionally-permissive
+  path.
+- `_classify_statement` restructured so the leading-token validation
+  happens permissively (plain name or indexed) for the assign/op paths,
+  but the bare-field path explicitly re-checks `index is not None`
+  and rejects with a dedicated message naming exactly why (arrays
+  don't use the bare/modify-only form at all) rather than a generic
+  regex-mismatch message. Getting the order right here mattered: the
+  original function validated the leading token once, unconditionally,
+  before knowing whether the line would end up being 'op', 'bare', or
+  fall through to 'raw' -- collapsing that into a single permissive
+  check up front, then re-validating specifically inside the 'bare'
+  branch, was the only way to keep both "brackets valid for assign/op"
+  and "brackets rejected for bare" true without either silently
+  admitting bracket-indexed bare fields or accidentally rejecting
+  valid non-bracketed statements that used to reach the 'raw' fallback.
+
+**One real, expected corpus-lock change, not a bug:** the
+"not a valid field identifier" error message itself changed (now
+mentions the two new array-element shapes alongside the pre-existing
+ones), which two existing error-fixture corpus locks
+(`op_statements/op_statement_leading_operator_error.golden.json`,
+`op_statements/op_statement_missing_leading_field_error.golden.json`)
+capture verbatim. Confirmed via a structural diff against the
+previously committed `golden_output.json` that these were the ONLY
+two fixtures with any content difference across all 79 (everything
+else byte-identical once path separators are normalized) -- updated
+both `.golden.json` files and surgically merged just these two entries
+into `golden_output.json`, leaving every other committed fixture
+untouched (same discipline as every other golden-lock update this
+session).
+
+**Verified, not assumed:**
+- A scratch script (six checks, not yet a permanent fixture -- see
+  below for why): array-element assign captures the right
+  `(field_name, index, rhs)`; array-element op-statement captures the
+  right `(field_name, op, rhs, index)`; an ordinary non-array assign's
+  `index` is `None`; a bracket-indexed bare field is rejected with the
+  dedicated message; a malformed non-numeric index (`damage_min_max[x]`)
+  falls through to the ordinary "not a valid field identifier" error
+  rather than being silently accepted or crashing; an array field type
+  declaration round-trips through `type_tokens` completely unchanged.
+  All six passed.
+- No permanent corpus fixtures added at this stage, deliberately,
+  matching the precedent flags' own stage 1 set (see above entry): a
+  `.gddl` fixture actually exercising array syntax would fail
+  meaninglessly right now, since `array` isn't a registry-known field
+  category yet (stage 2's job) -- phase 4/5 would reject it as "not a
+  field of X" or similar, which isn't what a stage-1 corpus fixture
+  should be locking in. Real corpus fixtures land once resolution
+  (stage 2) makes array fields and array-element statements actually
+  resolve to something.
+- Full regression suite re-run clean, everything, not just the parser:
+  `export_golden.py` (79 fixtures, structurally diffed, exactly the
+  two expected changes above and nothing else), all four
+  real-toolchain driver suites (17/9/8/4), `test_68000_cli.py`,
+  `test_binary_export.py`, `multi_file_test.py`, `test_ids_manifest.py`
+  -- confirming this stage changed zero behavior anywhere outside the
+  new bracket-indexing grammar itself.
+
+**Not yet done, next**: stage 2 (registry/resolution -- interpreting
+`ElementType : dim1 : ... : dimN` in `type_tokens` into a real field
+category, resolving array value literals including the
+outer-braces-optional/inner-braces-required nesting rules, wiring
+bracket-indexed assign/op-statements into phase 6 evaluation, op
+statements' "current value at that index" rule).
+
+Zero em-dashes (checked directly, this project's own hard rule).
