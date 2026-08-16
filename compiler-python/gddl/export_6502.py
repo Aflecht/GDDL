@@ -68,7 +68,14 @@ class Export6502Error(Exception):
 class DomainInfo:
     name: str
     width: str            # 'u8'/'u16'/'u32'/'u64'
-    members: List[Tuple[str, int]]  # (key, 0-based index), declaration order
+    members: List[Tuple[str, int]]  # identifier: (key, 0-based index); flags: (key, real bit value)
+    kind: str = "identifier"  # 'identifier' or 'flags' -- flags domains get no jump
+                               # table/Dispatch subroutine at all (§10.2's dispatch
+                               # machinery is specifically for identifier-typed fields
+                               # selecting a handler; flags fields are combinable data,
+                               # never dispatched on), just the plain constant lines
+                               # every renderer's `for key, value in d.members` loop
+                               # already emits unconditionally regardless of kind.
 
 
 @dataclass
@@ -142,6 +149,13 @@ def allocate_zero_page(zp_base, domains: List[DomainInfo], types: List[TypeInfo]
             addr += 2
     dispatch_blocks = {}
     for d in domains:
+        if d.kind != "identifier":
+            # flags domains have no Dispatch subroutine at all (§10.2's
+            # dispatch machinery only exists for identifier-typed
+            # fields selecting a handler) -- allocating a zero-page
+            # pointer for one would waste this small, contested
+            # resource on something never referenced.
+            continue
         dispatch_blocks[d.name] = addr
         addr += 2
 
@@ -232,6 +246,64 @@ def gather_domain_info(reg, type_names, emit_all_domains: bool = False) -> List[
     return domains
 
 
+def _leaf_flags_domain_name(type_tokens: str, reg) -> Optional[str]:
+    """The flags domain a leaf field refers to, or None. No '@' handling
+    needed here (unlike _leaf_domain_name) -- flags never had a
+    hash-vs-index duality to carry an '@' prefix for in the first place;
+    a plain flags-typed field's type_tokens is always just the bare
+    domain name."""
+    t = type_tokens.strip()
+    if t in reg.flags:
+        return t
+    return None
+
+
+def gather_flags_domains_used(reg, type_names) -> set:
+    """Every flags domain referenced by any leaf field of any type being
+    exported -- same shape as gather_domains_used, separate namespace."""
+    used = set()
+    for type_name in type_names:
+        for _path, type_tokens in _flatten_leaves(type_name, reg):
+            domain = _leaf_flags_domain_name(type_tokens, reg)
+            if domain is not None:
+                used.add(domain)
+    return used
+
+
+def gather_flags_domain_info(reg, type_names, emit_all_domains: bool = False) -> List[DomainInfo]:
+    """Per-domain member constant tables for flags domains, same
+    DomainInfo shape gather_domain_info already produces for identifier
+    domains -- but `members` holds each entry's REAL bit-claim value
+    (0, or 1 << claimed bit), not a dense index, and `kind='flags'`
+    tells every renderer to skip the jump-table/Dispatch machinery
+    (identifier-only, §10.2) while still emitting the plain constant
+    lines through the exact same code path. A flags domain always has a
+    declared width by construction (§ flags/bN, the grammar requires
+    it) -- unlike identifier's optional width, there is no missing-width
+    case to check or skip here.
+
+    A member with no registered value (registry.py skipped it -- an
+    invalid or losing-duplicate bit claim, already a phase-4 error) is
+    omitted here too, matching _render_flags_namespace's identical
+    reasoning in export_cpp.py: the build is already blocked regardless
+    of what this function does with it."""
+    used = gather_flags_domains_used(reg, type_names)
+    domains = []
+    for domain_name in reg.flags:
+        if domain_name not in used and not emit_all_domains:
+            continue
+        width = reg.flags_widths[domain_name]
+        block = reg.flags[domain_name]
+        members = []
+        for entry in block.entries:
+            value = reg.get_flags_value(domain_name, entry.name)
+            if value is None:
+                continue
+            members.append((entry.name, value))
+        domains.append(DomainInfo(name=domain_name, width=width, members=members, kind="flags"))
+    return domains
+
+
 def _render_leaf_value(value, type_tokens, reg):
     """A single flattened leaf value, in the shared IR's representation.
     Identifier values always become ('domain_index', domain, index) on
@@ -319,6 +391,15 @@ def gather_ir(reg, resolver, type_names, zp_base,
     ordered_type_names = [t for t in reg.defines if t in type_names]
     domains = gather_domain_info(reg, ordered_type_names,
                                   emit_all_domains=emit_all_domains)
+    # flags domains share the exact same DomainInfo shape and the exact
+    # same per-renderer "for d in domains: emit constant lines" code
+    # path -- appended into the SAME list (kind='flags' tells each
+    # renderer, and allocate_zero_page above, to skip the identifier-only
+    # dispatch machinery) rather than threaded through as a separate
+    # return value, so no existing caller's `domains, types = gather_ir(...)`
+    # unpacking needs to change.
+    domains += gather_flags_domain_info(reg, ordered_type_names,
+                                         emit_all_domains=emit_all_domains)
     types = [gather_type_info(reg, resolver, t) for t in ordered_type_names]
     return domains, types
 
@@ -415,7 +496,7 @@ def _cli():
     asm = render(domains, types, dialect=args.dialect, layout=args.layout, zp_base=zp_base)
 
     if args.output:
-        with open(args.output, "w") as f:
+        with open(args.output, "w", encoding="utf-8") as f:
             f.write(asm)
     else:
         print(asm)

@@ -92,6 +92,7 @@ class Registry:
         self.identifier_widths = {}  # domain_name -> width string ('u8'/'u16'/'u32'/'u64'), §8.3
         self.flags_widths = {}     # domain_name -> width string, mandatory for flags (unlike identifier's)
         self.flags_values = {}     # (domain, member_name) -> resolved int value (0, or 1 << claimed bit)
+        self.flags_bits = {}       # (domain, member_name) -> claimed bit index (int), absent for the zero sentinel
         self.instance_ids = {}     # (type_name, instance_name) -> precomputed stable ID
         self.duplicate_errors = []  # list of CompileError
 
@@ -314,6 +315,7 @@ class Registry:
                 continue
             claimed[entry.explicit_bit] = entry
             self.flags_values[(node.name, entry.name)] = 1 << entry.explicit_bit
+            self.flags_bits[(node.name, entry.name)] = entry.explicit_bit
 
         # Pass 2: auto-assign everything else, in declaration order,
         # around every explicit claim from pass 1 -- regardless of
@@ -343,6 +345,7 @@ class Registry:
                 continue
             claimed[cursor] = entry
             self.flags_values[(node.name, entry.name)] = 1 << cursor
+            self.flags_bits[(node.name, entry.name)] = cursor
             cursor += 1
 
         return errors
@@ -556,3 +559,8 @@ class Registry:
 
     def get_flags_value(self, domain: str, member: str):
         return self.flags_values.get((domain, member))
+
+    def get_flags_bit(self, domain: str, member: str):
+        """The claimed bit index (int), or None for the zero/none
+        sentinel (which claims no bit at all) or an unregistered member."""
+        return self.flags_bits.get((domain, member))

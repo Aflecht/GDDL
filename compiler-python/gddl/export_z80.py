@@ -89,7 +89,10 @@ class ExportZ80Error(Exception):
 class DomainInfo:
     name: str
     width: str
-    members: List[Tuple[str, int]]  # (key, 0-based index), declaration order
+    members: List[Tuple[str, int]]  # identifier: (key, 0-based index); flags: (key, real bit value)
+    kind: str = "identifier"  # 'identifier' or 'flags' -- see export_6502.py's DomainInfo
+                               # for the full reasoning (flags domains get no jump
+                               # table/dispatch machinery at all, just constant lines)
 
 
 @dataclass
@@ -173,6 +176,50 @@ def gather_domain_info(reg, type_names,
     return domains
 
 
+def _leaf_flags_domain_name(type_tokens: str, reg):
+    """The flags domain a leaf field refers to, or None. No '@' handling
+    needed -- flags never had a hash-vs-index duality to carry an '@'
+    prefix for (see export_6502.py's identical helper)."""
+    t = type_tokens.strip()
+    if t in reg.flags:
+        return t
+    return None
+
+
+def gather_flags_domains_used(reg, type_names) -> set:
+    used = set()
+    for type_name in type_names:
+        for _path, type_tokens in _flatten_leaves(type_name, reg):
+            domain = _leaf_flags_domain_name(type_tokens, reg)
+            if domain is not None:
+                used.add(domain)
+    return used
+
+
+def gather_flags_domain_info(reg, type_names, emit_all_domains: bool = False) -> List[DomainInfo]:
+    """Per-domain member constant tables for flags domains -- same
+    DomainInfo shape gather_domain_info produces for identifier domains,
+    but `members` holds each entry's REAL bit-claim value, not a dense
+    index, and `kind='flags'` tells every renderer to skip jump-table/
+    dispatch emission (see export_6502.py's identical function for the
+    full reasoning, shared verbatim across every target)."""
+    used = gather_flags_domains_used(reg, type_names)
+    domains = []
+    for domain_name in reg.flags:
+        if domain_name not in used and not emit_all_domains:
+            continue
+        width = reg.flags_widths[domain_name]
+        block = reg.flags[domain_name]
+        members = []
+        for entry in block.entries:
+            value = reg.get_flags_value(domain_name, entry.name)
+            if value is None:
+                continue
+            members.append((entry.name, value))
+        domains.append(DomainInfo(name=domain_name, width=width, members=members, kind="flags"))
+    return domains
+
+
 def _render_leaf_value(value, type_tokens, reg):
     """A single flattened leaf value, in the shared IR's representation.
     Identifier values always become ('domain_index', domain, index) on
@@ -221,6 +268,8 @@ def gather_ir(reg, resolver, type_names, emit_all_domains: bool = False):
     ordered_type_names = [t for t in reg.defines if t in type_names]
     domains = gather_domain_info(reg, ordered_type_names,
                                   emit_all_domains=emit_all_domains)
+    domains += gather_flags_domain_info(reg, ordered_type_names,
+                                         emit_all_domains=emit_all_domains)
     types = [gather_type_info(reg, resolver, t) for t in ordered_type_names]
     return domains, types
 
@@ -487,12 +536,12 @@ def _cli():
             return
         stem = args.output
         for suffix, text in out.items():
-            with open(stem + suffix, "w") as f:
+            with open(stem + suffix, "w", encoding="utf-8") as f:
                 f.write(text)
         return
 
     if args.output:
-        with open(args.output, "w") as f:
+        with open(args.output, "w", encoding="utf-8") as f:
             f.write(out)
     else:
         print(out)

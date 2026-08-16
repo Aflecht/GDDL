@@ -343,7 +343,7 @@ def write_manifest(types_ir, reg, offsets_info, bin_filename: str, out_path: str
             "fields": fields,
         })
 
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
         f.write("\n")
 

@@ -89,7 +89,15 @@ _SCALAR_TO_C_TYPE = {
 class DomainInfo:
     name: str
     width: str
-    members: List[Tuple[str, int]]  # (key, 0-based index), declaration order
+    members: List[Tuple[str, int]]  # identifier: (key, 0-based index); flags: (key, real bit value)
+    kind: str = "identifier"  # 'identifier' or 'flags' -- see export_6502.py's DomainInfo
+                               # for the full reasoning. On THIS target specifically, kind
+                               # also governs whether the domain gets its own typedef: an
+                               # identifier domain becomes a real C89 named type (its own
+                               # typedef + cast-to-that-type constants); a flags domain gets
+                               # NO typedef at all, matching the settled cross-target design
+                               # ("the field itself is the raw width type, NOT a named/
+                               # wrapped type") -- just plain #define constants.
 
 
 @dataclass
@@ -174,6 +182,51 @@ def gather_domain_info(reg, type_names,
     return domains
 
 
+def _leaf_flags_domain_name(type_tokens: str, reg):
+    """The flags domain a field refers to, or None. No '@' handling
+    needed -- flags never had a hash-vs-index duality to carry an '@'
+    prefix for (see export_6502.py's identical helper)."""
+    t = type_tokens.strip()
+    if t in reg.flags:
+        return t
+    return None
+
+
+def gather_flags_domains_used(reg, type_names) -> set:
+    used = set()
+    for type_name in type_names:
+        for _path, type_tokens in _flatten_leaves(type_name, reg):
+            domain = _leaf_flags_domain_name(type_tokens, reg)
+            if domain is not None:
+                used.add(domain)
+    return used
+
+
+def gather_flags_domain_info(reg, type_names, emit_all_domains: bool = False) -> List[DomainInfo]:
+    """Per-domain member constant tables for flags domains -- same
+    DomainInfo shape gather_domain_info produces for identifier domains,
+    but `members` holds each entry's REAL bit-claim value, not a dense
+    index, and `kind='flags'` tells render_c89_split to skip the
+    typedef/cast-constant emission entirely (see this module's DomainInfo
+    docstring, and export_6502.py's identical function for the shared
+    reasoning)."""
+    used = gather_flags_domains_used(reg, type_names)
+    domains = []
+    for domain_name in reg.flags:
+        if domain_name not in used and not emit_all_domains:
+            continue
+        width = reg.flags_widths[domain_name]
+        block = reg.flags[domain_name]
+        members = []
+        for entry in block.entries:
+            value = reg.get_flags_value(domain_name, entry.name)
+            if value is None:
+                continue
+            members.append((entry.name, value))
+        domains.append(DomainInfo(name=domain_name, width=width, members=members, kind="flags"))
+    return domains
+
+
 def gather_type_info(reg, resolver, type_name) -> TypeInfo:
     """Fields gathered AS DECLARED (not flattened) -- AoS preserves
     composition as real nested C structs. SoA's flattening happens
@@ -213,6 +266,8 @@ def gather_ir(reg, resolver, type_names, emit_all_domains: bool = False):
     ordered_type_names = [t for t in reg.defines if t in type_names]
     domains = gather_domain_info(reg, ordered_type_names,
                                   emit_all_domains=emit_all_domains)
+    domains += gather_flags_domain_info(reg, ordered_type_names,
+                                         emit_all_domains=emit_all_domains)
     types = [gather_type_info(reg, resolver, t) for t in ordered_type_names]
     return domains, types
 
@@ -221,8 +276,21 @@ def _c_field_type(type_tokens: str, reg, domain_widths: dict) -> str:
     """C89 type for one field. Scalars map directly; identifier-typed
     fields (plain Domain or @Domain -- indistinguishable here, §15.4)
     become the domain's own typedef name; struct-typed fields become
-    the nested type's own C struct name (composition, AoS only)."""
+    the nested type's own C struct name (composition, AoS only);
+    flags-typed fields become the domain's raw WIDTH type directly --
+    deliberately NOT the domain name, unlike identifier -- a flags
+    domain gets no typedef of its own at all (see this module's
+    DomainInfo docstring for why: "the field itself is the raw width
+    type, NOT a named/wrapped type", the same settled design every
+    other target uses)."""
     t = type_tokens.strip()
+    if t in reg.flags:
+        width = reg.flags_widths[t]
+        c_type = _WIDTH_TO_C_TYPE.get(width)
+        if c_type is None:
+            raise Export68000Error(
+                f"68000 first pass doesn't support {width}-wide flags domains yet")
+        return c_type
     if t.startswith("@"):
         t = t[1:].strip()
     if t in domain_widths:
@@ -233,8 +301,8 @@ def _c_field_type(type_tokens: str, reg, domain_widths: dict) -> str:
     if c_type is None:
         raise Export68000Error(
             f"68000 first pass doesn't support field type {type_tokens!r} yet "
-            "(scalar u8/u16/u32/i8/i16/i32, identifier-typed, and struct-typed "
-            "composed fields only)")
+            "(scalar u8/u16/u32/i8/i16/i32, identifier-typed, flags-typed, "
+            "and struct-typed composed fields only)")
     return c_type
 
 
@@ -307,6 +375,18 @@ def render_c89_split(domains: List[DomainInfo], types: List[TypeInfo], reg,
         c_type = _WIDTH_TO_C_TYPE.get(d.width)
         if c_type is None:
             raise Export68000Error(f"68000 first pass doesn't support {d.width}-wide domains yet")
+        if d.kind != "identifier":
+            # flags domain: plain constants only, no typedef at all --
+            # deliberately NOT the identifier pattern's cast-to-domain-
+            # type wrapper (see DomainInfo's own docstring). A flags
+            # field's C type is already the raw width type directly
+            # (_c_field_type), so these constants need no cast to make
+            # assignment/combination type-correct.
+            header.append(f"/* --- domain: {d.name} (flags, width {d.width}) --- */")
+            define_rows = [(f"#define {d.name}_{key}", str(value)) for key, value in d.members]
+            header.extend(_align_columns(define_rows))
+            header.append("")
+            continue
         header.append(f"/* --- domain: {d.name} (dense index, width {d.width}) --- */")
         header.append(f"typedef {c_type} {d.name};")
         define_rows = [
@@ -482,9 +562,9 @@ def _cli():
     header, c = render_c89_split(domains, types, resolver.reg,
                                   layout=args.layout,
                                   header_filename=os.path.basename(header_name))
-    with open(header_name, "w") as f:
+    with open(header_name, "w", encoding="utf-8") as f:
         f.write(header)
-    with open(c_name, "w") as f:
+    with open(c_name, "w", encoding="utf-8") as f:
         f.write(c)
     print(f"wrote {header_name} and {c_name}")
 

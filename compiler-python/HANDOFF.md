@@ -3024,3 +3024,177 @@ toolchain validation for stage 4 is now actually possible on this
 machine for every target (see the Windows real-toolchain entries
 above) -- unlike when this feature was first designed. Stage 3 as
 scoped in the handover doc is complete.
+
+## flags/bN work, stage 4: export, all five targets
+
+Picked up immediately after stage 3, same session. Every one of the
+five real toolchains set up earlier this session (MSVC, ACME/64tass/
+KickAssembler, SjASMPlus/z88dk-z80asm, vbcc+vamos) got used for real
+here, not just the pure-Python pipeline stages -- this is the first
+`flags` stage where that setup work actually paid off directly.
+
+**C++ (`export_cpp.py`)**: the settled `namespace Domain { constexpr
+WIDTH member = ...; }` shape (handover doc §4.3, already compile-tested
+there against three alternatives before this session ever started) --
+new shared `_render_flags_namespace()` helper, called from both
+`generate_header` and `generate_split` (the namespace's own content
+never differs between single-header and split modes; C++ has no way to
+split a namespace's constexpr definitions from their values anyway, so
+both modes emit it into the header). `_cpp_field_type` gained a real,
+deliberate distinction from how it already handles `identifier`: a
+flags-typed field becomes the domain's raw WIDTH type directly
+(`uint64_t` etc.), never the domain name itself -- there is no flags
+"type" in the emitted C++ at all, unlike identifier's `enum class`.
+The shared §17.4 schema computation (`_leaf_binary_kind`, used by BOTH
+this module's own §17.5 compile-time table AND `export_binary.py`)
+needed one addition -- a flags field packs exactly like an ordinary
+scalar of its own width, no logical-ID/indexed duality to preserve
+(flags never had one). Fixing this one shared function unlocked both
+consumers at once, exactly the reason it lives in one place instead of
+two.
+
+**A real correctness bug found and fixed in `_cpp_value_literal`,
+not just a style gap**: the existing `ULL`/`LL` suffix logic checked
+`t in ("u64",)` literally -- but a flags-typed field's declared type
+(`t`) is the domain name, not `"u64"`, so a u64-width flags value at
+or above 2**63 (a legitimate value -- e.g. a claimed high bit) would
+have rendered as a bare, unsuffixed decimal literal. Real C++ decimal
+integer literals without a suffix only ever get a SIGNED type
+candidate (int/long/long long); a value that doesn't fit any of those
+is rejected or mishandled by real compilers, not silently accepted.
+Fixed by resolving a flags field's real width before deciding on a
+suffix, same reasoning `u64`/`i64` already use.
+
+**A separate, real, pre-existing bug found while verifying C++ output
+on this machine, affecting ALL FIVE exporters, not just this feature**:
+every exporter's actual file-writing code (`open(path, "w")`, the CLI
+paths that produce real `.h`/`.cpp`/`.asm`/`.c`/`.json` output) had no
+explicit `encoding="utf-8"`, the exact write-side counterpart of the
+`parser.py` read-side bug fixed earlier this session. Confirmed real,
+not assumed: a generated header containing a real `§` character (the
+§17.5 schema-table comment) came out corrupted on this Windows
+machine's non-UTF-8 default codepage -- confirmed at the byte level
+(decoding the written file's raw bytes as UTF-8 produced mojibake,
+not just a display artifact) before and after the fix. Sweep was
+project-wide, not scoped to what this session happened to touch:
+grepped every `open(` call across `gddl/` and added `encoding="utf-8"`
+to every text-mode write across `export_cpp.py` (3 sites),
+`export_68000.py` (2), `export_6502.py` (1), `export_z80.py` (2), and
+`export_binary.py`'s `.gddlmeta.json` writer (1) -- the one `"wb"`
+binary-mode write in `export_binary.py` correctly left untouched, no
+text encoding concept applies to it. This would have silently
+corrupted non-ASCII content (§ references, any description text with
+accented characters) in every real exported file on this machine
+before today, for any prior export, flags-related or not.
+
+**6502/Z80/68000, one shared design decision across all three**:
+reused each target's existing `DomainInfo` dataclass for flags domains
+too (`members` holds each entry's real bit-claim value instead of a
+dense index), rather than threading a new, separate return value
+through `gather_ir`. Added one field, `kind: str = "identifier"`
+(default preserves every existing call site's behavior unmodified,
+including the real, committed test files calling `gather_ir` directly
+-- `test_6502_zp_validation.py`, `test_68000_cli.py` -- checked before
+assuming a signature change was safe, confirmed a 3-tuple return would
+have broken them). Flags `DomainInfo`s are appended into the SAME
+`domains` list every renderer already loops over; `kind` tells each
+renderer to skip the identifier-only jump-table/Dispatch machinery
+(flags fields are combinable data, never dispatched to a handler) and
+just emit the plain constant lines the exact same `for key, value in
+d.members` loop already produces. This is why the diff per renderer is
+small (one `if d.kind != "identifier":` branch each) despite covering
+six renderer files.
+
+- **6502**: `gather_flags_domain_info` (mirrors `gather_domain_info`),
+  wired into `gather_ir`. `allocate_zero_page` updated to skip
+  dispatch-block allocation for flags domains specifically -- zero
+  page is small and contested (§10.2's own stated reason for requiring
+  `--zp-base` at all); allocating a pointer never used would have
+  wasted it. All three dialect renderers (ACME, 64tass, KickAssembler)
+  updated identically. `domain_widths` (used by `_leaf_directive` for
+  storage-directive width lookups) already gets flags widths for free,
+  since it's built generically from whatever's in `domains` -- no
+  changes needed there at all.
+- **Z80**: same `DomainInfo.kind`/`gather_flags_domain_info` pattern,
+  wired into `gather_ir`. Both real dialect renderers (SjASMPlus,
+  z88dk-z80asm) updated identically. The third renderer,
+  `export_z80_z88dk_c.py` (C-mode), needed ZERO changes -- confirmed
+  by reading it, not assumed: its own domain-constant loop already
+  emits plain `#define`s with no jump-table/dispatch concept at all,
+  so it was already flags-correct the moment the shared IR started
+  feeding it flags domains.
+- **68000**: the one target where flags needed a REAL divergence from
+  the shared pattern, not just a skip-the-dispatch branch -- identifier
+  domains get their own C89 `typedef` (a real named type, e.g. `typedef
+  unsigned char ActionAttack;`), but flags must NOT (same "raw width
+  type, not a named/wrapped type" rule as C++, §4.3's own stated
+  reasoning applies identically to a C89 typedef). `_c_field_type`
+  checks `t in reg.flags` FIRST, before the identifier-typedef lookup,
+  returning the domain's raw C width type directly; `render_c89_split`'s
+  domain-emission loop branches on `kind` to skip the `typedef` line
+  and the cast-to-domain-type wrapper on the `#define` constants
+  (`#define Domain_member value`, not identifier's `#define
+  Domain_member ((Domain)index)`).
+
+**Binary format (`export_binary.py`)**: needed ZERO changes of its own
+-- confirmed by reading `pack_leaf_value`, not assumed -- it already
+dispatches purely on `_leaf_binary_kind`'s returned `kind`, and that
+function's new flags case (`"scalar"`, same as any u8/u16/u32/u64
+field) already routes through the existing generic `struct.pack`
+scalar path with no special-casing needed. Fixing the one shared
+function in `export_cpp.py` was the whole fix for this target.
+
+**Validated, real toolchain, every target, not just "should work"**:
+- **C++**: real MSVC (`cl.exe /std:c++17 /EHsc`) compile and execution,
+  both single-header and split modes -- `static_assert`s on the
+  namespace constants themselves, a real bitwise-combined value
+  checked at compile time, real instance data checked at runtime, and
+  the natural `if (flags & X)` check working directly (the whole
+  point of the namespace-over-`enum class` design, confirmed for real
+  this time, not just in the abstract).
+- **6502**: all three dialects (ACME, 64tass, KickAssembler) -- real
+  assemble, real execution under `py65`, matching hand-computed
+  combined values (`is_movable | is_pickupable` = 10, checked byte-
+  exact in emulated memory).
+- **Z80**: both dialects (SjASMPlus, z88dk-z80asm) -- real assemble,
+  real execution under the `z80` emulator, AoS confirmed via both
+  dialects' real toolchains, SoA layout output inspected directly
+  (correct dense-index array shape, same values).
+- **68000**: real `vbcc +aos68k` compile, real `vamos` execution --
+  confirmed the generated header has no typedef for the flags domain
+  and the field really is `unsigned char` directly, then confirmed the
+  combined value reads back correctly at runtime.
+- **Binary format**: real `.gddldata.bin` generation, independent
+  readback (a from-scratch byte parser sharing no code with the
+  writer, matching this target's own established validation
+  standard) -- record_size, record_count, and the packed flags byte
+  itself all confirmed correct directly from the raw file bytes.
+- **Full regression**: `export_golden.py` 72/72 zero content diffs;
+  re-ran all four real-toolchain driver scripts built earlier this
+  session (`run_all_cpp_tests.py` 16/16, `run_all_6502_tests.py` 9/9,
+  `run_all_z80_tests.py` 8/8, `run_all_68000_tests.py` 4/4) to confirm
+  every EXISTING identifier-domain export path still works correctly
+  after the shared `DomainInfo`/`gather_ir` changes -- not assumed
+  safe from the golden corpus alone, since none of those four driver
+  scripts' fixtures happen to use `flags` yet. Also re-ran
+  `test_binary_export.py` (binary format's own hand-written suite),
+  `multi_file_test.py`, and `test_68000_cli.py`, all clean.
+- **One pre-existing test left unrun, not newly broken**:
+  `export_binary_test/test_schema_table_cpp.py` hardcodes `g++`
+  directly, which has never been available on this Windows machine at
+  any point this session (confirmed: this is the exact reason
+  `run_all_cpp_tests.py` exists as a separate, MSVC-based driver in
+  the first place). The claim this test exists to check -- that the
+  §17.5 schema table compiles for a flags-containing type -- was
+  already independently confirmed via real MSVC in this session's own
+  direct verification, just not through this specific pre-existing
+  g++-based script.
+
+**Not yet done, next**: stage 5 (validation -- new permanent corpus
+fixtures: valid auto-assignment, explicit `bN` mixed with
+auto-assignment, duplicate-bit error, width-overflow error,
+arithmetic-rejected, bitwise-rejected-elsewhere, a real combined value
+read back from real compiled/run output) and stage 6 (docs, folded
+into `language-basics.md` or a new guide -- deliberately undecided
+until real material exists). Stage 4 as scoped in the handover doc is
+complete for all five targets.

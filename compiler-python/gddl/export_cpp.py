@@ -139,7 +139,52 @@ def _cpp_field_type(type_tokens: str, reg):
         return t  # nested struct, same name (composition, §5.2)
     if t in reg.identifiers:
         return t  # enum class, same name as the domain
+    if t in reg.flags:
+        # Settled design (confirmed via real compiled testing, see
+        # HANDOFF.md): the field itself is the raw width type, NOT a
+        # named/wrapped type -- unlike identifier's enum class, a flags
+        # domain has no type of its own in the emitted C++ at all, only
+        # a `namespace Domain { constexpr WIDTH member = ...; }` of bit
+        # constants (see _render_flags_namespace).
+        return _CPP_INT_TYPES[reg.flags_widths[t]]
     raise ValueError(f"unrecognized field type {type_tokens!r} -- can't export")
+
+
+def _render_flags_namespace(domain_name, block, reg):
+    """Renders one flags domain as `namespace Domain { constexpr WIDTH
+    member = ...; }` (settled design, confirmed via real compiled
+    testing -- see HANDOFF.md's "C++ export shape" entry for the three
+    alternatives tried and why this one won: unlike `enum class`, a
+    plain namespace of constexpr values gives real bitwise operators
+    for free while still scoping members the same way `enum class`
+    would, avoiding the cross-domain name collision a plain unscoped
+    `enum` has). Shared between generate_header and generate_split --
+    the namespace's own content never differs between single-header and
+    split modes, only where the surrounding lines list ends up (the
+    header in both cases, since C++ has no way to split a namespace's
+    constexpr definitions from their values the way a .cpp/.h pair
+    splits ordinary function bodies).
+
+    A member with no registered value (registry.py skipped it -- an
+    invalid or losing-duplicate bit claim, already reported as its own
+    phase-4 error) is silently omitted here, not emitted with a
+    fabricated value -- the build is already blocked by that error
+    regardless of what this function does."""
+    cpp_width = _CPP_INT_TYPES[reg.flags_widths[domain_name]]
+    lines = [f"namespace {domain_name}", "{"]
+    member_rows = []
+    for entry in block.entries:
+        value = reg.get_flags_value(domain_name, entry.name)
+        if value is None:
+            continue
+        bit = reg.get_flags_bit(domain_name, entry.name)
+        rhs = f"1ULL << {bit}" if bit is not None else "0"
+        member_rows.append((f"constexpr {cpp_width}", entry.name, f"= {rhs};"))
+    for row in _align_columns(member_rows):
+        lines.append(f"    {row}")
+    lines.append("}")
+    lines.append("")
+    return lines
 
 
 def _domains_used_indexed(reg):
@@ -260,6 +305,16 @@ def _leaf_binary_kind(type_tokens: str, reg):
         # Plain Domain, no '@' -- always the full 8-byte logical ID,
         # never inferred, never narrowed (§8.3).
         return ("logical_id", "Q", 8)
+
+    if t in reg.flags:
+        # A flags-typed field is a plain unsigned integer of its
+        # declared width -- no hash-vs-index duality to preserve here,
+        # flags never had one (unlike identifier's plain-vs-'@' split
+        # just above). Packs exactly like an ordinary scalar u8/u16/
+        # u32/u64 field of the same width.
+        width_type = reg.flags_widths[t]
+        fmt, width = _BINARY_INT_TYPES[width_type]
+        return ("scalar", fmt, width)
 
     if t in _BINARY_INT_TYPES:
         fmt, width = _BINARY_INT_TYPES[t]
@@ -592,6 +647,17 @@ def _cpp_value_literal(value, type_tokens: str, reg) -> str:
         return repr(value)
 
     if isinstance(value, int):
+        # A flags-typed field's declared type is the domain name, not
+        # "u64" -- resolve to its real width before deciding on a
+        # suffix. Matters for real correctness, not just style: a bare
+        # decimal literal at or above 2**63 (a legitimate u64-width
+        # flags value, e.g. a claimed high bit) has no signed integer
+        # type it fits in, which real compilers reject or truncate
+        # without the ULL suffix forcing an unsigned type instead.
+        if t in reg.flags:
+            if reg.flags_widths[t] == "u64":
+                return f"{value}ULL"
+            return str(value)
         if t in ("u64",):
             return f"{value}ULL"
         if t in ("i64",):
@@ -688,6 +754,10 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
                 lines.append(f"    {row}")
             lines.append("};")
             lines.append("")
+
+    # ---- 1b. flags domains -> namespace { constexpr WIDTH member = ...; } ----
+    for domain_name, block in reg.flags.items():
+        lines.extend(_render_flags_namespace(domain_name, block, reg))
 
     # ---- 2. defines -> structs, in dependency order. AoS ONLY: SoA
     # fully flattens through composition (§13.1) all the way down, so no
@@ -1445,6 +1515,12 @@ def generate_split(reg, resolver, guard_name="GDDL_GENERATED_H",
             header_lines.append("};")
             header_lines.append("")
 
+    # ---- 1b. flags domains -> namespace { constexpr WIDTH member = ...; }
+    # -- header only, same structural reason as the enums above (no way
+    # to split a namespace's constexpr definitions from their values). ----
+    for domain_name, block in reg.flags.items():
+        header_lines.extend(_render_flags_namespace(domain_name, block, reg))
+
     # ---- 2. structs: header only, AoS or AoS-linear -- same rule as
     # generate_header (SoA fully flattens, never needs a struct type;
     # aos-linear needs it since std::array<T,N> requires T defined). ----
@@ -1545,7 +1621,7 @@ def _cli():
         header = generate_header(resolver.reg, resolver, layout=args.layout,
                                   emit_all_domains=args.emit_all_domains)
         if args.output and args.output != "generated":
-            with open(args.output, "w") as f:
+            with open(args.output, "w", encoding="utf-8") as f:
                 f.write(header)
         else:
             print(header)
@@ -1555,9 +1631,9 @@ def _cli():
         header, cpp = generate_split(resolver.reg, resolver,
                                       header_filename=header_name, layout=args.layout,
                                       emit_all_domains=args.emit_all_domains)
-        with open(header_name, "w") as f:
+        with open(header_name, "w", encoding="utf-8") as f:
             f.write(header)
-        with open(cpp_name, "w") as f:
+        with open(cpp_name, "w", encoding="utf-8") as f:
             f.write(cpp)
         print(f"wrote {header_name} and {cpp_name}")
 

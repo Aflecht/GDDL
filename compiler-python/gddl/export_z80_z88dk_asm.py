@@ -116,6 +116,12 @@ def render_z88dk_asm(domains: list, types: list, pointer_table: bool = True,
     # by layout, identifier-domain dispatch is orthogonal to instance
     # data layout. ----
     for d in domains:
+        if d.kind != "identifier":
+            lines.append(f"; --- domain: {d.name} (flags, width {d.width}) ---")
+            for key, value in d.members:
+                lines.append(f"{d.name}_{key} equ {value}")
+            lines.append("")
+            continue
         lines.append(f"; --- domain: {d.name} (indexed form, width {d.width}) ---")
         for key, index in d.members:
             lines.append(f"{d.name}_{key} equ {index}")

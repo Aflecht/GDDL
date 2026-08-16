@@ -186,6 +186,12 @@ def render_kickassembler(domains: list, types: list, zp_alloc: ZeroPageAllocatio
     # ---- 1. per-domain member index constants + jump table + Dispatch
     # (§10.2/10.3) ---- unaffected by layout.
     for d in domains:
+        if d.kind != "identifier":
+            lines.append(f"// --- domain: {d.name} (flags, width {d.width}) ---")
+            for key, value in d.members:
+                lines.append(f".label {d.name}_{key} = {value}")
+            lines.append("")
+            continue
         lines.append(f"// --- domain: {d.name} (indexed form, width {d.width}) ---")
         for key, index in d.members:
             lines.append(f".label {d.name}_{key} = {index}")

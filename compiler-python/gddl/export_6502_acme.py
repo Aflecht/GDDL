@@ -166,6 +166,16 @@ def render_acme(domains: list, types: list, zp_alloc: ZeroPageAllocation,
     # absolute-indexed LDA reaches any entry directly (no doubling), so
     # dispatch never needs indexed-indirect JMP -- see module docstring.
     for d in domains:
+        if d.kind != "identifier":
+            # flags domain: plain bit-value constants only, no jump
+            # table/Dispatch (§10.2's dispatch machinery is identifier-
+            # only -- flags fields are combinable data, never dispatched
+            # on).
+            lines.append(f"; --- domain: {d.name} (flags, width {d.width}) ---")
+            for key, value in d.members:
+                lines.append(f"{d.name}_{key} = {value}")
+            lines.append("")
+            continue
         lines.append(f"; --- domain: {d.name} (indexed form, width {d.width}) ---")
         for key, index in d.members:
             lines.append(f"{d.name}_{key} = {index}")
