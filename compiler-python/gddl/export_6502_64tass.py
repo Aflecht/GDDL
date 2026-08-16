@@ -57,8 +57,8 @@ derived from the required --zp-base (no default), emitted as a named
 bare constant so the generated code stays self-documenting.
 """
 
-from export_6502 import DomainInfo, TypeInfo, ZeroPageAllocation, gather_soa_columns
-from export_cpp import _string_n
+from .export_6502 import DomainInfo, TypeInfo, ZeroPageAllocation, gather_soa_columns
+from .export_cpp import _string_n
 
 
 _WIDTH_TO_DIRECTIVE = {"u8": ".byte", "u16": ".word", "u32": None, "u64": None}

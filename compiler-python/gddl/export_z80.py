@@ -73,9 +73,9 @@ CPU's real register set.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from export_cpp import export_instances_for_type, _flatten_leaves, _flatten_value, _string_n
-from resolve import IdentifierRef
-from validate import check_and_report
+from .export_cpp import export_instances_for_type, _flatten_leaves, _flatten_value, _string_n
+from .resolve import IdentifierRef
+from .validate import check_and_report
 
 
 class ExportZ80Error(Exception):
@@ -423,12 +423,12 @@ def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "as
             raise ValueError(
                 "--z88dk-output is only meaningful with "
                 "--z80-toolchain=z88dk (§16.3)")
-        from export_z80_sjasmplus import render_sjasmplus
+        from .export_z80_sjasmplus import render_sjasmplus
         return render_sjasmplus(domains, types, pointer_table=pointer_table,
                                 find_macro=find_macro, reg=reg, layout=layout)
     if toolchain == "z88dk":
         if z88dk_output == "asm":
-            from export_z80_z88dk_asm import render_z88dk_asm
+            from .export_z80_z88dk_asm import render_z88dk_asm
             return render_z88dk_asm(domains, types, pointer_table=pointer_table,
                                     find_macro=find_macro, reg=reg, layout=layout)
         if z88dk_output == "c":
@@ -446,7 +446,7 @@ def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "as
                     "(§16.3) -- in C mode {Type}_Find is an ordinary "
                     "function and inlining is the compiler's own decision, "
                     "not the exporter's to make via a MACRO/ENDM block")
-            from export_z80_z88dk_c import render_z88dk_c
+            from .export_z80_z88dk_c import render_z88dk_c
             return render_z88dk_c(domains, types, pointer_table=pointer_table, reg=reg)
         raise ValueError(f"unknown z88dk_output {z88dk_output!r} -- must be 'asm' or 'c'")
     raise ValueError(f"unknown toolchain {toolchain!r} -- must be 'sjasmplus' or 'z88dk'")
@@ -455,7 +455,7 @@ def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "as
 def _cli():
     import argparse
     import sys
-    from combine import resolve_inputs, compile_multi, CombineError
+    from .combine import resolve_inputs, compile_multi, CombineError
 
     ap = argparse.ArgumentParser(description="GDDL -> Z80 exporter")
     ap.add_argument("source", nargs="+",

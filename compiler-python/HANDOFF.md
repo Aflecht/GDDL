@@ -3414,3 +3414,92 @@ stage, so no regression suite re-run was needed or performed.
 handover doc's own plan.** Next up per that same plan (section 5):
 arrays, fully designed already but explicitly deferred until `flags`
 shipped in full -- which, as of this entry, it now has.
+
+## Packaging restructuring: `gddl/` is now a real installable Python package
+
+Motivation was external to this repo's own pipeline work: a separate,
+future scripting-language compiler (its own project, its own GitHub
+repo) needs to reuse this repo's own logical-ID hashing code directly
+(fnv1a_64 in registry.py) rather than re-implementing it, to avoid two
+independently-maintained copies of the same hash ever drifting apart
+(a risk this project's own SPEC.md section 4.1.1 already flags
+explicitly). The proper way to make that possible is a real installable
+Python package (`pip install git+https://...`), not manual sys.path
+surgery from the consuming project.
+
+**What changed, mechanically:**
+- Added `compiler-python/gddl/__init__.py` (empty except the license
+  header) -- the one file that turns `gddl/` from a loose folder of
+  scripts into an actual Python package.
+- Added `compiler-python/pyproject.toml` (setuptools, package name
+  `gddl-compiler`, `packages.find` includes `gddl*`).
+- Converted every internal import inside `gddl/` from flat sibling-style
+  (`from resolve import X`, which only worked because every script sat
+  in the same directory and something upstream had put that directory
+  on sys.path) to package-relative (`from .resolve import X`). This
+  touched all 17 files under `gddl/` -- both top-level imports and every
+  deferred, function-local import (the dialect-dispatch imports inside
+  `export_6502.render()`/`export_z80.render()`, and the `_cli()` imports
+  of `combine`, in every exporter). Two of these deferred dispatch
+  imports (`export_6502.py`'s and `export_z80.py`'s own dialect-selection
+  branches) were missed by the first grep pass, which only searched
+  column-0 `from X import` lines; a second grep for indented `from`
+  lines caught them. Confirmed nothing left over with a final grep
+  across the whole `gddl/` tree for any remaining flat-style import: zero
+  matches.
+- Updated the 6 test-side scripts that import `gddl` modules
+  in-process (`export_golden.py`, `multi_file_test/test_multi_file.py`,
+  `export_6502_test/test_6502_zp_validation.py`,
+  `export_binary_test/test_binary_export.py`,
+  `export_binary_test/test_schema_table_cpp.py`,
+  `export_z80_c_test/verify_shift_add.py`) to point their `sys.path`
+  entry at `compiler-python/` itself (the package's parent directory,
+  not `gddl/` directly) and import via `from gddl.parser import X`
+  style. `test_binary_export.py` had three of its own deferred,
+  function-local imports (`registry.logical_id`, `export_cpp._flatten_leaves`,
+  `export_binary.compute_record_size`) that the first pass missed for
+  the same column-0-only-grep reason as above; caught and fixed the same
+  way.
+
+**One real behavioral consequence, not just a mechanical rename:** any
+exporter invoked as a subprocess by running its `.py` file directly
+(`python .../gddl/export_z80.py ...`) now fails with `ImportError:
+attempted relative import with no known parent package` -- a relative
+import needs the module to be loaded as part of its package, which
+running a file directly as `__main__` never provides, package or not.
+Two test suites did exactly this: `multi_file_test/test_multi_file.py`
+(Check 4, shell-independence, invokes `export_z80.py` as a real
+subprocess three different ways) and `export_68000_test/test_68000_cli.py`
+(its entire suite invokes `export_68000.py` as a subprocess). Both
+switched from `[sys.executable, path/to/export_X.py, ...]` to
+`[sys.executable, "-m", "gddl.export_X", ...]` with `cwd` set to
+`compiler-python/` (the package's parent) -- `-m` loads the module as
+part of its package, which is what the relative imports now require.
+This is also the shape any real end-user CLI invocation of these
+exporters needs going forward, not just tests: `python -m gddl.export_z80
+...` from `compiler-python/`, not `python gddl/export_z80.py ...`
+directly. (A `[project.scripts]` console-script entry point in
+`pyproject.toml` would remove this requirement entirely once one is
+added; not done yet since it wasn't needed for this pass.)
+
+**Verified, not just assumed:** a standalone import sweep (every module
+in `gddl/`, including every dialect exporter, imported fresh with only
+`compiler-python/` on `sys.path`) succeeded with zero errors. Then the
+full regression suite: `export_golden.py` regenerated all 79 fixtures
+cleanly; a structural diff against the previously-committed
+`golden_output.json` (normalizing Windows backslash path-separator keys
+back to forward slashes, the same known cosmetic artifact every prior
+Windows-side regeneration this session has produced) found zero content
+differences across all 79 fixtures -- confirming the restructuring
+changed no compiler behavior. All four real-toolchain driver suites
+re-run clean: `run_all_cpp_tests.py` (17/17, MSVC), `run_all_6502_tests.py`
+(9/9, ACME + 64tass + KickAssembler), `run_all_z80_tests.py` (8/8,
+SjASMPlus + z88dk), `run_all_68000_tests.py` (4/4, vbcc + vamos).
+`multi_file_test.py`, `test_binary_export.py`, and `test_68000_cli.py`
+all pass clean after their subprocess-invocation and deferred-import
+fixes above. `test_schema_table_cpp.py` hits its one already-documented
+pre-existing gap (hardcoded `g++`, never available on this Windows
+machine at any point this session -- see the entry above); everything
+in that script short of the actual g++ compile step ran and passed.
+
+Zero em-dashes (checked directly, this project's own hard rule).

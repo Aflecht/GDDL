@@ -43,7 +43,7 @@ Naming is shared with both assembly paths (§16.1.1): `{Type}_Instances`,
 `{Type}_Registry`, `{Type}_Find`.
 """
 
-from export_z80 import type_sizeof, ExportZ80Error, _string_n
+from .export_z80 import type_sizeof, ExportZ80Error, _string_n
 
 
 # C89 types for zsdcc/Z80. `int` is 16-bit on this target, so u16/i16

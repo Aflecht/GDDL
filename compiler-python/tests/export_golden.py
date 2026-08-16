@@ -26,13 +26,13 @@ import os
 # same directory; conflating them again here would silently break the
 # moment either side of the tree moves independently in the future.
 _TESTS_ROOT = os.path.dirname(os.path.abspath(__file__))
-_GDDL_ROOT = os.path.join(os.path.dirname(_TESTS_ROOT), "gddl")
+_COMPILER_ROOT = os.path.dirname(_TESTS_ROOT)
 
-sys.path.insert(0, _GDDL_ROOT)
+sys.path.insert(0, _COMPILER_ROOT)
 
-from parser import parse_file, GDDLParseError
-from resolve import resolve_all, StructValue, UNINIT, IdentifierRef
-from validate import compile_report
+from gddl.parser import parse_file, GDDLParseError
+from gddl.resolve import resolve_all, StructValue, UNINIT, IdentifierRef
+from gddl.validate import compile_report
 
 _LINE_RE = re.compile(r"^line (\d+):")
 

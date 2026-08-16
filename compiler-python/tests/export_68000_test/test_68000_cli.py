@@ -26,8 +26,11 @@ import sys
 import tempfile
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
-_GDDL_DIR = os.path.normpath(os.path.join(_DIR, "..", "..", "gddl"))
-_EXPORTER = os.path.join(_GDDL_DIR, "export_68000.py")
+# gddl is now a real package (relative imports throughout), so it must be
+# invoked as `-m gddl.export_68000` with the package's parent directory as
+# cwd -- running export_68000.py directly as a script no longer works (no
+# parent package context for its relative imports).
+_COMPILER_ROOT = os.path.normpath(os.path.join(_DIR, "..", ".."))
 
 _MULTI_FILE_DIR = os.path.normpath(os.path.join(_DIR, "..", "multi_file_test"))
 
@@ -37,8 +40,9 @@ _TMP = tempfile.gettempdir()
 
 
 def _run(args, **kwargs):
+    kwargs.setdefault("cwd", _COMPILER_ROOT)
     return subprocess.run(
-        [sys.executable, _EXPORTER] + args, capture_output=True, text=True, **kwargs)
+        [sys.executable, "-m", "gddl.export_68000"] + args, capture_output=True, text=True, **kwargs)
 
 
 def test_help():

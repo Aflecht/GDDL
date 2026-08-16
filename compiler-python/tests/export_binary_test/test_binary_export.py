@@ -32,14 +32,12 @@ import tempfile
 # pipeline modules -- verified by actually running this file post-fix,
 # not just by counting dirname() calls (the sibling verify_shift_add.py
 # fix was one level short on the first attempt; same care applied here).
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "gddl"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from parser import parse_file
-from resolve import resolve_all
-from export_binary import export_binary, canonical_schema_string, compute_schema_hash
+from gddl.parser import parse_file
+from gddl.resolve import resolve_all
+from gddl.export_binary import export_binary, canonical_schema_string, compute_schema_hash
 import independent_reader as reader
 
 
@@ -115,7 +113,7 @@ def check_independent_readback(reg, data, manifest):
         # element: plain identifier, logical-ID form -- verify against
         # the SAME logical_id function used everywhere else in this
         # project (registry.logical_id), not a hand-copied hex constant.
-        from registry import logical_id
+        from gddl.registry import logical_id
         off, width, ftype = item_fields["element"]
         got = reader.unpack_field(record, off, width, ftype)
         want = int(logical_id("Element", {
@@ -260,7 +258,7 @@ def check_schema_discrimination(build_dir):
 
     prog_orig = parse_file(FIXTURE)
     resolver_orig = resolve_all(prog_orig)
-    from export_cpp import _flatten_leaves
+    from gddl.export_cpp import _flatten_leaves
     leaves_orig = _flatten_leaves("Item", resolver_orig.reg)
     hash_orig = compute_schema_hash(leaves_orig)
 
@@ -278,7 +276,7 @@ def check_schema_discrimination(build_dir):
     # Also confirm record_size did NOT change (same fields, same widths,
     # just reordered) -- this is what makes the reorder case interesting:
     # record_size alone would NOT have caught this, only the hash does.
-    from export_binary import compute_record_size
+    from gddl.export_binary import compute_record_size
     size_orig = compute_record_size(leaves_orig, resolver_orig.reg)
     size_mod = compute_record_size(leaves_mod, resolver_mod.reg)
     print(f"  original Item record_size: {size_orig}")

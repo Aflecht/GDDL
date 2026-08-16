@@ -4,16 +4,12 @@
     "batches": [
       {
         "name": "main_corpus",
-        "count": 72
-      },
-      {
-        "name": "flags_bn_stage5",
-        "count": 7
+        "count": 79
       }
     ]
   },
   "fixtures": {
-    "circular_references/circular_reference_direct_two_instance.gddl": {
+    "circular_references\\circular_reference_direct_two_instance.gddl": {
       "status": "parsed",
       "duplicate_errors": [
         {
@@ -47,7 +43,7 @@
         }
       }
     },
-    "circular_references/circular_reference_longer_chain.gddl": {
+    "circular_references\\circular_reference_longer_chain.gddl": {
       "status": "parsed",
       "duplicate_errors": [
         {
@@ -94,7 +90,7 @@
         }
       }
     },
-    "composition_no_inheritance/composition_multi_level.gddl": {
+    "composition_no_inheritance\\composition_multi_level.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -115,7 +111,7 @@
         }
       }
     },
-    "composition_no_inheritance/composition_nested_u16_fields.gddl": {
+    "composition_no_inheritance\\composition_nested_u16_fields.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -137,7 +133,7 @@
         }
       }
     },
-    "composition_no_inheritance/composition_same_type_reused_multiple_fields.gddl": {
+    "composition_no_inheritance\\composition_same_type_reused_multiple_fields.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -159,7 +155,7 @@
         }
       }
     },
-    "composition_no_inheritance/composition_with_delete_partial_then_completed.gddl": {
+    "composition_no_inheritance\\composition_with_delete_partial_then_completed.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -198,7 +194,7 @@
         }
       }
     },
-    "cross_rule_interactions/cri_coercion_multigen_crossfield.gddl": {
+    "cross_rule_interactions\\cri_coercion_multigen_crossfield.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -232,7 +228,7 @@
         }
       }
     },
-    "cross_rule_interactions/cri_delete_composition_crossfield.gddl": {
+    "cross_rule_interactions\\cri_delete_composition_crossfield.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -263,7 +259,7 @@
         }
       }
     },
-    "cross_rule_interactions/cri_indentation_depth_with_replace_modify.gddl": {
+    "cross_rule_interactions\\cri_indentation_depth_with_replace_modify.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -361,7 +357,7 @@
         }
       }
     },
-    "crossfield_references/crossfield_basic_reference.gddl": {
+    "crossfield_references\\crossfield_basic_reference.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -378,7 +374,7 @@
         }
       }
     },
-    "crossfield_references/crossfield_dot_syntax_disambiguation.gddl": {
+    "crossfield_references\\crossfield_dot_syntax_disambiguation.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -402,7 +398,7 @@
         }
       }
     },
-    "crossfield_references/crossfield_forward_reference_error.gddl": {
+    "crossfield_references\\crossfield_forward_reference_error.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -416,7 +412,7 @@
         }
       }
     },
-    "crossfield_references/crossfield_nested_path_reference.gddl": {
+    "crossfield_references\\crossfield_nested_path_reference.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -435,7 +431,7 @@
         }
       }
     },
-    "crossfield_references/crossfield_self_reference_non_leading.gddl": {
+    "crossfield_references\\crossfield_self_reference_non_leading.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -458,7 +454,7 @@
         }
       }
     },
-    "delete_templates/delete_chain_partial_completion_at_each_generation.gddl": {
+    "delete_templates\\delete_chain_partial_completion_at_each_generation.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -513,7 +509,7 @@
         }
       }
     },
-    "delete_templates/delete_descendant_completes_and_resolves.gddl": {
+    "delete_templates\\delete_descendant_completes_and_resolves.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -540,7 +536,7 @@
         }
       }
     },
-    "delete_templates/delete_descendant_incomplete_error.gddl": {
+    "delete_templates\\delete_descendant_incomplete_error.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -572,7 +568,7 @@
         }
       }
     },
-    "delete_templates/delete_multi_generation_chain.gddl": {
+    "delete_templates\\delete_multi_generation_chain.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -610,7 +606,7 @@
         }
       }
     },
-    "delete_templates/delete_own_uninitialized_read_error.gddl": {
+    "delete_templates\\delete_own_uninitialized_read_error.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -624,7 +620,7 @@
         }
       }
     },
-    "delete_templates/delete_template_incomplete_ok.gddl": {
+    "delete_templates\\delete_template_incomplete_ok.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -642,7 +638,7 @@
         }
       }
     },
-    "domains/domain_field_accepts_valid_member.gddl": {
+    "domains\\domain_field_accepts_valid_member.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -675,7 +671,7 @@
         }
       }
     },
-    "domains/domain_field_literal_type_mismatch_error.gddl": {
+    "domains\\domain_field_literal_type_mismatch_error.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -689,7 +685,7 @@
         }
       }
     },
-    "domains/domain_field_nonexistent_member_error.gddl": {
+    "domains\\domain_field_nonexistent_member_error.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -703,7 +699,7 @@
         }
       }
     },
-    "domains/domain_field_wrong_domain_error.gddl": {
+    "domains\\domain_field_wrong_domain_error.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -717,7 +713,7 @@
         }
       }
     },
-    "domains/domain_logical_id_collision_error.gddl": {
+    "domains\\domain_logical_id_collision_error.gddl": {
       "status": "parsed",
       "duplicate_errors": [
         {
@@ -730,7 +726,7 @@
       "warnings": [],
       "instances": {}
     },
-    "domains/domain_multiple_domains_side_by_side.gddl": {
+    "domains\\domain_multiple_domains_side_by_side.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -775,7 +771,144 @@
         }
       }
     },
-    "indentation_and_comments/comments_nested_block_and_code_lookalike.gddl": {
+    "flags\\flags_arithmetic_rejected_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "delete",
+          "resolved": {
+            "mask": 0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Bad": {
+          "status": "error",
+          "phase": 6,
+          "check": "flags_arithmetic_rejected",
+          "line": 21,
+          "message": "line 21: arithmetic operator '+' used on a flags-typed field -- arithmetic is a compile-time error on flags-typed fields, no exceptions; combine flags with bitwise operators (| & ^ ~) only"
+        }
+      }
+    },
+    "flags\\flags_auto_assignment_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "ReadOnly": {
+          "status": "delete",
+          "resolved": {
+            "permissions": 0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Editable": {
+          "status": "ok",
+          "resolved": {
+            "permissions": 3
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "flags\\flags_bit_exceeds_width_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "flags_bit_exceeds_width",
+          "line": 10,
+          "message": "line 10: flags member 'a' claims bit 8 ('= b8'), but domain 'X' is declared 'u8' (8 bits, positions 0..7) -- this bit position doesn't exist at this width"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
+    "flags\\flags_bitwise_rejected_on_non_flags_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "delete",
+          "resolved": {
+            "hp": 0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Bad": {
+          "status": "error",
+          "phase": 6,
+          "check": "flags_bitwise_rejected",
+          "line": 17,
+          "message": "line 17: bitwise operator '|' used on a field that isn't flags-typed -- bitwise operators only apply to flags-typed fields; there is no other bitmask mechanism in the language"
+        }
+      }
+    },
+    "flags\\flags_duplicate_bit_claim_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "flags_bit_collision",
+          "line": 15,
+          "message": "line 15: flags member 'b' claims bit 2 ('= b2'), but 'a' (line 14) already claims the same bit in domain 'X' -- each bit position must be claimed exactly once"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
+    "flags\\flags_explicit_bit_mixed_with_auto.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "EntityBase": {
+          "status": "delete",
+          "resolved": {
+            "component_flags": 0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Player": {
+          "status": "ok",
+          "resolved": {
+            "component_flags": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "PlayerDisarmed": {
+          "status": "ok",
+          "resolved": {
+            "component_flags": 4
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "flags\\flags_width_overflow_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "flags_width_overflow",
+          "line": 20,
+          "message": "line 20: flags domain 'X' declares width 'u8' (8 bits), but member 'i' has no unclaimed bit left to auto-assign -- the domain's real bit-flag members exceed what this width can address"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
+    "indentation_and_comments\\comments_nested_block_and_code_lookalike.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -791,7 +924,7 @@
         }
       }
     },
-    "indentation_and_comments/indentation_deep_nesting_valid.gddl": {
+    "indentation_and_comments\\indentation_deep_nesting_valid.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -814,7 +947,7 @@
         }
       }
     },
-    "indentation_and_comments/indentation_mixed_tabs_spaces_error.gddl": {
+    "indentation_and_comments\\indentation_mixed_tabs_spaces_error.gddl": {
       "status": "parse_error",
       "error": {
         "phase": 3,
@@ -822,7 +955,7 @@
         "message": "line 17: mixed indentation characters within a single scope -- this line uses spaces, but the enclosing top-level block already established tabs (indentation character must be consistent across an entire top-level define/identifier/instance block, including everything nested inside it -- not just within one nesting level)"
       }
     },
-    "indentation_and_comments/indentation_nested_scope_differs_from_parent_error.gddl": {
+    "indentation_and_comments\\indentation_nested_scope_differs_from_parent_error.gddl": {
       "status": "parse_error",
       "error": {
         "phase": 3,
@@ -830,7 +963,7 @@
         "message": "line 29: mixed indentation characters within a single scope -- this line uses spaces, but the enclosing top-level block already established tabs (indentation character must be consistent across an entire top-level define/identifier/instance block, including everything nested inside it -- not just within one nesting level)"
       }
     },
-    "indentation_and_comments/indentation_spaces_only_valid.gddl": {
+    "indentation_and_comments\\indentation_spaces_only_valid.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -851,7 +984,7 @@
         }
       }
     },
-    "indentation_and_comments/indentation_tabs_only_valid.gddl": {
+    "indentation_and_comments\\indentation_tabs_only_valid.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -872,7 +1005,7 @@
         }
       }
     },
-    "initialization/init_gap_persists_across_4gen_chain.gddl": {
+    "initialization\\init_gap_persists_across_4gen_chain.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -935,7 +1068,7 @@
         }
       }
     },
-    "initialization/init_multiple_uninitialized_fields_all_reported.gddl": {
+    "initialization\\init_multiple_uninitialized_fields_all_reported.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -960,7 +1093,7 @@
         }
       }
     },
-    "initialization/init_nested_uninitialized_dotted_path.gddl": {
+    "initialization\\init_nested_uninitialized_dotted_path.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [
@@ -991,7 +1124,7 @@
         }
       }
     },
-    "initialization/init_uninitialized_only_caught_at_export.gddl": {
+    "initialization\\init_uninitialized_only_caught_at_export.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1026,7 +1159,7 @@
         }
       }
     },
-    "nested_field_semantics/nested_bare_scalar_field_error.gddl": {
+    "nested_field_semantics\\nested_bare_scalar_field_error.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1052,7 +1185,7 @@
         }
       }
     },
-    "nested_field_semantics/nested_level2_replace_sibling_level1_untouched.gddl": {
+    "nested_field_semantics\\nested_level2_replace_sibling_level1_untouched.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1119,7 +1252,7 @@
         }
       }
     },
-    "nested_field_semantics/nested_mixed_replace_and_modify_across_levels.gddl": {
+    "nested_field_semantics\\nested_mixed_replace_and_modify_across_levels.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1196,7 +1329,7 @@
         }
       }
     },
-    "nested_field_semantics/nested_modify_only_basic.gddl": {
+    "nested_field_semantics\\nested_modify_only_basic.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1234,7 +1367,7 @@
         }
       }
     },
-    "nested_field_semantics/nested_modify_only_three_levels.gddl": {
+    "nested_field_semantics\\nested_modify_only_three_levels.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1311,7 +1444,7 @@
         }
       }
     },
-    "nested_field_semantics/nested_modify_only_two_levels.gddl": {
+    "nested_field_semantics\\nested_modify_only_two_levels.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1358,7 +1491,7 @@
         }
       }
     },
-    "nested_field_semantics/nested_replace_basic.gddl": {
+    "nested_field_semantics\\nested_replace_basic.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1405,7 +1538,7 @@
         }
       }
     },
-    "nested_field_semantics/nested_replace_discards_prior_modify.gddl": {
+    "nested_field_semantics\\nested_replace_discards_prior_modify.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1432,7 +1565,7 @@
         }
       }
     },
-    "nested_field_semantics/nested_scalar_vs_struct_fork.gddl": {
+    "nested_field_semantics\\nested_scalar_vs_struct_fork.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1472,7 +1605,7 @@
         }
       }
     },
-    "numeric_coercion/numeric_coercion_narrowing_rejected.gddl": {
+    "numeric_coercion\\numeric_coercion_narrowing_rejected.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1493,7 +1626,7 @@
         }
       }
     },
-    "numeric_coercion/numeric_coercion_through_sequential_chain.gddl": {
+    "numeric_coercion\\numeric_coercion_through_sequential_chain.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1508,7 +1641,7 @@
         }
       }
     },
-    "numeric_coercion/numeric_coercion_via_crossfield_reference.gddl": {
+    "numeric_coercion\\numeric_coercion_via_crossfield_reference.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1533,7 +1666,7 @@
         }
       }
     },
-    "numeric_coercion/numeric_coercion_whole_float_accepted.gddl": {
+    "numeric_coercion\\numeric_coercion_whole_float_accepted.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1558,7 +1691,7 @@
         }
       }
     },
-    "numeric_coercion/numeric_coercion_widening_basic.gddl": {
+    "numeric_coercion\\numeric_coercion_widening_basic.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1583,7 +1716,7 @@
         }
       }
     },
-    "numeric_range/numeric_range_computed_expression_overflow.gddl": {
+    "numeric_range\\numeric_range_computed_expression_overflow.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1597,7 +1730,7 @@
         }
       }
     },
-    "numeric_range/numeric_range_float_boundary_overflow.gddl": {
+    "numeric_range\\numeric_range_float_boundary_overflow.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1619,7 +1752,7 @@
         }
       }
     },
-    "numeric_range/numeric_range_signed_boundary.gddl": {
+    "numeric_range\\numeric_range_signed_boundary.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1656,7 +1789,7 @@
         }
       }
     },
-    "numeric_range/numeric_range_unsigned_boundary.gddl": {
+    "numeric_range\\numeric_range_unsigned_boundary.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1693,7 +1826,7 @@
         }
       }
     },
-    "op_statements/op_statement_assign_equivalence.gddl": {
+    "op_statements\\op_statement_assign_equivalence.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1716,7 +1849,7 @@
         }
       }
     },
-    "op_statements/op_statement_leading_operator_error.gddl": {
+    "op_statements\\op_statement_leading_operator_error.gddl": {
       "status": "parse_error",
       "error": {
         "phase": 3,
@@ -1724,7 +1857,7 @@
         "message": "line 20: statement does not begin with a valid field identifier (found '*') -- no legal statement shape (assign 'field = expr', op-statement 'field op expr', or bare 'field') matches this line"
       }
     },
-    "op_statements/op_statement_missing_leading_field_error.gddl": {
+    "op_statements\\op_statement_missing_leading_field_error.gddl": {
       "status": "parse_error",
       "error": {
         "phase": 3,
@@ -1732,7 +1865,7 @@
         "message": "line 26: statement does not begin with a valid field identifier (found '20') -- no legal statement shape (assign 'field = expr', op-statement 'field op expr', or bare 'field') matches this line"
       }
     },
-    "op_statements/op_statement_operator_precedence.gddl": {
+    "op_statements\\op_statement_operator_precedence.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1755,7 +1888,7 @@
         }
       }
     },
-    "op_statements/op_statement_parens_basic.gddl": {
+    "op_statements\\op_statement_parens_basic.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1778,7 +1911,7 @@
         }
       }
     },
-    "op_statements/op_statement_parens_override_left_to_right.gddl": {
+    "op_statements\\op_statement_parens_override_left_to_right.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1801,7 +1934,7 @@
         }
       }
     },
-    "op_statements/op_statement_three_operator_chain.gddl": {
+    "op_statements\\op_statement_three_operator_chain.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1820,7 +1953,7 @@
         }
       }
     },
-    "sequential_execution/sequential_chained_ops_order_matters.gddl": {
+    "sequential_execution\\sequential_chained_ops_order_matters.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1843,7 +1976,7 @@
         }
       }
     },
-    "sequential_execution/sequential_crossfield_reference_sees_current_value.gddl": {
+    "sequential_execution\\sequential_crossfield_reference_sees_current_value.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1859,7 +1992,7 @@
         }
       }
     },
-    "sequential_execution/sequential_longer_chain_order_dependent.gddl": {
+    "sequential_execution\\sequential_longer_chain_order_dependent.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1882,7 +2015,7 @@
         }
       }
     },
-    "string_fields/string_empty_accepted.gddl": {
+    "string_fields\\string_empty_accepted.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1912,7 +2045,7 @@
         }
       }
     },
-    "string_fields/string_escape_invalid_sequence.gddl": {
+    "string_fields\\string_escape_invalid_sequence.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1926,7 +2059,7 @@
         }
       }
     },
-    "string_fields/string_escape_lone_trailing_backslash.gddl": {
+    "string_fields\\string_escape_lone_trailing_backslash.gddl": {
       "status": "parse_error",
       "error": {
         "phase": 3,
@@ -1934,7 +2067,7 @@
         "message": "line 42: unterminated string literal"
       }
     },
-    "string_fields/string_escaped_quote.gddl": {
+    "string_fields\\string_escaped_quote.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1949,7 +2082,7 @@
         }
       }
     },
-    "string_fields/string_escaped_trailing_backslash.gddl": {
+    "string_fields\\string_escaped_trailing_backslash.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1964,7 +2097,7 @@
         }
       }
     },
-    "string_fields/string_escaping_through_composition.gddl": {
+    "string_fields\\string_escaping_through_composition.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -1997,7 +2130,7 @@
         }
       }
     },
-    "string_fields/string_length_boundary.gddl": {
+    "string_fields\\string_length_boundary.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -2019,7 +2152,7 @@
         }
       }
     },
-    "string_fields/string_utf8_byte_vs_char_length.gddl": {
+    "string_fields\\string_utf8_byte_vs_char_length.gddl": {
       "status": "parsed",
       "duplicate_errors": [],
       "warnings": [],
@@ -2040,143 +2173,6 @@
           "message": "line 23: 'name' is typed 'string 6', but its value '\u00e9\u00e9\u00e9' is 6 UTF-8 bytes -- exceeds the 5-byte capacity ('string 6' reserves 1 byte for the ASCIIZ terminator) -- storing an over-length string is a compile-time error, never silently truncated (spec \u00a75, String Length Enforcement)"
         }
       }
-    },
-    "flags/flags_arithmetic_rejected_error.gddl": {
-      "status": "parsed",
-      "duplicate_errors": [],
-      "warnings": [],
-      "instances": {
-        "Base": {
-          "status": "delete",
-          "resolved": {
-            "mask": 0
-          },
-          "phase": null,
-          "check": null
-        },
-        "Bad": {
-          "status": "error",
-          "phase": 6,
-          "check": "flags_arithmetic_rejected",
-          "line": 21,
-          "message": "line 21: arithmetic operator '+' used on a flags-typed field -- arithmetic is a compile-time error on flags-typed fields, no exceptions; combine flags with bitwise operators (| & ^ ~) only"
-        }
-      }
-    },
-    "flags/flags_auto_assignment_valid.gddl": {
-      "status": "parsed",
-      "duplicate_errors": [],
-      "warnings": [],
-      "instances": {
-        "ReadOnly": {
-          "status": "delete",
-          "resolved": {
-            "permissions": 0
-          },
-          "phase": null,
-          "check": null
-        },
-        "Editable": {
-          "status": "ok",
-          "resolved": {
-            "permissions": 3
-          },
-          "phase": null,
-          "check": null
-        }
-      }
-    },
-    "flags/flags_bit_exceeds_width_error.gddl": {
-      "status": "parsed",
-      "duplicate_errors": [
-        {
-          "phase": 4,
-          "check": "flags_bit_exceeds_width",
-          "line": 10,
-          "message": "line 10: flags member 'a' claims bit 8 ('= b8'), but domain 'X' is declared 'u8' (8 bits, positions 0..7) -- this bit position doesn't exist at this width"
-        }
-      ],
-      "warnings": [],
-      "instances": {}
-    },
-    "flags/flags_bitwise_rejected_on_non_flags_error.gddl": {
-      "status": "parsed",
-      "duplicate_errors": [],
-      "warnings": [],
-      "instances": {
-        "Base": {
-          "status": "delete",
-          "resolved": {
-            "hp": 0
-          },
-          "phase": null,
-          "check": null
-        },
-        "Bad": {
-          "status": "error",
-          "phase": 6,
-          "check": "flags_bitwise_rejected",
-          "line": 17,
-          "message": "line 17: bitwise operator '|' used on a field that isn't flags-typed -- bitwise operators only apply to flags-typed fields; there is no other bitmask mechanism in the language"
-        }
-      }
-    },
-    "flags/flags_duplicate_bit_claim_error.gddl": {
-      "status": "parsed",
-      "duplicate_errors": [
-        {
-          "phase": 4,
-          "check": "flags_bit_collision",
-          "line": 15,
-          "message": "line 15: flags member 'b' claims bit 2 ('= b2'), but 'a' (line 14) already claims the same bit in domain 'X' -- each bit position must be claimed exactly once"
-        }
-      ],
-      "warnings": [],
-      "instances": {}
-    },
-    "flags/flags_explicit_bit_mixed_with_auto.gddl": {
-      "status": "parsed",
-      "duplicate_errors": [],
-      "warnings": [],
-      "instances": {
-        "EntityBase": {
-          "status": "delete",
-          "resolved": {
-            "component_flags": 0
-          },
-          "phase": null,
-          "check": null
-        },
-        "Player": {
-          "status": "ok",
-          "resolved": {
-            "component_flags": 20
-          },
-          "phase": null,
-          "check": null
-        },
-        "PlayerDisarmed": {
-          "status": "ok",
-          "resolved": {
-            "component_flags": 4
-          },
-          "phase": null,
-          "check": null
-        }
-      }
-    },
-    "flags/flags_width_overflow_error.gddl": {
-      "status": "parsed",
-      "duplicate_errors": [
-        {
-          "phase": 4,
-          "check": "flags_width_overflow",
-          "line": 20,
-          "message": "line 20: flags domain 'X' declares width 'u8' (8 bits), but member 'i' has no unclaimed bit left to auto-assign -- the domain's real bit-flag members exceed what this width can address"
-        }
-      ],
-      "warnings": [],
-      "instances": {}
     }
   }
 }

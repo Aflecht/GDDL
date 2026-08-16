@@ -20,7 +20,7 @@ dependency that errored) has no resolved tree to walk, so phase 8 has
 nothing to check for it -- already reported once by phase 6.
 """
 
-from resolve import StructValue, UNINIT, Resolver
+from .resolve import StructValue, UNINIT, Resolver
 import sys
 
 

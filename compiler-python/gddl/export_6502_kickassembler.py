@@ -59,8 +59,8 @@ between generate_header/generate_split in the C++ exporter for the
 exact same reason).
 """
 
-from export_6502 import DomainInfo, TypeInfo, ZeroPageAllocation, gather_soa_columns
-from export_cpp import _string_n
+from .export_6502 import DomainInfo, TypeInfo, ZeroPageAllocation, gather_soa_columns
+from .export_cpp import _string_n
 
 
 _WIDTH_TO_DIRECTIVE = {"u8": ".byte", "u16": ".word", "u32": None, "u64": None}

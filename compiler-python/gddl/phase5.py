@@ -32,8 +32,8 @@ level across instances, not multiple errors within one instance).
 
 import re
 
-from ast_nodes import AssignStmt, OpStmt, BareFieldStmt, RawStmt
-from errors import CompileError
+from .ast_nodes import AssignStmt, OpStmt, BareFieldStmt, RawStmt
+from .errors import CompileError
 
 _DOMAIN_REF_RE = re.compile(r"^([A-Za-z_]\w*)\.([A-Za-z_]\w*)$")
 _BARE_NAME_RE = re.compile(r"^[A-Za-z_]\w*$")

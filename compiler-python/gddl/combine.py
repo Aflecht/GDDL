@@ -201,8 +201,8 @@ def compile_multi(file_paths):
     dicts for REPORTING, not read .line directly off resolver objects
     -- those still carry combined-text line numbers, unchanged, since
     they were never mutated."""
-    from parser import parse_source, GDDLParseError
-    from resolve import resolve_all
+    from .parser import parse_source, GDDLParseError
+    from .resolve import resolve_all
 
     combined_text, spans = combine_sources(file_paths)
 

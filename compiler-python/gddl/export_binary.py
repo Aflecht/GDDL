@@ -126,14 +126,14 @@ import json
 import os
 import struct
 
-from registry import fnv1a_64
-from export_cpp import (
+from .registry import fnv1a_64
+from .export_cpp import (
     _flatten_leaves, _flatten_value, _string_n, export_instances_for_type,
     _leaf_binary_kind, leaf_binary_width, canonical_schema_string,
     compute_schema_hash, compute_record_size, SchemaComputationError,
 )
-from resolve import StructValue, IdentifierRef
-from validate import check_and_report
+from .resolve import StructValue, IdentifierRef
+from .validate import check_and_report
 
 MAGIC = b"GDBD"
 FORMAT_VERSION = 1
@@ -365,7 +365,7 @@ def export_binary(reg, resolver, type_names, out_stem: str):
 def _cli():
     import argparse
     import sys
-    from combine import resolve_inputs, compile_multi, CombineError
+    from .combine import resolve_inputs, compile_multi, CombineError
 
     ap = argparse.ArgumentParser(description="GDDL -> standalone binary exporter")
     ap.add_argument("source", nargs="+",

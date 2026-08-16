@@ -61,9 +61,9 @@ block-opening constructs, and are deliberately left as compact
 single-line initializers rather than reformatted under this rule.
 """
 
-from resolve import StructValue, IdentifierRef
-from registry import fnv1a_64
-from validate import check_and_report
+from .resolve import StructValue, IdentifierRef
+from .registry import fnv1a_64
+from .validate import check_and_report
 
 
 _CPP_INT_TYPES = {
@@ -1586,7 +1586,7 @@ def _cli():
     flags."""
     import argparse
     import sys
-    from combine import resolve_inputs, compile_multi, CombineError
+    from .combine import resolve_inputs, compile_multi, CombineError
 
     ap = argparse.ArgumentParser(description="GDDL -> C++ exporter")
     ap.add_argument("source", nargs="+",

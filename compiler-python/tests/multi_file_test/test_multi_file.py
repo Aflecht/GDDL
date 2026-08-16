@@ -42,11 +42,9 @@ import subprocess
 import sys
 import tempfile
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "gddl"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from combine import resolve_inputs, compile_multi, remap_line, CombineError
+from gddl.combine import resolve_inputs, compile_multi, remap_line, CombineError
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -167,8 +165,11 @@ def test_zero_match_error_path():
 
 def test_shell_independence():
     print("=== Check 4: shell-independence, real subprocess, no shell involved ===")
-    gddl_dir = os.path.join(os.path.dirname(_DIR), "..", "gddl")
-    gddl_dir = os.path.normpath(gddl_dir)
+    # gddl is now a real package (relative imports throughout), so it must
+    # be invoked as `-m gddl.export_z80` with the package's parent
+    # directory as cwd -- running export_z80.py directly as a script no
+    # longer works (no parent package context for its relative imports).
+    compiler_root = os.path.normpath(os.path.join(os.path.dirname(_DIR), ".."))
     # Platform temp dir, not a hardcoded /tmp -- this suite runs on Windows
     # too, where /tmp doesn't exist.
     out_stem = os.path.join(tempfile.gettempdir(), "gddl_multi_file_shell_indep_test.asm")
@@ -190,11 +191,11 @@ def test_shell_independence():
     # no shell anywhere in this call to have expanded it.
     pattern = os.path.join(_DIR, "weapons", "more_weapons.gddl")
     result = subprocess.run(
-        [sys.executable, os.path.join(gddl_dir, "export_z80.py"),
+        [sys.executable, "-m", "gddl.export_z80",
          os.path.join(_DIR, "weapons", "base_*.weapon"),
          FILE2_ELEMENTS, FILE3_WEAPON_TYPE,
          "--type", "Weapon", "--z80-pointer-table=on", "-o", out_stem],
-        capture_output=True, text=True)
+        capture_output=True, text=True, cwd=compiler_root)
     assert result.returncode == 0, f"subprocess (no shell) failed: {result.stderr}"
     with open(out_stem) as f:
         out = f.read()
@@ -213,18 +214,18 @@ def test_shell_independence():
     #     never expand '*' for an external command's arguments, so this
     #     is a direct test of the real case, not a simulation of it.
     if shutil.which("bash"):
-        cmd = (f"{sys.executable} {os.path.join(gddl_dir, 'export_z80.py')} "
+        cmd = (f"{sys.executable} -m gddl.export_z80 "
                f"'{os.path.join(_DIR, 'weapons', 'base_*.weapon')}' "
                f"{FILE2_ELEMENTS} {FILE3_WEAPON_TYPE} "
                f"--type Weapon --z80-pointer-table=on -o {out_stem}")
-        result2 = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
+        result2 = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, cwd=compiler_root)
         shell_desc = "quoted-glob bash invocation"
     else:
-        cmd = (f'"{sys.executable}" "{os.path.join(gddl_dir, "export_z80.py")}" '
+        cmd = (f'"{sys.executable}" -m gddl.export_z80 '
                f'"{os.path.join(_DIR, "weapons", "base_*.weapon")}" '
                f'"{FILE2_ELEMENTS}" "{FILE3_WEAPON_TYPE}" '
                f'--type Weapon --z80-pointer-table=on -o "{out_stem}"')
-        result2 = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        result2 = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=compiler_root)
         shell_desc = "quoted-glob native-shell (cmd.exe) invocation"
     assert result2.returncode == 0, f"{shell_desc} failed: {result2.stderr}"
     with open(out_stem) as f:

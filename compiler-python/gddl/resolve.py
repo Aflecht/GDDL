@@ -57,11 +57,11 @@ import copy
 import math
 import re
 
-from ast_nodes import AssignStmt, OpStmt, BareFieldStmt, RawStmt
-from registry import Registry
-from errors import CompileError
-from phase5 import run_phase5
-from parser import _unescape_string_content, _StringEscapeError
+from .ast_nodes import AssignStmt, OpStmt, BareFieldStmt, RawStmt
+from .registry import Registry
+from .errors import CompileError
+from .phase5 import run_phase5
+from .parser import _unescape_string_content, _StringEscapeError
 
 UNINIT_SENTINEL_DOC = None
 

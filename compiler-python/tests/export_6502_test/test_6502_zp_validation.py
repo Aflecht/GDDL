@@ -27,13 +27,11 @@ import sys
 # this one was simply missed until a systematic grep for "imports the
 # pipeline without any sys.path setup" surfaced it -- exactly the kind
 # of gap a manual pass alone would likely have missed.
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "gddl"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from parser import parse_file
-from resolve import resolve_all
-from export_6502 import gather_ir, allocate_zero_page, Export6502Error
+from gddl.parser import parse_file
+from gddl.resolve import resolve_all
+from gddl.export_6502 import gather_ir, allocate_zero_page, Export6502Error
 
 
 def main():

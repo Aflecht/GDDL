@@ -30,14 +30,12 @@ import tempfile
 # Same fix as test_binary_export.py's sibling script -- three
 # directories up from compiler-python/tests/export_binary_test/ reaches
 # compiler-python/, then into gddl/.
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "gddl"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from parser import parse_file
-from resolve import resolve_all
-from export_cpp import generate_header, generate_split
-from export_binary import export_binary
+from gddl.parser import parse_file
+from gddl.resolve import resolve_all
+from gddl.export_cpp import generate_header, generate_split
+from gddl.export_binary import export_binary
 
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "export_test_binary_coverage.gddl")

@@ -57,12 +57,12 @@ pointer arithmetic.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from export_cpp import (
+from .export_cpp import (
     export_instances_for_type, _flatten_leaves, _flatten_value, _topo_sort_defines,
     _string_n, _align_columns,
 )
-from resolve import IdentifierRef, StructValue
-from validate import check_and_report
+from .resolve import IdentifierRef, StructValue
+from .validate import check_and_report
 
 
 class Export68000Error(Exception):
@@ -523,7 +523,7 @@ def _cli():
     import argparse
     import os
     import sys
-    from combine import resolve_inputs, compile_multi, CombineError
+    from .combine import resolve_inputs, compile_multi, CombineError
 
     ap = argparse.ArgumentParser(description="GDDL -> 68000 exporter (vbcc, C89)")
     ap.add_argument("source", nargs="+",

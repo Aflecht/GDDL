@@ -65,8 +65,8 @@ example) -- flagged as decisions, not just asserted:
     for larger tables would use 16-bit indices.
 """
 
-from export_6502 import DomainInfo, TypeInfo, ZeroPageAllocation, gather_soa_columns
-from export_cpp import _string_n
+from .export_6502 import DomainInfo, TypeInfo, ZeroPageAllocation, gather_soa_columns
+from .export_cpp import _string_n
 
 
 _WIDTH_TO_DIRECTIVE = {"u8": "!byte", "u16": "!word", "u32": "!32", "u64": None}

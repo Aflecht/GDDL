@@ -28,13 +28,11 @@ import os
 # was ONE LEVEL SHORT (two dirname() calls, not three) and only running
 # it surfaced that, exactly the kind of off-by-one this restructuring's
 # own stated risk ("a manual pass will miss some") was warning about.
-_GDDL_ROOT = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "gddl")
-sys.path.insert(0, _GDDL_ROOT)
+_COMPILER_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, _COMPILER_ROOT)
 
 import z80
-from export_z80 import shift_add_multiply, needs_index_copy
+from gddl.export_z80 import shift_add_multiply, needs_index_copy
 
 ORG = 0x8000
 

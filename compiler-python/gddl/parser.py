@@ -8,11 +8,11 @@ pipeline.
 
 import re
 from typing import List, Tuple, Optional
-from ast_nodes import (
+from .ast_nodes import (
     Node, Program, IdentifierBlock, IdentifierEntry, FlagsBlock, FlagsEntry,
     DefineBlock, FieldDef, InstanceDecl, AssignStmt, OpStmt, BareFieldStmt, RawStmt,
 )
-from errors import CompileWarning
+from .errors import CompileWarning
 
 OPERATORS = ("+", "-", "*", "/", "|", "&", "^")
 

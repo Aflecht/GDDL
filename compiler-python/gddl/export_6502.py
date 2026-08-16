@@ -49,11 +49,11 @@ never arises on this target, for identifiers OR instances:
 from dataclasses import dataclass, field as dc_field
 from typing import List, Tuple, Optional
 
-from export_cpp import (
+from .export_cpp import (
     _flatten_leaves, _flatten_value, _string_n, export_instances_for_type,
 )
-from resolve import IdentifierRef
-from validate import check_and_report
+from .resolve import IdentifierRef
+from .validate import check_and_report
 
 
 class Export6502Error(Exception):
@@ -417,13 +417,13 @@ def render(domains, types, dialect: str = "acme", layout: str = "aos", zp_base=N
     only once a specific dialect+layout combination is requested."""
     zp_alloc = allocate_zero_page(zp_base, domains, types, layout)
     if dialect == "acme":
-        from export_6502_acme import render_acme
+        from .export_6502_acme import render_acme
         return render_acme(domains, types, zp_alloc, layout=layout)
     if dialect == "kickassembler":
-        from export_6502_kickassembler import render_kickassembler
+        from .export_6502_kickassembler import render_kickassembler
         return render_kickassembler(domains, types, zp_alloc, layout=layout)
     if dialect == "64tass":
-        from export_6502_64tass import render_64tass
+        from .export_6502_64tass import render_64tass
         return render_64tass(domains, types, zp_alloc, layout=layout)
     raise ValueError(
         f"unknown dialect {dialect!r} -- must be one of 'acme', "
@@ -453,7 +453,7 @@ def _cli():
     added because a real selection mechanism is the actual point of
     this flag existing at all, not just a design description."""
     import argparse
-    from combine import resolve_inputs, compile_multi, CombineError
+    from .combine import resolve_inputs, compile_multi, CombineError
 
     ap = argparse.ArgumentParser(description="GDDL -> 6502 exporter")
     ap.add_argument("source", nargs="+",

@@ -36,11 +36,11 @@ generic recursion-depth-style detection) with an actual designed check
 that names the exact cycle, e.g. `Human_Fighter -> Boss -> Human_Fighter`.
 """
 
-from ast_nodes import (
+from .ast_nodes import (
     Program, IdentifierBlock, FlagsBlock, DefineBlock, InstanceDecl,
     AssignStmt, BareFieldStmt,
 )
-from errors import CompileError
+from .errors import CompileError
 
 # FNV-1a, 64-bit output, over the UTF-8 bytes of the description text
 # exactly as written -- no normalization.
