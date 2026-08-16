@@ -454,6 +454,7 @@ def _cli():
     this flag existing at all, not just a design description."""
     import argparse
     from .combine import resolve_inputs, compile_multi, CombineError
+    from .export_ids import write_ids_manifest
 
     ap = argparse.ArgumentParser(description="GDDL -> 6502 exporter")
     ap.add_argument("source", nargs="+",
@@ -468,11 +469,18 @@ def _cli():
                      help="zero-page base address, required (e.g. 0x02)")
     ap.add_argument("--emit-all-domains", action="store_true",
                      help="emit every domain's constants, even unreferenced ones (default: off)")
+    ap.add_argument("--emit-ids-manifest", action="store_true",
+                     help="also write <output>.gddlids.json, every identifier/flags "
+                          "domain declared, for cross-mod script references (default: off)")
     ap.add_argument("-o", "--output", default=None,
                      help="output path (default: stdout)")
     ap.add_argument("--verbose-errors", action="store_true",
                      help="tag each error with its internal [phase N, check] (default: off)")
     args = ap.parse_args()
+
+    if args.emit_ids_manifest and not args.output:
+        ap.error("--emit-ids-manifest requires -o/--output -- there is no "
+                 "output stem to name the manifest after when writing to stdout")
 
     zp_base = _parse_zp_base(args.zp_base)
 
@@ -500,6 +508,10 @@ def _cli():
             f.write(asm)
     else:
         print(asm)
+
+    if args.emit_ids_manifest:
+        manifest_path = write_ids_manifest(resolver.reg, args.output)
+        print(f"wrote {manifest_path}")
 
 
 if __name__ == "__main__":

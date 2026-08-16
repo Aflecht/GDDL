@@ -1,0 +1,25 @@
+// Fixture for --emit-ids-manifest (SPEC.md section 20). Exercises both
+// domain kinds the manifest covers: an identifier domain (key ->
+// logical_id, hex string, plus its description text) and a flags
+// domain (key -> bit position, no description -- flags syntax never
+// carries one). ComponentFlags is deliberately never referenced by
+// any field on Entity below, to prove the manifest includes every
+// declared domain unconditionally, independent of --emit-all-domains
+// (which only affects target-language code generation, a separate
+// concern -- see export_ids.py's module docstring).
+
+identifier ActionAttack u8
+	melee_weapon  = "Standard attack done with a melee weapon"
+	ranged_weapon = "Standard attack done with a ranged weapon"
+
+flags ComponentFlags u8
+	none          = 0
+	is_damageable = b0
+	is_pickupable
+	is_movable    = b2
+
+define Entity
+	action = ActionAttack
+
+Entity Hero
+	action = ActionAttack.melee_weapon

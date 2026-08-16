@@ -456,6 +456,7 @@ def _cli():
     import argparse
     import sys
     from .combine import resolve_inputs, compile_multi, CombineError
+    from .export_ids import write_ids_manifest
 
     ap = argparse.ArgumentParser(description="GDDL -> Z80 exporter")
     ap.add_argument("source", nargs="+",
@@ -478,11 +479,18 @@ def _cli():
                      help="also emit an inline macro variant of Find (default: off)")
     ap.add_argument("--emit-all-domains", action="store_true",
                      help="emit every domain's constants, even unreferenced ones (default: off)")
+    ap.add_argument("--emit-ids-manifest", action="store_true",
+                     help="also write <output>.gddlids.json, every identifier/flags "
+                          "domain declared, for cross-mod script references (default: off)")
     ap.add_argument("-o", "--output", default=None,
                      help="output path (default: stdout; stem for --z88dk-output=c)")
     ap.add_argument("--verbose-errors", action="store_true",
                      help="tag each error with its internal [phase N, check] (default: off)")
     args = ap.parse_args()
+
+    if args.emit_ids_manifest and not args.output:
+        ap.error("--emit-ids-manifest requires -o/--output -- there is no "
+                 "output stem to name the manifest after when writing to stdout")
 
     pointer_table = args.z80_pointer_table == "on"
 
@@ -538,6 +546,9 @@ def _cli():
         for suffix, text in out.items():
             with open(stem + suffix, "w", encoding="utf-8") as f:
                 f.write(text)
+        if args.emit_ids_manifest:
+            manifest_path = write_ids_manifest(resolver.reg, stem)
+            print(f"wrote {manifest_path}")
         return
 
     if args.output:
@@ -545,6 +556,10 @@ def _cli():
             f.write(out)
     else:
         print(out)
+
+    if args.emit_ids_manifest:
+        manifest_path = write_ids_manifest(resolver.reg, args.output)
+        print(f"wrote {manifest_path}")
 
 
 if __name__ == "__main__":

@@ -3531,3 +3531,115 @@ Added `compiler-python/*.egg-info/` and `compiler-python/build/` to
 `.gitignore` -- the editable install used for this verification
 generates `gddl_compiler.egg-info/`, a local build artifact, not
 something to commit.
+
+## Identifiers manifest export (`--emit-ids-manifest`), SPEC.md section 20
+
+The original motivating task behind this whole session's packaging
+work (making `gddl/` a real installable package): a future, separately
+maintained scripting-language compiler needs a build-time way to
+resolve a `Domain.key` text reference, written in that language's own
+script source, into the same logical ID or bit position a completely
+different, independently-compiled mod (or the base game itself)
+already resolved it to -- without needing that mod's GDDL source at
+all. Design was worked through with the user across several turns
+(usage patterns before format choice, live-console debugging as the
+concrete runtime-tooling use case, the exact JSON schema, the flag
+shape) before any code was written; see this session's own
+conversation for the full reasoning trail. SPEC.md section 20 is the
+permanent record of the settled design; this entry covers what was
+actually built and how it was verified.
+
+**New module, `gddl/export_ids.py`**: `build_ids_manifest(reg)` (pure
+function, registry in, dict out) and `write_ids_manifest(reg,
+output_stem)` (writes `{output_stem}.gddlids.json`). Walks
+`reg.identifiers` and `reg.flags` directly, unconditionally --
+deliberately independent of `--emit-all-domains`, which only controls
+target-language code generation for referenced domains, a separate
+concern from what this manifest is for. `logical_id` is written as the
+same 16-hex-digit string `registry.logical_id()` already produces, not
+a raw JSON number -- a full 64-bit value silently loses precision
+under any JSON parser treating numbers as IEEE-754 doubles (the
+settled reason, see the conversation this session). `bit` stays a
+plain integer, no precision concern at that range.
+
+**One real gap found while implementing, not while designing:** the
+settled schema called for a `description` field on flags domain
+members too, matching identifier domain members. But `ast_nodes.
+FlagsEntry` has no description slot at all -- flags syntax only ever
+carries `name` plus one of `kind`/`explicit_bit`/`explicit_number`,
+unlike `IdentifierEntry`, which requires `key = "description"`. Rather
+than fabricate a fake description or silently drop the field without
+saying so, this is called out directly: flags domain members carry
+only `key` and `bit` in the manifest, by necessity, not by choice, and
+both `export_ids.py`'s own docstring and SPEC.md section 20.3 state
+this plainly rather than leaving a reader to wonder why the two domain
+kinds' member shapes aren't parallel.
+
+**CLI wiring, all five exporters identically**: `--emit-ids-manifest`
+(boolean, off by default), added to `export_cpp.py`, `export_6502.py`,
+`export_z80.py`, `export_68000.py`, `export_binary.py`. No separate
+path argument -- always `<output>.gddlids.json`, derived from each
+exporter's existing `-o`/`--output` stem, matching the precedent
+`export_binary.py`'s own `.gddlmeta.json` already set. For the two
+exporters where `-o` is optional and defaults to stdout (6502, Z80),
+combining `--emit-ids-manifest` with no `-o` is now a hard `ap.error()`
+rather than silently inventing a stem nobody asked for -- confirmed
+this doesn't regress either exporter's existing stdout-default
+behavior when the flag isn't used at all.
+
+**Verified for real, not assumed:**
+- A combined smoke fixture (one identifier domain, one flags domain,
+  one instance) run through all five exporters' real CLIs
+  (`python -m gddl.export_X ... --emit-ids-manifest`), confirming
+  byte-identical manifest content regardless of target -- proving the
+  manifest generation is genuinely target-independent, not five
+  separate implementations that happen to agree.
+- The two pre-existing, unrelated gaps this smoke test surfaced along
+  the way (not caused by this feature, confirmed by reading the actual
+  failing code path in each case): 6502/Z80/68000 all require a
+  declared width on any referenced identifier domain (§10.1/§16/§15.4,
+  a real, older restriction unrelated to `--emit-ids-manifest`), and
+  Z80 specifically doesn't yet support `flags`-typed instance fields at
+  all (a real, separate capability gap in `export_z80.py`, distinct
+  from flags domain *constant* emission, which does work on Z80).
+  Fixture adjusted to route around both rather than treating either as
+  something this feature broke.
+- A new permanent test suite, `tests/export_ids_test/` (fixture +
+  `test_ids_manifest.py`, following `test_binary_export.py`'s own
+  style): manifest content checked directly against
+  `build_ids_manifest()`, with every `logical_id` independently
+  recomputed via a fresh call to `registry.logical_id()` rather than
+  trusted just because the function under test produced it; confirmed
+  the manifest includes a domain never referenced by any field
+  (proving independence from `--emit-all-domains`); confirmed via a
+  real subprocess CLI invocation that the flag is genuinely opt-in (no
+  flag means no manifest file, not just an empty one); confirmed the
+  no-`-o` guard actually rejects, real subprocess, real exit code and
+  message. All four checks pass.
+- Full regression suite re-run clean after: `export_golden.py` (79
+  fixtures, structurally diffed against the previously committed
+  `golden_output.json` with zero content differences, the same
+  Windows path-separator cosmetic noise as every prior regeneration
+  this session), all four real-toolchain driver suites (17+9+8+4,
+  MSVC/6502-three-dialects/Z80-two-dialects/vbcc), `test_68000_cli.py`,
+  `test_binary_export.py`, `multi_file_test.py`.
+
+**A genuine pre-existing spec concept this new section had to be
+positioned against, not silently duplicate:** SPEC.md section 14.6
+already described a "metadata manifest" concept, for a different
+purpose: generating binding glue for an in-process scripting VM
+(getter thunks dereferencing real C++ memory in the same address
+space), covering full struct/instance layout, tied to the C++ export
+specifically. This session's new manifest is narrower (identifier and
+flags domains only, no instance or struct data) and serves a different
+consumer (a standalone, separately-compiled script compiler resolving
+text to numbers at its own build time, never touching a running game's
+memory). Surfaced to the user directly before writing SPEC.md section
+20 rather than assumed; user chose keeping the two concepts explicitly
+separate over folding the new work into section 14.6 as if it were
+that section's concrete implementation, which it isn't (it doesn't
+cover what section 14.6 promises). Section 20 states this
+non-overlap explicitly, the same pattern section 17 already used to
+distinguish itself from section 14.6.
+
+Zero em-dashes (checked directly, this project's own hard rule).

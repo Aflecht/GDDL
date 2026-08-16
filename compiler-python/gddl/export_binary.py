@@ -366,12 +366,16 @@ def _cli():
     import argparse
     import sys
     from .combine import resolve_inputs, compile_multi, CombineError
+    from .export_ids import write_ids_manifest
 
     ap = argparse.ArgumentParser(description="GDDL -> standalone binary exporter")
     ap.add_argument("source", nargs="+",
                      help="one or more .gddl files or glob patterns")
     ap.add_argument("--type", dest="types", action="append", required=True,
                      help="type to export (repeatable)")
+    ap.add_argument("--emit-ids-manifest", action="store_true",
+                     help="also write <output>.gddlids.json, every identifier/flags "
+                          "domain declared, for cross-mod script references (default: off)")
     ap.add_argument("-o", "--output", required=True,
                      help="output stem (writes <stem>.gddldata.bin and <stem>.gddlmeta.json)")
     ap.add_argument("--verbose-errors", action="store_true",
@@ -393,6 +397,10 @@ def _cli():
         sys.exit(1)
     export_binary(resolver.reg, resolver, args.types, args.output)
     print(f"wrote {args.output}.gddldata.bin and {args.output}.gddlmeta.json")
+
+    if args.emit_ids_manifest:
+        manifest_path = write_ids_manifest(resolver.reg, args.output)
+        print(f"wrote {manifest_path}")
 
 
 if __name__ == "__main__":

@@ -524,6 +524,7 @@ def _cli():
     import os
     import sys
     from .combine import resolve_inputs, compile_multi, CombineError
+    from .export_ids import write_ids_manifest
 
     ap = argparse.ArgumentParser(description="GDDL -> 68000 exporter (vbcc, C89)")
     ap.add_argument("source", nargs="+",
@@ -534,6 +535,9 @@ def _cli():
                      help="aos (default) or soa data layout")
     ap.add_argument("--emit-all-domains", action="store_true",
                      help="emit every domain's constants, even unreferenced ones (default: off)")
+    ap.add_argument("--emit-ids-manifest", action="store_true",
+                     help="also write <output>.gddlids.json, every identifier/flags "
+                          "domain declared, for cross-mod script references (default: off)")
     ap.add_argument("-o", "--output", required=True,
                      help="output path stem (writes <stem>.h and <stem>.c)")
     ap.add_argument("--verbose-errors", action="store_true",
@@ -567,6 +571,10 @@ def _cli():
     with open(c_name, "w", encoding="utf-8") as f:
         f.write(c)
     print(f"wrote {header_name} and {c_name}")
+
+    if args.emit_ids_manifest:
+        manifest_path = write_ids_manifest(resolver.reg, args.output)
+        print(f"wrote {manifest_path}")
 
 
 if __name__ == "__main__":

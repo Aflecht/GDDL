@@ -1133,6 +1133,58 @@ An `--exclude` pattern, for skipping specific paths inside a recursive glob (a `
 | C++ export | `inline constexpr` instances (never bare `constexpr`), per-type registry forces retention + enables lookup, direct + dynamic access over the same data, no generic query engine — plain iteration instead. |
 | Scripting bindings | Out of GDDL's scope. GDDL exports a metadata manifest; a separate project-specific tool generates the actual binding glue for whatever language/VM is in use. |
 | Determinism | Identical source + settings -> identical output, always. |
+| Identifiers manifest | `--emit-ids-manifest`, all five exporters. Every identifier/flags domain, unconditionally. For a separately-compiled script compiler resolving `Domain.key` across independently-compiled mods, not section 14.6's in-process VM binding-glue manifest. |
+
+---
+
+## 20. Identifiers Manifest Export
+
+### 20.1 Purpose and Scope
+
+§9's modding model lets a mod declare entirely new identifiers, and §17 lets a mod ship its own compiled data file, but neither says anything about a **script**, compiled independently by its own author, referencing an identifier or flags-domain member that some *other*, independently-compiled mod (or the base game itself) declared. The script's author has that other mod's `Domain.key` text, the same way any GDDL source would, but not necessarily its `.gddl` source to compile against, and no central registry exists to look it up in (§9.1's whole design point is that none is needed for GDDL's own compile step). Something still has to turn that text into the same logical ID or bit position the original compile unit resolved it to, before a script referencing it can be compiled into anything a VM can execute.
+
+This section specifies that missing piece: an opt-in export producing a small, self-contained JSON file listing every identifier and flags domain a compile unit declared, meant to be read by a separate, project-specific script compiler at *its own* build time, never by the shipping game at runtime (a running game already has everything it needs baked into its own compiled dispatch tables; see §20.4).
+
+**This is not an extension of §14.6.** §14.6's metadata manifest describes a compiled C++ binary's full schema: every `define`'s fields, every instance's name and stable ID, so an in-process scripting VM can generate binding glue that dereferences real memory in the same address space. This section's manifest is narrower and serves a different consumer entirely: identifier and flags domains only, no struct layout, no instance data, nothing about C++ or any single export target, available identically across all five exporters, meant to be read by a standalone tool that may run on a different machine than the one that ever built anything, resolving text to numbers, never touching a game's memory at all.
+
+### 20.2 The `--emit-ids-manifest` Flag
+
+Boolean, opt-in, off by default, identical on every exporter (`export_cpp.py`, `export_6502.py`, `export_z80.py`, `export_68000.py`, `export_binary.py`). No separate path argument: the manifest is always written as `<output>.gddlids.json`, derived from the exporter's existing `-o`/`--output` stem, the same "a manifest accompanies an export rather than replacing it" convention §17.2 already established for `.gddlmeta.json`.
+
+For an exporter whose `-o`/`--output` is optional and defaults to stdout (6502, Z80), combining `--emit-ids-manifest` with no `-o` is a hard argparse error rather than silently inventing a stem nobody asked for. There is no output path to derive the manifest's filename from, and writing an unrequested file to disk when the user's actual choice was "print to stdout, write nothing" would violate §2's "nothing is implicit" principle.
+
+### 20.3 Content
+
+Every identifier and flags domain the compile unit declared, **unconditionally**, independent of `--emit-all-domains`, which only controls target-language code generation for referenced domains (a code-size concern specific to each export target). A domain a script needs to reference may never be used by any `define` field at all; the manifest exists specifically to expose it anyway.
+
+```json
+{
+  "domains": [
+    { "name": "ActionAttack", "kind": "identifier",
+      "members": [
+        { "key": "melee_weapon", "logical_id": "5c96a731d7d47e03",
+          "description": "Standard attack done with a melee weapon" }
+      ]
+    },
+    { "name": "ComponentFlags", "kind": "flags", "width": "u8",
+      "members": [
+        { "key": "none" },
+        { "key": "is_movable", "bit": 2 }
+      ]
+    }
+  ]
+}
+```
+
+- **`kind`** distinguishes the two domain shapes (§4 identifier domains vs. §5's flags-typed fields backing store, `flags` blocks). Their member shapes are genuinely different, not variations of one shape.
+- **Identifier domain members**: `key`, `logical_id`, `description`. `description` is the same text §4.1.1 hashes, included for human/tool readability, never something a consumer needs to parse.
+- **Flags domain members**: `key` and `bit` (the claimed bit position, 0-based, matching §8's `bN` positions). `bit` is absent for the zero/none sentinel (`= 0`), which claims no bit. **No `description` field at all**: flags syntax (unlike identifier entries) never carries a descriptive string for any member, so none is fabricated here.
+- **Flags domains additionally carry `width`** (`u8`/`u16`/`u32`/`u64`). A consumer combining or masking bit values needs to know the storage size it's working within.
+- **`logical_id` is a 16-hex-digit string, never a raw JSON number.** A full 64-bit value silently loses precision under any JSON parser that treats numbers as IEEE-754 doubles (JavaScript being the common case); a string sidesteps this regardless of what ever reads the file. `bit` stays a plain integer; it only ever ranges 0-63, nowhere near that danger zone.
+
+### 20.4 The Shipping Game Never Reads This File
+
+Same discipline §17.6 already states plainly for the binary export format: this manifest exists for a separate, offline script-compilation step, never for a shipping game's runtime. A compiled script's bytecode carries only the resolved logical ID or bit value the script compiler already looked up; by the time a game's VM executes it, the text `Domain.key` the script's author actually wrote no longer exists anywhere in the pipeline, resolved once, permanently, the same way every other GDDL-derived identifier already is by the time it reaches compiled output.
 
 ---
 
