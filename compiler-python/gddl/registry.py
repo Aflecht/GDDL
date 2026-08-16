@@ -10,6 +10,8 @@ duplicate detection is WITHIN each namespace only:
 
   - identifier block names, among themselves
   - entry keys, within one identifier block
+  - flags block names, among themselves
+  - entry names, within one flags block
   - define block names, among themselves
   - field names, within one define block
   - instance names, among themselves
@@ -34,7 +36,10 @@ generic recursion-depth-style detection) with an actual designed check
 that names the exact cycle, e.g. `Human_Fighter -> Boss -> Human_Fighter`.
 """
 
-from ast_nodes import Program, IdentifierBlock, DefineBlock, InstanceDecl, AssignStmt, BareFieldStmt
+from ast_nodes import (
+    Program, IdentifierBlock, FlagsBlock, DefineBlock, InstanceDecl,
+    AssignStmt, BareFieldStmt,
+)
 from errors import CompileError
 
 # FNV-1a, 64-bit output, over the UTF-8 bytes of the description text
@@ -80,10 +85,13 @@ def logical_id(domain_name: str, description: str) -> str:
 class Registry:
     def __init__(self, program: Program):
         self.identifiers = {}      # name -> IdentifierBlock
+        self.flags = {}            # name -> FlagsBlock
         self.defines = {}          # name -> DefineBlock
         self.instances = {}        # name -> InstanceDecl
         self.logical_ids = {}      # (domain, key) -> precomputed logical ID
         self.identifier_widths = {}  # domain_name -> width string ('u8'/'u16'/'u32'/'u64'), §8.3
+        self.flags_widths = {}     # domain_name -> width string, mandatory for flags (unlike identifier's)
+        self.flags_values = {}     # (domain, member_name) -> resolved int value (0, or 1 << claimed bit)
         self.instance_ids = {}     # (type_name, instance_name) -> precomputed stable ID
         self.duplicate_errors = []  # list of CompileError
 
@@ -145,6 +153,37 @@ class Registry:
                                     f"has {actual_count} members -- exceeds what this "
                                     "width can address (§8.3)",
                         ))
+
+            elif isinstance(node, FlagsBlock):
+                if node.name in self.flags:
+                    self.duplicate_errors.append(CompileError(
+                        phase=4,
+                        check="duplicate_name",
+                        line=node.line,
+                        message=f"duplicate flags domain name '{node.name}' "
+                                "(first declaration wins, this one is ignored)",
+                    ))
+                    continue
+                self.flags[node.name] = node
+                self.flags_widths[node.name] = node.width
+
+                seen_names = {}
+                unique_entries = []
+                for entry in node.entries:
+                    if entry.name in seen_names:
+                        self.duplicate_errors.append(CompileError(
+                            phase=4,
+                            check="duplicate_name",
+                            line=entry.line,
+                            message=f"duplicate member '{entry.name}' in flags "
+                                    f"domain '{node.name}' (first wins)",
+                        ))
+                        continue
+                    seen_names[entry.name] = entry
+                    unique_entries.append(entry)
+
+                self.duplicate_errors.extend(
+                    self._assign_flags_bits(node, unique_entries))
 
             elif isinstance(node, DefineBlock):
                 if node.name in self.defines:
@@ -208,6 +247,105 @@ class Registry:
         # these go in the same global list duplicate_name/id_collision/
         # circular_dependency already use, not per-instance errors.
         self.duplicate_errors.extend(self._check_indexed_field_types())
+
+    def _assign_flags_bits(self, node, entries):
+        """Computes each entry's real bit-claim value and populates
+        self.flags_values. Follows the spec's auto-assignment rule
+        exactly: "omitting the value entirely auto-assigns the next
+        unclaimed bit, in declaration order" -- unclaimed DOMAIN-WIDE,
+        not just by entries seen so far, so every explicit claim
+        (wherever it appears in the file) is collected FIRST, before any
+        auto-assignment happens.
+
+        This two-pass structure is what makes explicit-vs-auto and
+        auto-vs-auto collisions structurally impossible, not just
+        individually guarded against: auto-assignment always skips every
+        explicit claim domain-wide, and its own cursor only ever moves
+        forward, so it can never repeat a bit either explicitly claimed
+        or already handed to an earlier auto entry. The one collision
+        that CAN actually occur is explicit-vs-explicit: two members
+        both writing '= bN' for the same N, a real conflict where
+        neither yields.
+
+        On any single entry's own claim failing (out-of-width position,
+        or losing an explicit-vs-explicit collision), that entry is
+        skipped entirely -- no value registered for it at all, same
+        "first wins, duplicate/invalid entries just don't make it into
+        the table" precedent this file's own identifier-entry handling
+        already established. A later reference to a skipped member
+        surfaces its own secondary "no such member" error at resolution
+        time, layered on top of the phase-4 error already reported here
+        -- not a new failure mode, the exact shape identifier's
+        duplicate-key handling already has."""
+        errors = []
+        bits = _INDEXED_WIDTH_BITS[node.width]
+
+        # Pass 1: every explicit claim, domain-wide, before any auto
+        # assignment happens.
+        claimed = {}  # bit position (int) -> the entry that holds it
+        for entry in entries:
+            if entry.kind != "bit":
+                continue
+            if entry.explicit_bit >= bits:
+                errors.append(CompileError(
+                    phase=4,
+                    check="flags_bit_exceeds_width",
+                    line=entry.line,
+                    message=f"flags member '{entry.name}' claims bit "
+                            f"{entry.explicit_bit} ('= b{entry.explicit_bit}'), "
+                            f"but domain '{node.name}' is declared "
+                            f"'{node.width}' ({bits} bits, positions "
+                            f"0..{bits - 1}) -- this bit position doesn't "
+                            "exist at this width",
+                ))
+                continue
+            if entry.explicit_bit in claimed:
+                other = claimed[entry.explicit_bit]
+                errors.append(CompileError(
+                    phase=4,
+                    check="flags_bit_collision",
+                    line=entry.line,
+                    message=f"flags member '{entry.name}' claims bit "
+                            f"{entry.explicit_bit} ('= b{entry.explicit_bit}'), "
+                            f"but '{other.name}' (line {other.line}) already "
+                            f"claims the same bit in domain '{node.name}' -- "
+                            "each bit position must be claimed exactly once",
+                ))
+                continue
+            claimed[entry.explicit_bit] = entry
+            self.flags_values[(node.name, entry.name)] = 1 << entry.explicit_bit
+
+        # Pass 2: auto-assign everything else, in declaration order,
+        # around every explicit claim from pass 1 -- regardless of
+        # whether that claim's own line came before or after this entry.
+        cursor = 0
+        for entry in entries:
+            if entry.kind == "number":
+                self.flags_values[(node.name, entry.name)] = 0  # sentinel, claims no bit
+                continue
+            if entry.kind == "bit":
+                continue  # already handled in pass 1 (or skipped as invalid)
+
+            while cursor in claimed:
+                cursor += 1
+            if cursor >= bits:
+                errors.append(CompileError(
+                    phase=4,
+                    check="flags_width_overflow",
+                    line=entry.line,
+                    message=f"flags domain '{node.name}' declares width "
+                            f"'{node.width}' ({bits} bits), but member "
+                            f"'{entry.name}' has no unclaimed bit left to "
+                            "auto-assign -- the domain's real bit-flag "
+                            "members exceed what this width can address",
+                ))
+                cursor += 1
+                continue
+            claimed[cursor] = entry
+            self.flags_values[(node.name, entry.name)] = 1 << cursor
+            cursor += 1
+
+        return errors
 
     def _check_indexed_field_types(self):
         """Two static checks (§8.3), over every field of every define:
@@ -370,16 +508,18 @@ class Registry:
 
     def field_category(self, struct_type_name: str, field_name: str):
         """Returns (category, type_name) where category is 'struct',
-        'identifier', or 'scalar' -- or (None, None) if unknown.
+        'identifier', 'flags', or 'scalar' -- or (None, None) if unknown.
 
         §8.3: a valid '@Domain' (domain exists and is a real identifier
         domain) is treated EXACTLY like plain 'Domain' here -- resolution
         (phases 6-8) needs no semantic change at all; '@' only matters
         once export happens (see export_cpp.py). An invalid '@X' (X isn't
-        a real identifier domain) deliberately does NOT get special-cased
-        here -- it falls through to 'scalar' with the full '@X' text as
-        type_name, an inert no-op, since that misuse is already reported
-        as a hard compile-time error by
+        a real identifier domain, flags domain included -- flags never
+        had a hash-vs-index duality to opt into, so '@FlagsDomain' is
+        just as invalid as '@AnyStructType') deliberately does NOT get
+        special-cased here -- it falls through to 'scalar' with the full
+        '@X' text as type_name, an inert no-op, since that misuse is
+        already reported as a hard compile-time error by
         Registry._check_indexed_field_types regardless of what happens
         here."""
         t = self.field_type(struct_type_name, field_name)
@@ -395,6 +535,8 @@ class Registry:
             return "struct", t
         if t in self.identifiers:
             return "identifier", t
+        if t in self.flags:
+            return "flags", t
         return "scalar", t
 
     def is_struct_type(self, type_name: str) -> bool:
@@ -408,3 +550,9 @@ class Registry:
 
     def get_identifier_width(self, domain: str):
         return self.identifier_widths.get(domain)
+
+    def get_flags_width(self, domain: str):
+        return self.flags_widths.get(domain)
+
+    def get_flags_value(self, domain: str, member: str):
+        return self.flags_values.get((domain, member))

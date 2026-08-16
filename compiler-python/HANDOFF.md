@@ -2872,3 +2872,155 @@ width-overflow check, reject-arithmetic-on-flags /
 reject-bitwise-on-non-flags, op-statement support confirmation for
 flags fields), per the handover doc's own remaining plan. Stage 2 as
 scoped there is complete.
+
+## flags/bN work, stage 3: registry and resolution logic
+
+Picked up immediately after stage 2, same session. Scope exactly as
+the handover doc listed: bit-claim tracking (auto-assignment +
+duplicate-claim detection), width-overflow, reject-arithmetic-on-flags
+/ reject-bitwise-on-non-flags, and confirming op-statement support on
+flags fields actually works.
+
+**`registry.py`**: `FlagsBlock` nodes are now actually registered
+(previously silently skipped -- the real, pre-existing gap flagged
+explicitly at the end of the stage 2 entry above). New state:
+`self.flags` (name -> node, own namespace, no cross-check against
+`identifiers`/`defines`, matching this file's own documented policy
+that namespace collision detection is deliberately per-construct only)
+and `self.flags_values` ((domain, member) -> resolved int, 0 for the
+none/zero sentinel or 1 << claimed-bit otherwise). Duplicate domain
+names and duplicate member names both follow the exact first-wins,
+collect-and-continue pattern `identifier` already established.
+
+**Bit-claim algorithm** (`_assign_flags_bits`), the real heart of this
+stage: two passes, not one, and this is load-bearing, not a style
+choice. Pass 1 collects EVERY explicit `= bN` claim across the whole
+domain first (catching an out-of-width position, or two members
+claiming the same bit, as real phase-4 errors). Only after that full
+picture exists does pass 2 walk the auto-assigned members in
+declaration order, each one skipping every bit pass 1 already claimed
+-- domain-wide, not just claims seen earlier in the file. This is what
+the spec's own wording actually requires ("auto-assigns the next
+UNCLAIMED bit") and it has a real consequence worth stating precisely:
+explicit-vs-auto and auto-vs-auto collisions are structurally
+impossible by this construction, not just individually guarded against
+-- the auto cursor can never land on a bit that's either explicitly
+claimed anywhere in the domain or already handed to an earlier auto
+member. The only collision that can actually occur is
+explicit-vs-explicit (two members both writing the same `bN`), which
+pass 1 catches directly. Proved this isn't just true in the easy
+ordering: a real fixture with an explicit claim placed AFTER two auto
+members that a naive single-pass left-to-right algorithm would have
+let grab that bit first -- confirmed directly (not assumed from reading
+the algorithm) that the auto members correctly land on the NEXT bits
+instead, computed values checked individually, not just "no crash".
+
+**Width-overflow**, explicitly noted in the handover doc as reusing
+`identifier`'s `indexed_width_overflow` "shape" but NOT its formula --
+confirmed this distinction mattered before writing anything: identifier's
+check is `entry_count > 2**bits` (a dense index can address up to
+2^bits distinct values), but flags is a bitmask, so the real capacity
+is `bits` addressable positions, not `2**bits`. Two separate checks
+followed from this, not one: `flags_bit_exceeds_width` (an individual
+explicit `bN` where N >= the domain's own bit count) and
+`flags_width_overflow` (an auto member with no unclaimed bit left
+within the domain's bit count) -- different failure shapes, both real,
+neither reducible to the other.
+
+**Field-category integration**: `field_category()` gained a fourth
+category, `'flags'`, returned when the field's type token names a
+known flags domain -- inserted after the existing `identifier` check,
+before the final scalar fallback. This directly closes the real,
+pre-existing gap the stage 2 entry above flagged explicitly (a
+flags-typed field silently falling into 'scalar' with no type
+awareness at all, identical to what already happened for any
+undefined type name) -- confirmed closed by re-running the exact same
+repro from that entry (`component_flags = 0` on a `ComponentFlags`
+field) and confirming it now round-trips through real flags-specific
+coercion instead of silently succeeding as an untyped scalar.
+
+**Numeric coercion/range enforcement for flags fields**: reused
+`_coerce_numeric`/`_check_range` completely unmodified -- a flags
+field's real "type" for range-check purposes is its declared WIDTH
+(u8/u16/u32/u64), which those functions already understand perfectly;
+the two call sites in `_apply_assign`/`_apply_op` just substitute
+`registry.get_flags_width(domain)` for the domain name before calling
+them, rather than teaching those functions a new vocabulary. Confirmed
+this is the right layer for it: a flags value is a plain unsigned
+integer of a known width, nothing about range enforcement is
+flags-specific.
+
+**Arithmetic/bitwise gating by field kind**, threaded through the
+whole expression evaluator (`_eval_expr`, `_eval_op_expr`,
+`_parse_expr_tokens`, `_fold_left`, `_parse_operand`, `_apply_binop`)
+via a new `is_flags` parameter, constant across one expression's whole
+evaluation (parens included) since it describes the field being
+assigned, not any individual sub-term. `_apply_binop` centralizes the
+binary-operator check (arithmetic rejected when `is_flags`, bitwise
+rejected when not) so both the op-statement's own leading operator and
+every operator `_fold_left` walks afterward go through exactly one
+check, not two separately-maintained copies. Unary `-`/`+`/`~` gated
+directly in `_parse_operand`, same reasoning: unary arithmetic is just
+as much "arithmetic" as binary for this rule, and unary `~` is
+bitwise-only in both directions like every other bitwise operator.
+
+**`OpStmt` category gate widened, two places, both real, both would
+have silently broken flags op-statement support otherwise**:
+`resolve.py`'s `_apply_op` (`category != "scalar"` -> `category not in
+("scalar", "flags")`) and `phase5.py`'s static `field_shape` check
+(the exact same widening, phase 5 runs before phase 6 and would have
+rejected a flags op-statement before resolution ever got the chance
+to). Found the phase5.py one by deliberately checking every existing
+`== "scalar"` / `!= "scalar"` site project-wide (`grep`) before
+declaring this done, not by waiting for a test to fail -- confirmed
+these two were the complete set.
+
+**`Domain.member` dot-access for flags**, `_resolve_reference`'s third
+branch (after struct-field-on-current-scope, then `identifier`
+domains): looks up `self.reg.flags_values`, resolving directly to the
+member's real int value (not an `IdentifierRef` wrapper -- flags
+values ARE the raw combinable integer, there's no hash/index duality
+to carry the way identifier has). The `0`/none-sentinel case is
+real and deliberately distinguished from "no such member" with an
+explicit `is None` check on the lookup, not a truthiness check that
+would have wrongly rejected a legitimate zero value.
+
+**Validated, real pipeline runs, not just read for plausibility**:
+- The reference `Entity.gddl` file's exact `ComponentFlags u64` domain
+  (handover doc section 6, byte-for-byte): all 9 members' computed
+  values checked individually against hand-derived expected values
+  (`none=0`, `is_damageable=1` ... `is_attack=128`) -- exact match.
+- A `copy-a-base-then-turn-on/off-one-more-flag` scenario end to end
+  (the exact motivating case stage 3 was asked to confirm): an
+  instance combining two flags via `|` at assign time, a descendant
+  instance clearing one via an op-statement (`& ~ComponentFlags.is_controllable`)
+  -- both computed values checked, both correct.
+- A parenthesized combining expression mixing `Domain.member` dot
+  references with `|`/`&`/`~` in one line -- correct.
+- The late-explicit-claim reordering fixture described above --
+  correct, checked per-member, not just "compiled without error".
+- Eight real error-path fixtures: explicit-vs-explicit bit collision,
+  bit position exceeding declared width, width overflow from too many
+  auto members, arithmetic op-statement on a flags field, arithmetic
+  embedded inside a flags assign-expression, bitwise op-statement on a
+  non-flags field, bitwise embedded inside a non-flags assign
+  expression, and unary `~` on a non-flags field -- all eight correctly
+  rejected with precise, distinct messages naming the actual operator
+  and field-kind involved, not a generic failure.
+- Full `export_golden.py` regression: 72/72, zero content diffs
+  (structural comparison, path-separator false positive ruled out the
+  same way as every Windows-portability entry above). Also re-ran
+  `multi_file_test/test_multi_file.py` and
+  `export_68000_test/test_68000_cli.py` in full, both still 100%
+  passing -- touched shared pipeline code (`registry.py`, `resolve.py`,
+  `phase5.py`), so this wasn't assumed safe from the golden corpus
+  alone.
+
+**Not yet done, next**: stage 4 (export, all five targets -- C++
+shape already fully designed and compile-tested in the handover doc's
+section 4.3; 6502/Z80/68000/binary as plain integer constants, same
+shape `identifier` domains already use on those targets). Real
+toolchain validation for stage 4 is now actually possible on this
+machine for every target (see the Windows real-toolchain entries
+above) -- unlike when this feature was first designed. Stage 3 as
+scoped in the handover doc is complete.

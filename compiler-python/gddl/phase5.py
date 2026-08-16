@@ -97,12 +97,13 @@ def _walk_statements(stmts, scope_type, reg):
                 return CompileError(
                     phase=5, check="field_shape", line=stmt.line,
                     message=f"'{stmt.field_name}' is not a field of '{scope_type}'")
-            if category != "scalar":
+            if category not in ("scalar", "flags"):
                 return CompileError(
                     phase=5, check="field_shape", line=stmt.line,
                     message=f"operator statement on '{stmt.field_name}' (a "
-                            f"{category}-typed field) -- arithmetic operators "
-                            "only apply to plain scalar fields")
+                            f"{category}-typed field) -- operator statements "
+                            "only apply to plain scalar and flags-typed "
+                            "fields")
             continue
 
     return None

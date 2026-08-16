@@ -289,6 +289,7 @@ class Resolver:
             scope.fields[stmt.field_name] = val
             return
 
+        is_flags = category == "flags"
         rhs = stmt.rhs.strip()
         if len(rhs) >= 2 and rhs[0] == '"' and rhs[-1] == '"':
             try:
@@ -298,23 +299,31 @@ class Resolver:
                     f"'{stmt.field_name}': {e.message}", stmt.line,
                     check="string_escape")
         else:
-            val = self._eval_expr(rhs, scope, stmt.line)
+            val = self._eval_expr(rhs, scope, stmt.line, is_flags=is_flags)
 
         if isinstance(val, str):
             scope.fields[stmt.field_name] = self._check_string_length(
                 val, stmt.field_name, type_name, stmt.line)
         else:
+            # A flags-typed field's declared_type (for coercion/range
+            # purposes) is its WIDTH, not the domain name -- the domain
+            # name means nothing to _coerce_numeric/_check_range, which
+            # only understand the u8/u16/u32/u64/etc. type-token
+            # vocabulary; substituting the width here reuses that
+            # existing, already-correct unsigned-integer range logic
+            # verbatim rather than duplicating it for flags specifically.
+            coerce_type = self.reg.get_flags_width(type_name) if is_flags else type_name
             scope.fields[stmt.field_name] = self._coerce_numeric(
-                val, stmt.field_name, type_name, stmt.line)
+                val, stmt.field_name, coerce_type, stmt.line)
 
     def _apply_op(self, scope: StructValue, stmt: OpStmt, allow_incomplete: bool):
         category, type_name = self.reg.field_category(scope.type_name, stmt.field_name)
-        if category is not None and category != "scalar":
+        if category is not None and category not in ("scalar", "flags"):
             raise GDDLResolveError(
                 f"operator statement on '{stmt.field_name}' (a {category}-typed "
-                "field) -- arithmetic operators only apply to plain scalar "
-                "fields, which have a current numeric value to "
-                "read-modify-write; struct and identifier-domain fields "
+                "field) -- operator statements only apply to plain scalar "
+                "and flags-typed fields, which have a current numeric value "
+                "to read-modify-write; struct and identifier-domain fields "
                 "don't", stmt.line)
 
         current = scope.fields.get(stmt.field_name, UNINIT)
@@ -329,9 +338,12 @@ class Resolver:
         # "current, then the operator, then the rest of the line" is ONE
         # expression evaluated strictly left to right (§6.3.1). `current`
         # is passed as a real value here, never stringified.
-        val = self._eval_op_expr(current, stmt.op, stmt.rhs, scope, stmt.line)
+        is_flags = category == "flags"
+        val = self._eval_op_expr(
+            current, stmt.op, stmt.rhs, scope, stmt.line, is_flags=is_flags)
+        coerce_type = self.reg.get_flags_width(type_name) if is_flags else type_name
         scope.fields[stmt.field_name] = self._coerce_numeric(
-            val, stmt.field_name, type_name, stmt.line)
+            val, stmt.field_name, coerce_type, stmt.line)
 
     def _apply_bare(self, scope: StructValue, stmt: BareFieldStmt, allow_incomplete: bool):
         category, field_type = self.reg.field_category(scope.type_name, stmt.field_name)
@@ -449,10 +461,20 @@ class Resolver:
             raise GDDLResolveError(f"can't parse expression {expr!r}", line)
         return tokens
 
-    def _eval_expr(self, expr: str, scope: StructValue, line: int):
+    def _eval_expr(self, expr: str, scope: StructValue, line: int, is_flags: bool = False):
         """Strict left-to-right evaluation (§6.3.1). Used for
         assign-statement rhs, where the whole expression genuinely is
-        source text."""
+        source text.
+
+        `is_flags` says whether the field THIS expression is being
+        assigned to is flags-typed -- constant across the whole
+        expression tree (parens included), since it describes the
+        target field, not any individual sub-term. Threaded through to
+        gate which operator family is legal: arithmetic (+ - * /) is a
+        compile-time error on a flags-typed field, bitwise (| & ^ ~) is
+        a compile-time error on anything else -- there is no other
+        bitmask mechanism in the language, so bitwise operators exist
+        only for flags, full stop, in both directions."""
         expr = expr.strip()
         if not expr:
             raise GDDLResolveError("empty expression", line)
@@ -461,17 +483,19 @@ class Resolver:
         if not tokens:
             raise GDDLResolveError(f"can't parse expression {expr!r}", line)
 
-        value, rest = self._parse_expr_tokens(tokens, scope, line)
+        value, rest = self._parse_expr_tokens(tokens, scope, line, is_flags)
         if rest:
             raise GDDLResolveError(
                 f"unexpected trailing token(s) {rest!r} in expression {expr!r}", line)
         return value
 
-    def _eval_op_expr(self, current, op: str, rhs_text: str, scope: StructValue, line: int):
+    def _eval_op_expr(self, current, op: str, rhs_text: str, scope: StructValue, line: int,
+                       is_flags: bool = False):
         """Evaluate 'current <op> rest-of-line' WITHOUT ever stringifying
         `current` -- `current` is carried through as a real Python
         int/float, used directly as the leading operand; only rhs_text
-        (genuine source text) is ever tokenized."""
+        (genuine source text) is ever tokenized. See _eval_expr for what
+        `is_flags` gates."""
         if not isinstance(current, (int, float)):
             raise GDDLResolveError(
                 f"operator '{op}' applied to a non-numeric current value "
@@ -481,30 +505,30 @@ class Resolver:
         if not tokens:
             raise GDDLResolveError(f"expected an operand after operator '{op}'", line)
 
-        rhs_val, tokens = self._parse_operand(tokens, scope, line)
-        value = self._apply_binop(current, op, rhs_val, line)
-        value, tokens = self._fold_left(value, tokens, scope, line)
+        rhs_val, tokens = self._parse_operand(tokens, scope, line, is_flags)
+        value = self._apply_binop(current, op, rhs_val, line, is_flags)
+        value, tokens = self._fold_left(value, tokens, scope, line, is_flags)
         if tokens:
             raise GDDLResolveError(
                 f"unexpected trailing token(s) {tokens!r} after "
                 f"'{op} {rhs_text}'", line)
         return value
 
-    def _parse_expr_tokens(self, tokens, scope, line):
-        value, tokens = self._parse_operand(tokens, scope, line)
-        return self._fold_left(value, tokens, scope, line)
+    def _parse_expr_tokens(self, tokens, scope, line, is_flags: bool = False):
+        value, tokens = self._parse_operand(tokens, scope, line, is_flags)
+        return self._fold_left(value, tokens, scope, line, is_flags)
 
-    def _fold_left(self, value, tokens, scope, line):
+    def _fold_left(self, value, tokens, scope, line, is_flags: bool = False):
         while tokens and tokens[0] in ("+", "-", "*", "/", "|", "&", "^"):
             op, tokens = tokens[0], tokens[1:]
             if not tokens:
                 raise GDDLResolveError(
                     f"expected an operand after operator '{op}'", line)
-            rhs, tokens = self._parse_operand(tokens, scope, line)
-            value = self._apply_binop(value, op, rhs, line)
+            rhs, tokens = self._parse_operand(tokens, scope, line, is_flags)
+            value = self._apply_binop(value, op, rhs, line, is_flags)
         return value, tokens
 
-    def _parse_operand(self, tokens, scope, line):
+    def _parse_operand(self, tokens, scope, line, is_flags: bool = False):
         """operand := NUMBER | BIT_LITERAL | reference | '(' expr ')'
         | '-' operand | '+' operand | '~' operand"""
         if not tokens:
@@ -512,14 +536,26 @@ class Resolver:
         tok = tokens[0]
 
         if tok in ("-", "+"):
-            value, rest = self._parse_operand(tokens[1:], scope, line)
+            if is_flags:
+                raise GDDLResolveError(
+                    f"unary '{tok}' used on a flags-typed field -- arithmetic "
+                    "is a compile-time error on flags-typed fields, no "
+                    "exceptions; combine flags with bitwise operators "
+                    "(| & ^ ~) only", line)
+            value, rest = self._parse_operand(tokens[1:], scope, line, is_flags)
             if not isinstance(value, (int, float)):
                 raise GDDLResolveError(
                     f"unary '{tok}' applied to a non-numeric value: {value!r}", line)
             return (-value if tok == "-" else value), rest
 
         if tok == "~":
-            value, rest = self._parse_operand(tokens[1:], scope, line)
+            if not is_flags:
+                raise GDDLResolveError(
+                    "unary '~' used on a field that isn't flags-typed -- "
+                    "bitwise operators only apply to flags-typed fields; "
+                    "there is no other bitmask mechanism in the language",
+                    line)
+            value, rest = self._parse_operand(tokens[1:], scope, line, is_flags)
             if not isinstance(value, int) or isinstance(value, bool):
                 raise GDDLResolveError(
                     f"unary '~' applied to a non-integer value: {value!r} -- "
@@ -527,7 +563,7 @@ class Resolver:
             return ~value, rest
 
         if tok == "(":
-            value, rest = self._parse_expr_tokens(tokens[1:], scope, line)
+            value, rest = self._parse_expr_tokens(tokens[1:], scope, line, is_flags)
             if not rest or rest[0] != ")":
                 raise GDDLResolveError("missing closing ')'", line)
             return value, rest[1:]
@@ -546,7 +582,19 @@ class Resolver:
 
         return self._resolve_reference(tok, scope, line), tokens[1:]
 
-    def _apply_binop(self, left, op, right, line):
+    def _apply_binop(self, left, op, right, line, is_flags: bool = False):
+        if is_flags and op in ("+", "-", "*", "/"):
+            raise GDDLResolveError(
+                f"arithmetic operator '{op}' used on a flags-typed field -- "
+                "arithmetic is a compile-time error on flags-typed fields, "
+                "no exceptions; combine flags with bitwise operators "
+                "(| & ^ ~) only", line)
+        if not is_flags and op in ("|", "&", "^"):
+            raise GDDLResolveError(
+                f"bitwise operator '{op}' used on a field that isn't "
+                "flags-typed -- bitwise operators only apply to flags-typed "
+                "fields; there is no other bitmask mechanism in the "
+                "language", line)
         if not isinstance(left, (int, float)) or not isinstance(right, (int, float)):
             raise GDDLResolveError(
                 f"operator '{op}' applied to non-numeric operand(s): "
@@ -597,11 +645,26 @@ class Resolver:
             lid = self.reg.get_logical_id(domain, key)
             return IdentifierRef(domain, key, lid)
 
+        if first in self.reg.flags:
+            if len(parts) != 2:
+                raise GDDLResolveError(
+                    f"flags domain reference {path!r} must be exactly "
+                    "'Domain.member'", line)
+            domain, key = parts
+            # 0 (the none/zero sentinel) is a real, legitimate value --
+            # distinguished from "no such member" with an explicit `is
+            # None` check, not a truthiness check that would wrongly
+            # reject it.
+            value = self.reg.get_flags_value(domain, key)
+            if value is None:
+                raise GDDLResolveError(f"'{domain}' has no member '{key}'", line)
+            return value
+
         raise GDDLResolveError(
             f"unknown reference '{path}' -- not a field of the current "
             f"instance ('{scope.type_name}'), and not a known identifier "
-            "domain. Cross-field references are scoped to the current "
-            "instance only.", line)
+            "or flags domain. Cross-field references are scoped to the "
+            "current instance only.", line)
 
     def _resolve_field_path(self, scope: StructValue, parts, line: int):
         first = parts[0]
