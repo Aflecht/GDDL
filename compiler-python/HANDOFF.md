@@ -3198,3 +3198,128 @@ read back from real compiled/run output) and stage 6 (docs, folded
 into `language-basics.md` or a new guide -- deliberately undecided
 until real material exists). Stage 4 as scoped in the handover doc is
 complete for all five targets.
+
+## flags/bN work, stage 5: permanent corpus fixtures
+
+Picked up immediately after stage 4, same session, prompted by a
+direct question ("are the tests written for this new feature?") that
+correctly caught this gap -- every stage 1-4 validation so far lived
+in throwaway scratch scripts, real and thorough but not committed or
+repeatable by anyone else. This stage closes that specifically.
+
+**A real, precision gap closed first, before writing anything that
+would depend on it**: the arithmetic-rejected-on-flags and
+bitwise-rejected-on-non-flags errors (`_apply_binop`/`_parse_operand`
+in `resolve.py`, added during stage 3) had no `check=` name at all --
+`None`, unlike every other error in this codebase. Found while
+preparing to write fixtures whose `.golden.json` would need to name a
+specific check, not just a message string. Added
+`check="flags_arithmetic_rejected"` / `check="flags_bitwise_rejected"`
+to all four call sites (both the binary form in `_apply_binop` and the
+unary `-`/`+`/`~` forms in `_parse_operand`). Confirmed via direct
+attribute access on the real `CompileError` object (not just eyeballing
+message text) before trusting it. Full regression re-run clean after
+this alone, before any fixture existed yet.
+
+**New `corpus/flags/` fixture group**, seven files, all real
+`capture_status: "captured"` (not predictions -- this is a
+single-session design-and-implementation thread, unlike the corpus's
+original two-role Test Corpus/Compiler Core process, so there was
+never a "predict before an implementation exists" phase to go through;
+every fixture's expected values were hand-computed FIRST, then
+confirmed byte-for-byte against `export_golden.py`'s real output
+before locking, never the reverse):
+- `flags_auto_assignment_valid.gddl` -- positive baseline, every real
+  member auto-assigned, confirming sequential bit assignment and that
+  a `= 0` sentinel claims no bit.
+- `flags_explicit_bit_mixed_with_auto.gddl` -- the depth pass, and the
+  most important fixture in this batch: an explicit `= b2` declared
+  AFTER two auto members that a naive single-pass algorithm would let
+  grab bit 2 first. Locks the exact property that makes explicit-vs-
+  auto collisions structurally impossible (stage 3's own central
+  design insight), not just today's implementation happening to get it
+  right. Also the fixture reused for the export-side check below.
+- `flags_duplicate_bit_claim_error.gddl` -- the one collision that CAN
+  actually occur (explicit-vs-explicit), domain-only, no instances,
+  same convention `domain_logical_id_collision_error.gddl` already
+  established.
+- `flags_bit_exceeds_width_error.gddl` / `flags_width_overflow_error.gddl`
+  -- two DISTINCT failure shapes, both real, neither reducible to the
+  other (an individual out-of-range explicit claim vs. a domain-wide
+  capacity shortfall during auto-assignment) -- the handover doc's
+  stage 5 checklist only names "the width-overflow error" singular,
+  but both were built during stage 3 and both deserve permanent
+  coverage, matching this corpus's own established precedent of adding
+  a bonus negative path when a real, distinct case exists beyond the
+  strict checklist (`domain_field_wrong_domain_error.gddl`'s own
+  MANIFEST.md entry names this exact precedent).
+- `flags_arithmetic_rejected_error.gddl` / `flags_bitwise_rejected_on_non_flags_error.gddl`
+  -- both directions of the operator-legality gate, op-statement form.
+
+New `corpus/flags/MANIFEST.md`, matching every other fixture group's
+documentation convention (file table, coverage checklist against the
+stage 5 task list, notes on what was verified and how).
+
+**Export-side requirement** ("a real combined value actually read back
+correctly from real compiled/run output" -- something `corpus/`'s own
+schema structurally cannot capture, since it never runs an export
+target): `flags_explicit_bit_mixed_with_auto.gddl` -- the SAME source,
+not a variant -- also lives at `export_cpp_test/export_test_flags.gddl`,
+matching the exact "dual purpose, two separate channels" convention
+`composition_nested_u16_fields.gddl` already established (documented
+identically in both copies' header comments). Checked-in
+`generated_flags.h` (single-header mode, default guard name, matching
+this directory's own existing convention of NOT customizing it per
+file even though multiple `generated_*.h` files coexist there -- each
+test only ever includes one at a time, so no real collision). New
+`test_generated_flags.cpp`: `static_assert`s against both the
+namespace constants themselves AND the resolved instance data
+(single-header mode makes both `inline constexpr`, so the "copy a
+base, toggle one flag" scenario is checkable at COMPILE time, not just
+runtime), plus the natural `if (flags & X)` check -- the exact thing
+the namespace-over-`enum class` design exists for, confirmed working
+in a real compiled program, not just argued for on paper. Added to
+`run_all_cpp_tests.py`'s `CASES` list. Real MSVC compile and
+execution, all 17 cases (16 pre-existing + this one) passing.
+
+**A real, easy-to-hit `.golden.json`/`golden_output.json` consistency
+trap, worth recording precisely so a future session doesn't lose time
+rediscovering it**: `export_golden.py`'s own `main()` ALWAYS
+regenerates `golden_output.json` fresh from real compiler output as a
+side effect of running it (needed for the lock-completeness check) --
+on this Windows machine, that means every run reintroduces the
+`glob`-produced backslash path-separator keys already documented as a
+false-positive earlier in this file. Merging new fixtures into the
+real, committed (forward-slash-keyed) `golden_output.json` safely
+means: (1) run `export_golden.py` once to confirm lock-completeness
+and get fresh real output, (2) normalize path separators and merge
+ONLY the genuinely new fixture keys into a copy of the last real
+`git show HEAD:...` version -- never a blanket rewrite of the whole
+file, which would also silently flip every pre-existing fixture's
+`\uXXXX`-escaped non-ASCII characters to raw UTF-8 (confirmed hitting
+this exact mistake once while preparing this batch: `json.dump(...,
+ensure_ascii=False)` doesn't match `export_golden.py`'s own plain
+`json.dump(out, fh, indent=2)` call, and produced 150+ lines of pure
+serialization-style diff noise across fixtures this batch never
+touched, before being caught and fixed by matching the tool's own
+default exactly), and (3) if `export_golden.py` gets run again for any
+reason afterward, redo the merge -- it always overwrites the file
+fresh, every time, with no memory of a prior merge. Confirmed the
+final merge is purely additive (142 insertions, 1 deletion -- the
+`_meta.fixture_count` line -- nothing else touched) via a real `git
+diff` before trusting it, not assumed from the merge script's own
+logic being "obviously correct".
+
+**Validated**: all seven new fixtures' real output confirmed
+byte-for-byte against hand-computed expected values before locking.
+Full `export_golden.py` regression: 79/79 (72 pre-existing + 7 new),
+lock-completeness clean, zero content diffs among the 72 pre-existing
+fixtures (structural comparison). `run_all_cpp_tests.py`: 17/17, real
+MSVC. `multi_file_test.py` and `test_68000_cli.py` re-run clean
+(touched shared `resolve.py`, same discipline as every stage before
+this one).
+
+**Not yet done, next**: stage 6 (docs -- fold into
+`language-basics.md` or a new guide, deliberately undecided until real
+material exists to look at). Stage 5 as scoped in the handover doc is
+complete.

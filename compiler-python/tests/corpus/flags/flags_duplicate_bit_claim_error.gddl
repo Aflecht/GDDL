@@ -1,0 +1,21 @@
+// Fixture: flags_duplicate_bit_claim_error
+// Rule under test: flags/bN design -- "each bit position must be claimed exactly
+// once, explicit or automatic; a second claim on an already-claimed bit is a
+// compile-time error." This is the one collision that can actually occur under the
+// two-pass auto-assignment algorithm (explicit-vs-auto and auto-vs-auto are
+// structurally impossible by construction -- see
+// flags_explicit_bit_mixed_with_auto.gddl): two members both writing '= bN' for the
+// SAME N, a real conflict where neither yields. A domain-only fixture, no instances
+// needed -- the collision is a property of the domain's own declaration (same
+// convention as domain_logical_id_collision_error.gddl in corpus/domains/).
+
+flags X u8
+	none = 0
+	a = b2
+	b = b2
+
+// Expected: real, hard compile-time error (phase 4, check: flags_bit_collision).
+//   'b' claims bit 2, but 'a' already claims it. First registrant ('a') is
+//   unaffected; 'b' is the one flagged. No instances in this file, so
+//   `instances` is empty -- this error is purely a property of the domain's own
+//   declaration.

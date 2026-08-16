@@ -1,0 +1,29 @@
+{
+  "fixture": "flags_arithmetic_rejected_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-16",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Base": {
+        "status": "delete",
+        "resolved": {
+          "mask": 0
+        },
+        "phase": null,
+        "check": null
+      },
+      "Bad": {
+        "status": "error",
+        "phase": 6,
+        "check": "flags_arithmetic_rejected",
+        "line": 21,
+        "message": "line 21: arithmetic operator '+' used on a flags-typed field -- arithmetic is a compile-time error on flags-typed fields, no exceptions; combine flags with bitwise operators (| & ^ ~) only"
+      }
+    }
+  }
+}

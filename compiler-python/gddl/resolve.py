@@ -541,7 +541,7 @@ class Resolver:
                     f"unary '{tok}' used on a flags-typed field -- arithmetic "
                     "is a compile-time error on flags-typed fields, no "
                     "exceptions; combine flags with bitwise operators "
-                    "(| & ^ ~) only", line)
+                    "(| & ^ ~) only", line, check="flags_arithmetic_rejected")
             value, rest = self._parse_operand(tokens[1:], scope, line, is_flags)
             if not isinstance(value, (int, float)):
                 raise GDDLResolveError(
@@ -554,7 +554,7 @@ class Resolver:
                     "unary '~' used on a field that isn't flags-typed -- "
                     "bitwise operators only apply to flags-typed fields; "
                     "there is no other bitmask mechanism in the language",
-                    line)
+                    line, check="flags_bitwise_rejected")
             value, rest = self._parse_operand(tokens[1:], scope, line, is_flags)
             if not isinstance(value, int) or isinstance(value, bool):
                 raise GDDLResolveError(
@@ -588,13 +588,13 @@ class Resolver:
                 f"arithmetic operator '{op}' used on a flags-typed field -- "
                 "arithmetic is a compile-time error on flags-typed fields, "
                 "no exceptions; combine flags with bitwise operators "
-                "(| & ^ ~) only", line)
+                "(| & ^ ~) only", line, check="flags_arithmetic_rejected")
         if not is_flags and op in ("|", "&", "^"):
             raise GDDLResolveError(
                 f"bitwise operator '{op}' used on a field that isn't "
                 "flags-typed -- bitwise operators only apply to flags-typed "
                 "fields; there is no other bitmask mechanism in the "
-                "language", line)
+                "language", line, check="flags_bitwise_rejected")
         if not isinstance(left, (int, float)) or not isinstance(right, (int, float)):
             raise GDDLResolveError(
                 f"operator '{op}' applied to non-numeric operand(s): "

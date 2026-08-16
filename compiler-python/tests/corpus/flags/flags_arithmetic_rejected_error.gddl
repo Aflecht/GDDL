@@ -1,0 +1,27 @@
+// Fixture: flags_arithmetic_rejected_error
+// Rule under test: flags/bN design -- "arithmetic operators (+ - * /) are a
+// compile-time error on a flags-typed field. Not just discouraged, rejected
+// outright." Isolates the op-statement form specifically (field <op> expr);
+// arithmetic embedded inside an assign-statement expression is a separate,
+// independently-checked code path (verified directly during stage 3, not
+// duplicated here as a second permanent fixture -- both go through the same
+// _apply_binop gate).
+
+flags X u8
+	none = 0
+	a = b0
+
+define Entity
+	mask = X
+
+Entity Base delete
+	mask = X.none
+
+Entity Bad = Base
+	mask + 1
+	// ERROR: '+' is arithmetic. mask is flags-typed. Arithmetic on a flags-typed
+	// field is rejected outright, no exceptions -- combine flags with bitwise
+	// operators (| & ^ ~) only.
+
+// Expected: real compile-time error against Bad (phase 6, check:
+//   flags_arithmetic_rejected). Base (delete) resolves fine.

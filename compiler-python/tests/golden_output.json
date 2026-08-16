@@ -1,10 +1,14 @@
 {
   "_meta": {
-    "fixture_count": 72,
+    "fixture_count": 79,
     "batches": [
       {
         "name": "main_corpus",
         "count": 72
+      },
+      {
+        "name": "flags_bn_stage5",
+        "count": 7
       }
     ]
   },
@@ -2036,6 +2040,143 @@
           "message": "line 23: 'name' is typed 'string 6', but its value '\u00e9\u00e9\u00e9' is 6 UTF-8 bytes -- exceeds the 5-byte capacity ('string 6' reserves 1 byte for the ASCIIZ terminator) -- storing an over-length string is a compile-time error, never silently truncated (spec \u00a75, String Length Enforcement)"
         }
       }
+    },
+    "flags/flags_arithmetic_rejected_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "delete",
+          "resolved": {
+            "mask": 0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Bad": {
+          "status": "error",
+          "phase": 6,
+          "check": "flags_arithmetic_rejected",
+          "line": 21,
+          "message": "line 21: arithmetic operator '+' used on a flags-typed field -- arithmetic is a compile-time error on flags-typed fields, no exceptions; combine flags with bitwise operators (| & ^ ~) only"
+        }
+      }
+    },
+    "flags/flags_auto_assignment_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "ReadOnly": {
+          "status": "delete",
+          "resolved": {
+            "permissions": 0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Editable": {
+          "status": "ok",
+          "resolved": {
+            "permissions": 3
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "flags/flags_bit_exceeds_width_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "flags_bit_exceeds_width",
+          "line": 10,
+          "message": "line 10: flags member 'a' claims bit 8 ('= b8'), but domain 'X' is declared 'u8' (8 bits, positions 0..7) -- this bit position doesn't exist at this width"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
+    "flags/flags_bitwise_rejected_on_non_flags_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Base": {
+          "status": "delete",
+          "resolved": {
+            "hp": 0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Bad": {
+          "status": "error",
+          "phase": 6,
+          "check": "flags_bitwise_rejected",
+          "line": 17,
+          "message": "line 17: bitwise operator '|' used on a field that isn't flags-typed -- bitwise operators only apply to flags-typed fields; there is no other bitmask mechanism in the language"
+        }
+      }
+    },
+    "flags/flags_duplicate_bit_claim_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "flags_bit_collision",
+          "line": 15,
+          "message": "line 15: flags member 'b' claims bit 2 ('= b2'), but 'a' (line 14) already claims the same bit in domain 'X' -- each bit position must be claimed exactly once"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
+    "flags/flags_explicit_bit_mixed_with_auto.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "EntityBase": {
+          "status": "delete",
+          "resolved": {
+            "component_flags": 0
+          },
+          "phase": null,
+          "check": null
+        },
+        "Player": {
+          "status": "ok",
+          "resolved": {
+            "component_flags": 20
+          },
+          "phase": null,
+          "check": null
+        },
+        "PlayerDisarmed": {
+          "status": "ok",
+          "resolved": {
+            "component_flags": 4
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "flags/flags_width_overflow_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "flags_width_overflow",
+          "line": 20,
+          "message": "line 20: flags domain 'X' declares width 'u8' (8 bits), but member 'i' has no unclaimed bit left to auto-assign -- the domain's real bit-flag members exceed what this width can address"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
     }
   }
 }

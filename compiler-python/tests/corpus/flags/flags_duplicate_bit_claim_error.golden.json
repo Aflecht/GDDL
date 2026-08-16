@@ -1,0 +1,20 @@
+{
+  "fixture": "flags_duplicate_bit_claim_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-16",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [
+      {
+        "phase": 4,
+        "check": "flags_bit_collision",
+        "line": 15,
+        "message": "line 15: flags member 'b' claims bit 2 ('= b2'), but 'a' (line 14) already claims the same bit in domain 'X' -- each bit position must be claimed exactly once"
+      }
+    ],
+    "warnings": [],
+    "instances": {}
+  }
+}

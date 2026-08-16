@@ -1,0 +1,31 @@
+// Fixture: flags_auto_assignment_valid
+// Rule under test: flags/bN design (HANDOFF.md "flags/bN work" entries, stages 2-3) --
+// "Omitting the value entirely auto-assigns the next unclaimed bit, in declaration
+// order." Positive-path baseline: every real member is auto-assigned (no explicit
+// bN at all), confirming bits are handed out sequentially starting at 0, and that a
+// `= 0` sentinel member consumes no bit position at all -- distinct from an
+// auto-assigned member, which always claims a real bit.
+
+flags Permissions u8
+	none = 0
+	can_read
+	can_write
+	can_execute
+	can_delete
+
+define Resource
+	permissions = Permissions
+
+Resource ReadOnly delete
+	permissions = Permissions.none
+
+Resource Editable = ReadOnly
+	permissions = Permissions.can_read | Permissions.can_write
+
+// Expected: compiles cleanly, no error.
+//   Permissions.none        == 0
+//   Permissions.can_read    == 1  (bit 0)
+//   Permissions.can_write   == 2  (bit 1)
+//   Permissions.can_execute == 4  (bit 2)
+//   Permissions.can_delete  == 8  (bit 3)
+//   Editable.permissions == 3 (can_read | can_write)

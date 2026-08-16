@@ -1,0 +1,15 @@
+// Fixture: flags_bit_exceeds_width_error
+// Rule under test: flags/bN design -- an explicit '= bN' naming a bit position that
+// doesn't exist at the domain's declared width is a compile-time error, distinct
+// from flags_width_overflow_error.gddl's "ran out of room while auto-assigning"
+// case: this one is a single, individually-invalid explicit claim, not a
+// domain-wide capacity problem. 'u8' addresses bits 0..7 -- 'b8' is one past the end.
+
+flags X u8
+	none = 0
+	a = b8
+
+// Expected: real, hard compile-time error (phase 4, check: flags_bit_exceeds_width).
+//   'a' claims bit 8, but domain 'X' is declared 'u8' (8 bits, positions 0..7) --
+//   this bit position doesn't exist at this width. Domain-only fixture, no
+//   instances needed, `instances` is empty.

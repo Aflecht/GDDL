@@ -1,0 +1,30 @@
+{
+  "fixture": "flags_auto_assignment_valid.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-16",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "ReadOnly": {
+        "status": "delete",
+        "resolved": {
+          "permissions": 0
+        },
+        "phase": null,
+        "check": null
+      },
+      "Editable": {
+        "status": "ok",
+        "resolved": {
+          "permissions": 3
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

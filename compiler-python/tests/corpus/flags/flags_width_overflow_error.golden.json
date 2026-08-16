@@ -1,0 +1,20 @@
+{
+  "fixture": "flags_width_overflow_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-16",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [
+      {
+        "phase": 4,
+        "check": "flags_width_overflow",
+        "line": 20,
+        "message": "line 20: flags domain 'X' declares width 'u8' (8 bits), but member 'i' has no unclaimed bit left to auto-assign -- the domain's real bit-flag members exceed what this width can address"
+      }
+    ],
+    "warnings": [],
+    "instances": {}
+  }
+}

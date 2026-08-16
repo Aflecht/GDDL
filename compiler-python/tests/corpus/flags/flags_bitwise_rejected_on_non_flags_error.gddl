@@ -1,0 +1,22 @@
+// Fixture: flags_bitwise_rejected_on_non_flags_error
+// Rule under test: flags/bN design -- "bitwise operators are a compile-time error on
+// any field that is NOT flags-typed. There is no other bitmask mechanism in the
+// language, so bitwise operators exist only for flags, full stop, in both
+// directions." This is the other direction of flags_arithmetic_rejected_error.gddl:
+// there, arithmetic was rejected on a flags field; here, bitwise is rejected on an
+// ordinary scalar field. Isolates the op-statement form specifically, same reasoning
+// as that fixture.
+
+define Entity
+	hp = u32
+
+Entity Base delete
+	hp = 0
+
+Entity Bad = Base
+	hp | 1
+	// ERROR: '|' is bitwise. hp is a plain u32 scalar field, not flags-typed.
+	// Bitwise operators only apply to flags-typed fields.
+
+// Expected: real compile-time error against Bad (phase 6, check:
+//   flags_bitwise_rejected). Base (delete) resolves fine.

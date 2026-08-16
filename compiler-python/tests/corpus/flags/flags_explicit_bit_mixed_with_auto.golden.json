@@ -1,0 +1,38 @@
+{
+  "fixture": "flags_explicit_bit_mixed_with_auto.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-16",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "EntityBase": {
+        "status": "delete",
+        "resolved": {
+          "component_flags": 0
+        },
+        "phase": null,
+        "check": null
+      },
+      "Player": {
+        "status": "ok",
+        "resolved": {
+          "component_flags": 20
+        },
+        "phase": null,
+        "check": null
+      },
+      "PlayerDisarmed": {
+        "status": "ok",
+        "resolved": {
+          "component_flags": 4
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

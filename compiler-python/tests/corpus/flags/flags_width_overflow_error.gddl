@@ -1,0 +1,25 @@
+// Fixture: flags_width_overflow_error
+// Rule under test: flags/bN design -- "a flags domain whose real bit-flag members
+// exceed what its declared width can address is a compile-time error", same SHAPE
+// as identifier's indexed_width_overflow check but a genuinely different formula:
+// identifier's dense index can address 2**bits distinct values, but a bitmask can
+// only address `bits` real positions. 'u8' has 8 addressable bit positions; nine
+// auto-assigned real members (the 'none' sentinel doesn't count -- it claims no bit)
+// need a ninth position that doesn't exist.
+
+flags X u8
+	none = 0
+	a
+	b
+	c
+	d
+	e
+	f
+	g
+	h
+	i
+
+// Expected: real, hard compile-time error (phase 4, check: flags_width_overflow).
+//   Domain 'X' declares width 'u8' (8 bits), but member 'i' (the 9th real member,
+//   a..h already having claimed bits 0..7) has no unclaimed bit left to
+//   auto-assign. Domain-only fixture, no instances needed, `instances` is empty.

@@ -1,0 +1,62 @@
+// Fixture: flags_explicit_bit_mixed_with_auto
+// Rule under test: flags/bN design -- explicit '= bN' claims and auto-assigned
+// members coexisting in one domain, per the reference Entity.gddl example
+// (GDDL_Session_Handover.md section 6). Deliberately goes further than that
+// reference example: is_movable's explicit '= b2' is declared AFTER is_pickupable
+// and is_equippable in the file, so an auto-assignment algorithm that only looks at
+// EARLIER claims (rather than every claim domain-wide, regardless of position) would
+// wrongly let is_equippable grab bit 2 first. Auto-assignment must account for every
+// explicit claim in the whole domain, not just ones already seen -- this is the one
+// property that makes explicit-vs-auto collisions structurally impossible rather
+// than merely checked for (see HANDOFF.md's "flags/bN work, stage 3" entry).
+//
+// Also exercises real combining: an assign-time '|' building a value from two
+// Domain.member references, and a later op-statement '&' + '~' clearing one bit
+// from an inherited value -- the "copy a base, then turn on/off one more flag"
+// scenario stage 3 was specifically asked to confirm.
+//
+// DUAL PURPOSE, TWO SEPARATE CHANNELS (not one shared artifact, same convention
+// composition_nested_u16_fields.gddl already established):
+//   1. Golden-locked in THIS corpus, under normal discipline.
+//   2. The SAME source also lives at export_cpp_test/export_test_flags.gddl,
+//      real MSVC-compiled and executed, wired into run_all_cpp_tests.py -- NOT a
+//      golden-lock entry there. That's stage 5's "real combined value read back
+//      from real compiled/run output" requirement, which this corpus's schema
+//      can't capture on its own (it never runs an export target at all).
+
+flags ComponentFlags u64
+	none              = 0
+	is_damageable     = b0
+	is_pickupable
+	is_equippable
+	is_movable        = b2
+	is_controllable
+	is_passive_effect
+	is_use
+	is_attack
+
+define Entity
+	component_flags = ComponentFlags
+
+Entity EntityBase delete
+	component_flags = ComponentFlags.none
+
+Entity Player = EntityBase
+	component_flags = ComponentFlags.is_movable | ComponentFlags.is_controllable
+
+Entity PlayerDisarmed = Player
+	component_flags & ~ComponentFlags.is_controllable
+
+// Expected: compiles cleanly, no error.
+//   ComponentFlags.none              == 0
+//   ComponentFlags.is_damageable     == 1   (bit 0, explicit)
+//   ComponentFlags.is_pickupable     == 2   (bit 1, auto)
+//   ComponentFlags.is_equippable     == 8   (bit 3, auto -- skips bit 2, claimed
+//                                             later in the file by is_movable)
+//   ComponentFlags.is_movable        == 4   (bit 2, explicit)
+//   ComponentFlags.is_controllable   == 16  (bit 4, auto)
+//   ComponentFlags.is_passive_effect == 32  (bit 5, auto)
+//   ComponentFlags.is_use            == 64  (bit 6, auto)
+//   ComponentFlags.is_attack         == 128 (bit 7, auto)
+//   Player.component_flags         == 20 (is_movable | is_controllable, 4 | 16)
+//   PlayerDisarmed.component_flags == 4  (is_controllable bit cleared, is_movable remains)

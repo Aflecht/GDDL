@@ -1,0 +1,20 @@
+{
+  "fixture": "flags_bit_exceeds_width_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-16",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [
+      {
+        "phase": 4,
+        "check": "flags_bit_exceeds_width",
+        "line": 10,
+        "message": "line 10: flags member 'a' claims bit 8 ('= b8'), but domain 'X' is declared 'u8' (8 bits, positions 0..7) -- this bit position doesn't exist at this width"
+      }
+    ],
+    "warnings": [],
+    "instances": {}
+  }
+}
