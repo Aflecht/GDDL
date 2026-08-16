@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+*.code-workspace
 export_cpp_test/*.o
 export_cpp_test/test_generated_minimal
 export_cpp_test/test_generated_empty
