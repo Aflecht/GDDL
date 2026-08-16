@@ -2279,3 +2279,110 @@ specifically.
 Confirmed via a full search of `compiler-python/` for `/tmp/` and
 `bash` references that these three files were the complete set --
 nothing else in the tree has this class of gap as of this pass.
+
+## Real Z80 toolchain installed and verified on this Windows machine, both dialects
+
+Requested directly, following on from the environment gap flagged two
+entries above: get real SjASMPlus and z88dk-z80asm assemble-and-execute
+validation actually working here, not just documented as a future
+requirement.
+
+**Investigated first rather than assumed**: the prior sandbox sessions
+built both assemblers from source (see the "Z80/SjASMPlus real-toolchain
+validation setup" and "z88dk-z80asm real-toolchain validation setup"
+entries earlier in this file), which needs a C/C++ compiler this
+machine doesn't have. Checked both projects' GitHub releases directly
+before assuming a source build was the only option: both publish
+ready-made Windows binaries --
+`sjasmplus-1.23.1.win.zip` (github.com/z00m128/sjasmplus) and
+`z88dk-win32-2.4.zip` (github.com/z88dk/z88dk), the latter also
+bundling `zsdcc`/`sccz80` (the C compiler `crossover_sweep.py` needs,
+flagged as unfixable two entries above -- worth revisiting now that
+it's actually available, though not done as part of this entry, out of
+scope for what was asked here).
+
+**Installed, not committed**: downloaded both, extracted to
+`compiler-python/tools/sjasmplus/sjasmplus.exe` and
+`compiler-python/tools/z88dk/z88dk/bin/z88dk-z80asm.exe`. Added
+`compiler-python/tools/` to `.gitignore` -- third-party binaries, same
+reasoning this project already applied to KickAssembler ("third-party
+proprietary freeware, not project source"), except here it's real open
+source so redownloading on any machine is trivial rather than needing
+a preserved copy. `pip install z80` (the kosarev/z80 CPU emulation
+library used for execution) installs cleanly here with no compiler
+needed -- confirmed by actually building its wheel, not assumed from
+it being "pure Python" on faith.
+
+**A real, pre-existing bug found in `.gitignore` while checking whether
+the freshly assembled `.bin`/`.sym`/`.map`/`.o` files would need
+cleaning up manually**: every per-test-directory pattern in this file
+(`export_cpp_test/*.o`, `export_z80_test/*.bin`, etc., going back to
+whenever this file was first written) contains an internal slash,
+which git's own ignore rules anchor to the directory the `.gitignore`
+file itself lives in -- repo root. The actual directories these
+patterns were clearly meant to cover
+(`compiler-python/tests/export_z80_test/`, etc.) sit three levels
+below that, so none of these patterns have ever actually matched
+anything, on any platform, since this file was written. Confirmed
+directly with `git check-ignore -v` before and after: exit 1 (not
+ignored) on a real generated file beforehand, a real matching pattern
+line reported afterward. Fixed by prefixing every nested pattern with
+`**/` so each matches at any depth rather than only at repo root; the
+three genuinely root-relative lines (`__pycache__/`, `*.pyc`,
+`*.code-workspace`, none of which contain an internal slash, plus the
+new `compiler-python/tools/` line, which is deliberately anchored)
+were left as they already were. This was never specific to Z80 or to
+this session's own new files -- it's a real, standing gap that applied
+to every test directory's generated build artifacts (C++, 6502, 68000)
+the whole time; simply never surfaced before because nobody had
+actually inspected `git status` output against a freshly-built tree
+closely enough to notice extraneous untracked build artifacts weren't
+being filtered.
+
+**Verified real, both dialects, all 8 fixture variants**:
+- SjASMPlus: `sjasmplus --raw=<stem>.bin --sym=<stem>.sym <stem>.asm`
+  against `test_z80_harness.asm`, `test_z80_soa_harness.asm`,
+  `test_z80_string_field_harness.asm`,
+  `test_z80_composition_u16_harness.asm` -- all four assembled clean
+  (0 errors), all four corresponding `test_z80_*_run.py` checks passed
+  against the real `z80` emulator.
+- z88dk-z80asm: `z88dk-z80asm -b -m -o<out_stem> <stem>.asm` against
+  the `_z88dk` variant of the same four harnesses -- same result, all
+  four passed.
+- The `Grübnik` string-field check's console output displays as
+  mojibake in this PowerShell session (`GrÃ¼bnik`) -- investigated
+  directly before assuming it was a real bug like the earlier
+  `parser.py` one: `test_z80_string_field_run.py`'s actual check is a
+  byte-exact comparison (`result_bytes != expected`, both real UTF-8
+  encoded bytes) followed by a real Python string equality
+  (`decoded != "Grübnik"`), neither of which touches the console at
+  all -- the check genuinely passed (no `SystemExit` raised) before
+  the value was ever printed. This is purely this terminal's own
+  display codepage misrendering already-correct UTF-8 bytes on the way
+  out, not a computation bug -- confirmed by what actually gated
+  pass/fail, not by how the output looked.
+- Full `export_golden.py` regression re-run after all of the above:
+  72/72, zero content diffs (same path-separator false positive as
+  every other entry in this pass, ruled out the same way, left
+  uncommitted).
+
+**New driver script**, closing the gap the earlier entry flagged (the
+existing `test_z80_*_run.py` scripts each assume their `.bin`/`.sym`/
+`.map` already exist, with the actual assembler invocation only ever
+documented as prose in each script's own docstring):
+`export_z80_test/run_all_z80_tests.py`. Runs both dialects against all
+four harnesses each, assembling with the real toolchain then invoking
+the real check script, one command instead of eight manual ones.
+Tool paths default to `compiler-python/tools/` (where this entry's own
+downloads landed) with `SJASMPLUS`/`Z88DK_Z80ASM` environment variable
+overrides for anyone with the tools elsewhere or on PATH. Confirmed
+working end to end, output shown per check exactly as each individual
+script already prints it, ending in a single pass/fail summary line
+covering all 8.
+
+**Not done, deliberately out of scope for what was asked here**:
+revisiting `crossover_sweep.py` now that a real zsdcc is actually
+available (flagged two entries above as blocked on exactly this), and
+building any equivalent driver/toolchain setup for the 6502
+(ACME/64tass/KickAssembler + py65) or 68000 (vbcc + vamos) targets,
+which remain unset-up on this machine as of this entry.
