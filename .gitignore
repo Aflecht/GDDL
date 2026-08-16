@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 *.code-workspace
 compiler-python/tools/
+compiler-python/*.egg-info/
+compiler-python/build/
 **/export_cpp_test/*.o
 **/export_cpp_test/test_generated_minimal
 **/export_cpp_test/test_generated_empty

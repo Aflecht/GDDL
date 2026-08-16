@@ -7,5 +7,12 @@ name = "gddl-compiler"
 version = "0.1.0"
 requires-python = ">=3.9"
 
+[project.scripts]
+gddl-export-cpp = "gddl.export_cpp:_cli"
+gddl-export-6502 = "gddl.export_6502:_cli"
+gddl-export-z80 = "gddl.export_z80:_cli"
+gddl-export-68000 = "gddl.export_68000:_cli"
+gddl-export-binary = "gddl.export_binary:_cli"
+
 [tool.setuptools.packages.find]
 include = ["gddl*"]

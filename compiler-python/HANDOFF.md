@@ -3503,3 +3503,31 @@ machine at any point this session -- see the entry above); everything
 in that script short of the actual g++ compile step ran and passed.
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+**Follow-up, same session, addressing a real usability regression the
+user caught:** `python -m gddl.export_z80 ...` still needed the caller
+to be inside `compiler-python/` (or have it on PYTHONPATH), meaning
+every compile required cd-ing into the GDDL checkout first, then back
+out again afterward. Fixed with `[project.scripts]` entries in
+`pyproject.toml` for all five exporters (`gddl-export-cpp`,
+`gddl-export-6502`, `gddl-export-z80`, `gddl-export-68000`,
+`gddl-export-binary`), each pointing at the existing `_cli()` function
+already used by `if __name__ == "__main__"` in each module (no new
+code needed, `_cli()` already calls `sys.exit(1)` on failure and
+returns cleanly on success, exactly what an entry point needs).
+
+Verified for real, not assumed: `pip install -e compiler-python/`,
+then `gddl-export-z80 --help` and a real compile of
+`export_test_z80_minimal.gddl`, both run from `%TEMP%` (nowhere near
+the repo), both succeeded (exit 0, and the compile produced real,
+correct SjASMPlus output, checked by reading it). One PowerShell
+wrinkle hit and resolved during this check: redirecting a native
+command's stderr with `2>&1` makes the tool report a nonzero exit even
+when the real exit code is 0 (a known PowerShell 5.1 behavior, not a
+real failure) -- confirmed the real exit code separately via
+`$LASTEXITCODE` without the redirection.
+
+Added `compiler-python/*.egg-info/` and `compiler-python/build/` to
+`.gitignore` -- the editable install used for this verification
+generates `gddl_compiler.egg-info/`, a local build artifact, not
+something to commit.
