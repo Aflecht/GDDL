@@ -2035,3 +2035,38 @@ the above: export_golden.py (72/72), test_multi_file.py (5/5),
 test_68000_cli.py (6/6), test_binary_export.py, test_schema_table_cpp.py,
 and every real hand-written C++ compile+run test in export_cpp_test/
 and export_emit_all_domains_test/.
+
+## Error message formatting: [phase N, check] dropped from default output
+
+Requested directly from real usage: the internal phase/check tagging
+("[phase 4, duplicate_name]") is genuinely useful for whoever's
+working on the compiler itself, but pure noise for someone just using
+the language, they want to know what's wrong and where, not which
+internal check caught it.
+
+Confirmed first, rather than assumed, that this was a small, contained
+fix: phase and check are already separate, structured attributes on
+CompileError/CompileWarning (errors.py), never baked into the message
+text itself (str(err) already renders as just "line N: message", no
+tag at all). The tagging was entirely a formatting-layer addition in
+validate.py's print_report()/check_and_report(), nothing structural
+needed to change anywhere else.
+
+Added a `verbose` parameter (default False) to both functions. Off:
+"{name}: ERROR - {message}", clean. On: the exact original
+"{name}: ERROR [phase N, check] - {message}" format, unchanged.
+Applied consistently across all four message categories (duplicate
+names, warnings, per-instance errors, incomplete/uninitialized), each
+one's clean default kept anything genuinely useful (e.g. "incomplete"
+still says "export-blocking", that's real information, not internals
+jargon) while dropping only the phase/check tag specifically.
+
+Exposed as --verbose-errors on all five exporter CLIs, default off,
+wired straight through to check_and_report(). Validated: all four
+message categories confirmed correct in both modes via direct function
+calls before touching any CLI, then all five exporters individually
+re-confirmed through their real CLI in both modes. Clean/successful
+compiles confirmed completely silent and unaffected on all five, same
+as before. Full regression clean across every affected suite
+(72-fixture corpus, multi_file_test, export_68000_test,
+export_binary_test).

@@ -431,6 +431,8 @@ def _cli():
                      help="emit every domain's constants, even unreferenced ones (default: off)")
     ap.add_argument("-o", "--output", default=None,
                      help="output path (default: stdout; stem for --z88dk-output=c)")
+    ap.add_argument("--verbose-errors", action="store_true",
+                     help="tag each error with its internal [phase N, check] (default: off)")
     args = ap.parse_args()
 
     pointer_table = args.z80_pointer_table == "on"
@@ -466,7 +468,7 @@ def _cli():
         print(f"{err['file']}:{err['line']}: {err['message']}", file=sys.stderr)
         sys.exit(1)
     resolver = result["resolver"]
-    if not check_and_report(resolver):
+    if not check_and_report(resolver, verbose=args.verbose_errors):
         sys.exit(1)
     domains, types = gather_ir(resolver.reg, resolver, args.types,
                                 emit_all_domains=args.emit_all_domains)

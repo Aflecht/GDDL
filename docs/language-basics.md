@@ -144,11 +144,11 @@ define Enemy
 ```
 
 ```
-[phase 4, indexed_no_width] line 5: field 'attack' in 'Enemy' uses '@AttackType', but domain 'AttackType' declared no indexed width -- '@' requires the domain to opt into an indexed form at its own declaration (e.g. 'identifier AttackType u8'), §8.3
+line 5: field 'attack' in 'Enemy' uses '@AttackType', but domain 'AttackType' declared no indexed width -- '@' requires the domain to opt into an indexed form at its own declaration (e.g. 'identifier AttackType u8'), §8.3
 ```
 
 And a domain simply having more members than its declared width can address, checked the moment the domain itself is registered, whether or not anything uses `@` on it yet:
 
 ```
-[phase 4, indexed_width_overflow] line 1: identifier domain 'BigDomain' declares indexed width 'u8' (max 256 entries), but has 257 members -- exceeds what this width can address (§8.3)
+line 1: identifier domain 'BigDomain' declares indexed width 'u8' (max 256 entries), but has 257 members -- exceeds what this width can address (§8.3)
 ```

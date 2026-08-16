@@ -389,6 +389,8 @@ def _cli():
                      help="emit every domain's constants, even unreferenced ones (default: off)")
     ap.add_argument("-o", "--output", default=None,
                      help="output path (default: stdout)")
+    ap.add_argument("--verbose-errors", action="store_true",
+                     help="tag each error with its internal [phase N, check] (default: off)")
     args = ap.parse_args()
 
     zp_base = _parse_zp_base(args.zp_base)
@@ -406,7 +408,7 @@ def _cli():
         sys.exit(1)
     resolver = result["resolver"]
     import sys
-    if not check_and_report(resolver):
+    if not check_and_report(resolver, verbose=args.verbose_errors):
         sys.exit(1)
     domains, types = gather_ir(resolver.reg, resolver, args.types, zp_base,
                                 emit_all_domains=args.emit_all_domains)

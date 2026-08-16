@@ -70,13 +70,19 @@ def compile_report(resolver: Resolver):
     return report
 
 
-def print_report(resolver: Resolver):
+def print_report(resolver: Resolver, verbose: bool = False):
     if resolver.reg.duplicate_errors:
         for err in resolver.reg.duplicate_errors:
-            print(f"[phase {err.phase}, {err.check}] {err}")
+            if verbose:
+                print(f"[phase {err.phase}, {err.check}] {err}")
+            else:
+                print(f"{err}")
     if resolver.warnings:
         for w in resolver.warnings:
-            print(f"WARNING [phase {w.phase}, {w.check}] - {w}")
+            if verbose:
+                print(f"WARNING [phase {w.phase}, {w.check}] - {w}")
+            else:
+                print(f"WARNING - {w}")
     report = compile_report(resolver)
     for name, (status, detail) in report.items():
         if status == "ok":
@@ -84,15 +90,21 @@ def print_report(resolver: Resolver):
         elif status == "delete":
             print(f"{name}: delete template (not exported, completeness exempt)")
         elif status == "error":
-            print(f"{name}: ERROR [phase {detail.phase}, {detail.check}] - {detail}")
+            if verbose:
+                print(f"{name}: ERROR [phase {detail.phase}, {detail.check}] - {detail}")
+            else:
+                print(f"{name}: ERROR - {detail}")
         elif status == "blocked":
             print(f"{name}: BLOCKED - depends on '{detail}'")
         elif status == "incomplete":
             fields = ", ".join(detail)
-            print(f"{name}: INCOMPLETE [phase 8] - export-blocking, uninitialized field(s): {fields}")
+            if verbose:
+                print(f"{name}: INCOMPLETE [phase 8] - export-blocking, uninitialized field(s): {fields}")
+            else:
+                print(f"{name}: INCOMPLETE - export-blocking, uninitialized field(s): {fields}")
 
 
-def check_and_report(resolver: Resolver) -> bool:
+def check_and_report(resolver: Resolver, verbose: bool = False) -> bool:
     """The actual build-blocking gate every exporter CLI must call
     after compile_multi() returns a resolver and before any rendering
     begins. Unlike print_report (which unconditionally prints a line
@@ -100,6 +112,12 @@ def check_and_report(resolver: Resolver) -> bool:
     view), this prints ONLY genuine problems to stderr, using the same
     message formats print_report already established, and returns
     False if the build should be blocked.
+
+    `verbose` controls whether each message is tagged with its
+    internal [phase N, check_name] -- useful for whoever's working on
+    the compiler itself (or an AI coding assistant doing so), genuine
+    noise for someone just using the language. Off by default; every
+    exporter CLI exposes it as --verbose-errors.
 
     Exists because phases 4-8 were already computing real, precise
     errors (resolver.errors, resolver.blocked, resolver.reg.duplicate_errors,
@@ -113,21 +131,33 @@ def check_and_report(resolver: Resolver) -> bool:
     ok = True
     if resolver.reg.duplicate_errors:
         for err in resolver.reg.duplicate_errors:
-            print(f"[phase {err.phase}, {err.check}] {err}", file=sys.stderr)
+            if verbose:
+                print(f"[phase {err.phase}, {err.check}] {err}", file=sys.stderr)
+            else:
+                print(f"{err}", file=sys.stderr)
             ok = False
     if resolver.warnings:
         for w in resolver.warnings:
-            print(f"WARNING [phase {w.phase}, {w.check}] - {w}", file=sys.stderr)
+            if verbose:
+                print(f"WARNING [phase {w.phase}, {w.check}] - {w}", file=sys.stderr)
+            else:
+                print(f"WARNING - {w}", file=sys.stderr)
     report = compile_report(resolver)
     for name, (status, detail) in report.items():
         if status == "error":
-            print(f"{name}: ERROR [phase {detail.phase}, {detail.check}] - {detail}", file=sys.stderr)
+            if verbose:
+                print(f"{name}: ERROR [phase {detail.phase}, {detail.check}] - {detail}", file=sys.stderr)
+            else:
+                print(f"{name}: ERROR - {detail}", file=sys.stderr)
             ok = False
         elif status == "blocked":
             print(f"{name}: BLOCKED - depends on '{detail}'", file=sys.stderr)
             ok = False
         elif status == "incomplete":
             fields = ", ".join(detail)
-            print(f"{name}: INCOMPLETE [phase 8] - export-blocking, uninitialized field(s): {fields}", file=sys.stderr)
+            if verbose:
+                print(f"{name}: INCOMPLETE [phase 8] - export-blocking, uninitialized field(s): {fields}", file=sys.stderr)
+            else:
+                print(f"{name}: INCOMPLETE - export-blocking, uninitialized field(s): {fields}", file=sys.stderr)
             ok = False
     return ok

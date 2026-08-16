@@ -31,7 +31,7 @@ Creature Goblin
 `name` never gets set. This doesn't compile:
 
 ```
-Goblin: INCOMPLETE [phase 8] - export-blocking, uninitialized field(s): name
+Goblin: INCOMPLETE - export-blocking, uninitialized field(s): name
 ```
 
 Real compiler, real failure, naming the exact instance and the exact missing field. Nothing gets written, exit code 1.
@@ -84,10 +84,10 @@ Creature GoblinBoss = GoblinTemplate   // ...which depends right back on GoblinT
 Neither one can ever actually resolve, there's no base case anywhere in the chain. This is a real, caught compile error, not an infinite loop or a stack overflow:
 
 ```
-[phase 4, circular_dependency] line 4: circular instance-copy reference: GoblinTemplate -> GoblinBoss -> GoblinTemplate -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved
-[phase 4, circular_dependency] line 7: circular instance-copy reference: GoblinTemplate -> GoblinBoss -> GoblinTemplate -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved
-GoblinTemplate: ERROR [phase 4, circular_dependency] - line 4: circular instance-copy reference: GoblinTemplate -> GoblinBoss -> GoblinTemplate -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved
-GoblinBoss: ERROR [phase 4, circular_dependency] - line 7: circular instance-copy reference: GoblinTemplate -> GoblinBoss -> GoblinTemplate -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved
+line 4: circular instance-copy reference: GoblinTemplate -> GoblinBoss -> GoblinTemplate -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved
+line 7: circular instance-copy reference: GoblinTemplate -> GoblinBoss -> GoblinTemplate -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved
+GoblinTemplate: ERROR - line 4: circular instance-copy reference: GoblinTemplate -> GoblinBoss -> GoblinTemplate -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved
+GoblinBoss: ERROR - line 7: circular instance-copy reference: GoblinTemplate -> GoblinBoss -> GoblinTemplate -- every instance in this cycle depends (directly or through a nested full-replace) on another instance in the same cycle, so none of them can ever be resolved
 ```
 
 It names the exact cycle. The message appears twice in a slightly different shape, once as a general diagnostic, once attributed to each specific instance it blocks, but it's the same real error both times, caught before any resolution work even begins, not partway through.
@@ -163,7 +163,7 @@ Item Crate
 ```
 
 ```
-Crate: ERROR [phase 6, uninitialized_read] - line 7: 'weight' is read before being initialized -- reading an uninitialized field is always a compile-time error, delete-marked instances included
+Crate: ERROR - line 7: 'weight' is read before being initialized -- reading an uninitialized field is always a compile-time error, delete-marked instances included
 ```
 
 A field can even reference its own current value on a plain assign, and unlike op-statement shorthand, that self-reference doesn't have to lead the expression, it can sit anywhere:
@@ -246,7 +246,7 @@ Creature Placeholder = Base
 ```
 
 ```
-WARNING [phase 3, empty_bare_field] - line 16: bare field 'stats' (modify-only form) has no indented sub-statements -- this enters the field's scope but changes nothing in it, which is valid but usually unintentional (e.g. every statement under it got commented out)
+WARNING - line 16: bare field 'stats' (modify-only form) has no indented sub-statements -- this enters the field's scope but changes nothing in it, which is valid but usually unintentional (e.g. every statement under it got commented out)
 ```
 
 It still compiles, `Placeholder` just ends up with `Base`'s stats completely untouched. There's no third option in between full replace and modify-only, no mode that keeps old values except where something new happens to be provided. That's deliberate: a field silently keeping a stale value because nobody remembered to list it would look identical to a field someone genuinely meant to leave alone.
@@ -280,7 +280,7 @@ Item Test
 ```
 
 ```
-Test: ERROR [phase 6, numeric_coercion] - line 5: 'count' is typed 'i32' (integer), but its computed value 3.3333333333333335 has a fractional part -- narrowing with fractional loss is a compile-time error (spec §5, Numeric Type Coercion)
+Test: ERROR - line 5: 'count' is typed 'i32' (integer), but its computed value 3.3333333333333335 has a fractional part -- narrowing with fractional loss is a compile-time error (spec §5, Numeric Type Coercion)
 ```
 
 Change the numbers so nothing is actually lost, and the exact same shape compiles fine:
@@ -308,7 +308,7 @@ Item Test
 ```
 
 ```
-Test: ERROR [phase 6, numeric_range] - line 5: 'durability' is typed 'u8', but its computed value 300 is outside u8's range (0..255) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec §5, Numeric Range Enforcement)
+Test: ERROR - line 5: 'durability' is typed 'u8', but its computed value 300 is outside u8's range (0..255) -- storing an out-of-range value is a compile-time error, never silently wrapped or clamped (spec §5, Numeric Range Enforcement)
 ```
 
 Never silently wrapped or clamped is the point. `300` into a `u8` becoming `44` with no error anywhere is exactly the failure mode this rule exists to prevent.
