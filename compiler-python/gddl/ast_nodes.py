@@ -43,6 +43,32 @@ class IdentifierBlock(Node):
 
 
 @dataclass
+class FlagsEntry(Node):
+    """One member of a `flags` domain. Three mutually exclusive value
+    shapes, distinguished by `kind`:
+      'auto'   -- bare name, no '='. Next unclaimed bit, in declaration
+                  order (actual assignment is a registration-time
+                  concern, not decided here).
+      'bit'    -- '= bN'. explicit_bit holds N; the claimed bit position
+                  is 1 << N (also computed later, not here).
+      'number' -- '= 0'. The zero/none sentinel; explicit_number is
+                  always 0 by construction (any other literal number is
+                  a parse-time error -- a flags member's value is a bit
+                  or zero, no exceptions, per spec)."""
+    name: str
+    kind: str
+    explicit_bit: Optional[int] = None
+    explicit_number: Optional[int] = None
+
+
+@dataclass
+class FlagsBlock(Node):
+    name: str
+    width: str  # 'u8'/'u16'/'u32'/'u64' -- required (unlike IdentifierBlock.width, which is optional)
+    entries: List[FlagsEntry] = field(default_factory=list)
+
+
+@dataclass
 class FieldDef(Node):
     name: str
     type_tokens: str  # raw text, e.g. "u32", "string 32", "Object"

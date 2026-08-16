@@ -9,12 +9,15 @@ pipeline.
 import re
 from typing import List, Tuple, Optional
 from ast_nodes import (
-    Node, Program, IdentifierBlock, IdentifierEntry, DefineBlock, FieldDef,
-    InstanceDecl, AssignStmt, OpStmt, BareFieldStmt, RawStmt,
+    Node, Program, IdentifierBlock, IdentifierEntry, FlagsBlock, FlagsEntry,
+    DefineBlock, FieldDef, InstanceDecl, AssignStmt, OpStmt, BareFieldStmt, RawStmt,
 )
 from errors import CompileWarning
 
 OPERATORS = ("+", "-", "*", "/", "|", "&", "^")
+
+_FLAGS_WIDTHS = ("u8", "u16", "u32", "u64")
+_BIT_LITERAL_RE = re.compile(r"^b(\d+)$")
 
 
 def _is_quote_escaped(s: str, i: int) -> bool:
@@ -368,6 +371,8 @@ class Parser:
 
         if tokens[0] == "identifier":
             return self._parse_identifier_block(i, block_indent)
+        if tokens[0] == "flags":
+            return self._parse_flags_block(i, block_indent)
         if tokens[0] == "define":
             return self._parse_define_block(i, block_indent)
 
@@ -422,6 +427,89 @@ class Parser:
             key, desc = eq
             desc = _strip_quotes(desc, rec.lineno)
             entries.append(IdentifierEntry(line=rec.lineno, key=key, description=desc))
+            i += 1
+        return i, entries
+
+    def _parse_flags_block(self, i: int, block_indent: str) -> Tuple[Node, int]:
+        """`flags DomainName WidthType` -- width is REQUIRED here, unlike
+        identifier's optional §8.3 width (flags has no non-indexed form
+        to opt out into; the whole point of the construct is a real,
+        addressable bit width)."""
+        rec = self.recs[i]
+        tokens = rec.content.split()
+        if len(tokens) != 3:
+            raise GDDLParseError(
+                f"expected 'flags Name WidthType' (width one of "
+                f"u8/u16/u32/u64), got: {rec.content!r}", rec.lineno)
+        width = tokens[2]
+        if width not in _FLAGS_WIDTHS:
+            raise GDDLParseError(
+                f"invalid width {width!r} for flags domain '{tokens[1]}' -- "
+                "must be one of u8/u16/u32/u64", rec.lineno)
+        node = FlagsBlock(line=rec.lineno, name=tokens[1], width=width)
+        i += 1
+        self._enter_scope()
+        i2, entries = self._parse_flags_entries(i, block_indent)
+        node.entries = entries
+        return node, i2
+
+    def _parse_flags_entries(self, i: int, parent_indent: str) -> Tuple[int, List[FlagsEntry]]:
+        """Genuinely new grammar, not a copy of identifier entry parsing:
+        a flags member's value is one of three shapes -- bare (no '=',
+        auto-assigned the next unclaimed bit), '= bN' (explicit bit
+        position N), or '= 0' (the zero/none sentinel; any other literal
+        number is rejected here, not deferred -- "a flags member's value
+        is a bit or zero, no exceptions" is a closed grammar, the same
+        kind of shape check identifier's own width whitelist already
+        makes at this phase). What ISN'T decided here, deliberately left
+        for registration (phase 4): which bit an 'auto' member actually
+        gets, whether two members' claims collide, and whether the
+        domain's real member count fits its declared width -- all of
+        those need to see every entry in the domain together, which a
+        single-entry parse never has."""
+        entries: List[FlagsEntry] = []
+        if i >= self.n:
+            return i, entries
+        nxt = self.recs[i]
+        if len(nxt.indent) <= len(parent_indent):
+            return i, entries
+
+        entry_indent = None
+        while i < self.n:
+            rec = self.recs[i]
+            if len(rec.indent) <= len(parent_indent):
+                break
+            self._check_scope_char(rec)
+            if entry_indent is None:
+                entry_indent = rec.indent
+            elif rec.indent != entry_indent:
+                raise GDDLParseError(
+                    "inconsistent indentation in flags block", rec.lineno)
+
+            eq = split_top_level_equals(rec.content)
+            if eq is None:
+                name = rec.content.strip()
+                _require_field_name(name, rec.lineno)
+                entries.append(FlagsEntry(line=rec.lineno, name=name, kind="auto"))
+            else:
+                name, value_text = eq
+                _require_field_name(name, rec.lineno)
+                m = _BIT_LITERAL_RE.match(value_text)
+                if m:
+                    entries.append(FlagsEntry(
+                        line=rec.lineno, name=name, kind="bit",
+                        explicit_bit=int(m.group(1))))
+                elif value_text == "0":
+                    entries.append(FlagsEntry(
+                        line=rec.lineno, name=name, kind="number", explicit_number=0))
+                else:
+                    raise GDDLParseError(
+                        f"invalid flags member value {value_text!r} for "
+                        f"'{name}' -- a flags member's value must be omitted "
+                        "(auto-assigned the next unclaimed bit), a bit "
+                        "literal 'bN' (claims bit N), or the literal '0' "
+                        "(the zero/none sentinel) -- no other values are "
+                        "legal for a flags member", rec.lineno)
             i += 1
         return i, entries
 

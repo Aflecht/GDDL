@@ -2779,3 +2779,96 @@ the portable binary format which never needed a toolchain at all) --
 every target this project's own standard requires "real compile/
 assemble + real execute, not just should work" for now has a working,
 driver-scripted path here.
+
+## flags/bN work, stage 2: parsing the `flags` construct itself
+
+Picked back up on the actual `flags`/`bN` feature (deferred while the
+Windows toolchain work above happened) at exactly the point
+`GDDL_Session_Handover.md` left it: stage 1 (bit literals, bitwise
+operators in the expression evaluator) confirmed still complete and
+untouched by grepping for any existing `flags`-construct parsing first
+(found none -- the only hits were unrelated CLI-flag terminology in
+`export_z80.py`/`export_cpp.py`), then moved on to stage 2 exactly as
+scoped there: real new grammar, not a copy of `identifier`'s.
+
+**New AST nodes** (`ast_nodes.py`): `FlagsBlock` (name, required
+`width` -- unlike `IdentifierBlock.width`, which is optional since
+identifier has a non-indexed default form; `flags` has no such
+fallback, the whole point of the construct is a real addressable bit
+width, so width is mandatory) and `FlagsEntry` (name, `kind` one of
+`'auto'`/`'bit'`/`'number'`, plus whichever of `explicit_bit`/
+`explicit_number` applies). Deliberately does NOT decide which bit an
+`'auto'` member actually claims, or check for claim collisions, or
+check width-vs-member-count overflow -- all three need to see every
+entry in the domain together, which is stage 3's job (registration),
+not a single-entry parse's.
+
+**Parsing** (`parser.py`): `_parse_flags_block` (header:
+`flags Name WidthType`, exactly 3 tokens, width checked against the
+same u8/u16/u32/u64 closed set `identifier`'s width already uses) and
+`_parse_flags_entries` (body: three shapes per line, mirroring
+`_parse_identifier_entries`'s indentation-handling structure but with
+genuinely different per-line grammar). Reused `_require_field_name`
+(already used for op-statement/assign-statement leading identifiers)
+for member names -- confirmed this is stricter than `identifier`'s own
+key parsing, which doesn't validate key shape at all today; not fixed
+here (out of scope, a pre-existing identifier-parsing gap, not
+something stage 2 of flags should touch), but deliberately not
+repeated for `flags`, since member names become real export-target
+identifiers (C++ member names, assembly constants) where a
+malformed one would only surface as a confusing downstream export
+failure instead of a precise, immediate parse error.
+
+**A real scope-boundary decision, not left implicit**: whether
+`= NUMBER` should accept any non-negative integer (deferring "must
+actually be 0" to stage 3) or only the literal `0` (rejecting anything
+else right here, at parse time). Went with the latter -- re-reading the
+handover doc's own spec text closely ("every member's value is a
+single bit or zero, no exceptions in this first pass") shows the
+third shape isn't "= any NUMBER", it's specifically "= 0"; accepting
+other numbers here would silently produce wrong behavior (no stage 3
+exists yet to catch `foo = 5`) rather than a clear, immediate parse
+error, for a value that was never going to be legal regardless of
+which phase catches it.
+
+**Validated**: real parse of the reference `Entity.gddl` file's own
+`flags ComponentFlags u64` block (handover doc section 6, byte-for-byte
+verbatim) -- `none = 0` (kind='number'), `is_damageable = b0`
+(kind='bit', bit=0), and the five bare auto-assigned members all
+parsed into exactly the expected shape, checked field-by-field, not
+just "didn't crash". Six real error-path cases, all correctly
+rejected with precise messages: missing width, invalid width token,
+non-zero/non-bN number, malformed bit literal (`bfoo`), a stray second
+`=` on one line, and an invalid member name. Full `export_golden.py`
+regression: 72/72, zero content diffs (structural comparison,
+path-separator false positive ruled out the same way as every entry
+in the Windows-portability pass above).
+
+**A real, pre-existing gap found while testing the full pipeline with
+a `flags` block present, confirmed NOT caused by this stage's work**:
+since `registry.py`'s `Registry.__init__` only recognizes
+`IdentifierBlock`/`DefineBlock`/`InstanceDecl` nodes, a `FlagsBlock`
+is currently just silently skipped -- expected at this point (stage 3
+is what registers it), so a field typed `= ComponentFlags` doesn't
+raise "unknown type" the way you might expect, it just resolves
+whatever value was assigned with no complaint at all. Checked directly
+whether this is specific to `flags` or a wider gap: a field typed with
+a totally unrelated, never-declared bogus type name (`TotallyBogusUndefinedType`)
+behaves identically -- resolves fine, no error. **This is a
+pre-existing characteristic of the current implementation, not
+something stage 2 introduced or regressed**: field types are
+apparently not validated against a closed registry of known
+identifier/define names at general assignment time today, at least
+not for scalar-looking values. Not fixed here (genuinely out of scope
+for "parse the flags construct"), but worth stage 3 knowing about
+directly: the "reject bitwise on non-flags-typed fields" / "reject
+arithmetic on flags-typed fields" checks stage 3 needs to build will
+require real field-type awareness that doesn't obviously already exist
+for arbitrary field types today, not just wiring up `flags` specifically.
+
+**Not yet done, next**: stage 3 (registry and resolution logic --
+bit-claim tracking with auto-assignment and duplicate-claim detection,
+width-overflow check, reject-arithmetic-on-flags /
+reject-bitwise-on-non-flags, op-statement support confirmation for
+flags fields), per the handover doc's own remaining plan. Stage 2 as
+scoped there is complete.
