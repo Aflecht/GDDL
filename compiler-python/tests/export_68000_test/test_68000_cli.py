@@ -23,12 +23,17 @@ Run directly: python3 test_68000_cli.py
 import os
 import subprocess
 import sys
+import tempfile
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _GDDL_DIR = os.path.normpath(os.path.join(_DIR, "..", "..", "gddl"))
 _EXPORTER = os.path.join(_GDDL_DIR, "export_68000.py")
 
 _MULTI_FILE_DIR = os.path.normpath(os.path.join(_DIR, "..", "multi_file_test"))
+
+# Platform temp dir, not a hardcoded /tmp -- this suite runs on Windows too,
+# where /tmp doesn't exist.
+_TMP = tempfile.gettempdir()
 
 
 def _run(args, **kwargs):
@@ -70,7 +75,7 @@ def test_help():
 
 def test_single_file_real_cli():
     print("=== Check: single-file invocation through the REAL CLI ===")
-    out_stem = "/tmp/gddl_test_68000_cli_single"
+    out_stem = os.path.join(_TMP, "gddl_test_68000_cli_single")
     source = os.path.join(_DIR, "composition_nested_u16_fields.gddl")
     result = _run([source, "--type", "Character", "-o", out_stem])
     assert result.returncode == 0, result.stderr
@@ -85,7 +90,7 @@ def test_single_file_real_cli():
 
 def test_multi_file_real_cli():
     print("=== Check: multi-file invocation through the REAL CLI ===")
-    out_stem = "/tmp/gddl_test_68000_cli_multi"
+    out_stem = os.path.join(_TMP, "gddl_test_68000_cli_multi")
     result = _run([
         os.path.join(_MULTI_FILE_DIR, "weapons", "base_weapon.weapon"),
         os.path.join(_MULTI_FILE_DIR, "domains", "elements.gddl"),
@@ -109,7 +114,7 @@ def test_multi_file_real_cli():
 
 def test_subset_request_bug_fix_via_real_cli():
     print("=== Check: subset-request bug fix, through the REAL CLI ===")
-    out_stem = "/tmp/gddl_test_68000_cli_subset"
+    out_stem = os.path.join(_TMP, "gddl_test_68000_cli_subset")
     source = os.path.join(_DIR, "subset_request_bug.gddl")
     result = _run([source, "--type", "Item", "-o", out_stem])
     assert result.returncode == 0, \
@@ -136,17 +141,17 @@ def test_error_paths():
     print("=== Check: CLI error paths, real subprocess ===")
     source = os.path.join(_DIR, "subset_request_bug.gddl")
 
-    result = _run([source, "-o", "/tmp/x"])
+    result = _run([source, "-o", os.path.join(_TMP, "x")])
     assert result.returncode != 0
     assert "--type" in result.stderr
     print("  missing --type: correctly rejected")
 
-    result = _run([os.path.join(_DIR, "no_such_file.gddl"), "--type", "Item", "-o", "/tmp/x"])
+    result = _run([os.path.join(_DIR, "no_such_file.gddl"), "--type", "Item", "-o", os.path.join(_TMP, "x")])
     assert result.returncode != 0
     assert "does not exist" in result.stderr
     print("  nonexistent literal file: correctly rejected")
 
-    result = _run([os.path.join(_DIR, "nonexistent_dir", "*.gddl"), "--type", "Item", "-o", "/tmp/x"])
+    result = _run([os.path.join(_DIR, "nonexistent_dir", "*.gddl"), "--type", "Item", "-o", os.path.join(_TMP, "x")])
     assert result.returncode != 0
     assert "matched zero files" in result.stderr
     print("  zero-match glob pattern: correctly rejected")
@@ -155,7 +160,7 @@ def test_error_paths():
 
 def test_shell_independence():
     print("=== Check: shell-independence, zero shell involvement ===")
-    out_stem = "/tmp/gddl_test_68000_shell_indep"
+    out_stem = os.path.join(_TMP, "gddl_test_68000_shell_indep")
     # List-argv, no shell=True anywhere in this call: the OS execs
     # python3 directly. The glob pattern string arrives in argv
     # completely unexpanded -- if this succeeds, only the program

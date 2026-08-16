@@ -2070,3 +2070,212 @@ compiles confirmed completely silent and unaffected on all five, same
 as before. Full regression clean across every affected suite
 (72-fixture corpus, multi_file_test, export_68000_test,
 export_binary_test).
+
+## flags/bN work, stage 1: bit literals and bitwise operators wired into the expression evaluator
+
+First real work of a new session, picked up cold from
+`GDDL_Session_Handover.md` (repo root). State described in that
+document reconfirmed against the live repo before touching anything:
+all five docs present, `--verbose-errors` present on all five
+exporters and `validate.py`, `resolve.py`'s `_TOKEN_RE` still the
+pre-flags pattern (nothing had actually been applied yet, matching the
+handover's own claim). Working directory was already a clean `dev`
+checkout up to date with `origin/dev`, used directly rather than
+re-cloning.
+
+**New environment note, not present in the handover doc**: this
+session ran natively on the person's Windows machine (PowerShell),
+not the Linux/Mac cloud sandbox every prior session in this project
+used. `git` was not on PATH by default (found and used the copy
+bundled with GitHub Desktop). No g++, gcc, or vbcc toolchain is
+present here, and no bash. This does not block today's work (pure
+Python, no export code touched) but will matter once the flags
+feature reaches Stage 4 (export, all five targets) -- real-toolchain
+validation the way this project has always done it will need either
+those tools installed here or a return to a sandboxed environment.
+
+**Implementation, the four/five touch points from the handover's
+section 4.2, all applied exactly as designed and pre-verified there**:
+1. `resolve.py`'s `_TOKEN_RE`: applied the pre-tested regex verbatim,
+   adding the `b\d+(?!\w)` bit-literal alternative (before the
+   identifier alternative, load-bearing order) and `~|&^` to the
+   operator character class.
+2. `parser.py`'s `OPERATORS` tuple: extended with `|`, `&`, `^` only,
+   not `~`. Checked the one real call site
+   (`_classify_statement`, testing `rest[0]` against the tuple to
+   recognize an op-statement's leading binary operator) before
+   assuming anything -- confirmed this position only ever sees a
+   binary operator (`field <op> expr`), `~` never appears there since
+   it's unary-only and always appears inside an expression, not as an
+   op-statement's own operator token. Doing this blindly as a
+   copy-paste would have silently made `field ~ expr` parse as an
+   op-statement with operator `~`, which was never a real shape.
+3. `resolve.py`'s `_fold_left`: operator tuple extended with `|`, `&`,
+   `^`.
+4. `resolve.py`'s `_apply_binop`: added the three binary bitwise
+   computations, gated behind a real integer-only type check (rejects
+   float operands with a precise message naming both operands and the
+   operator, matching this project's established error-message bar).
+5. `resolve.py`'s `_parse_operand`: added the unary `~` case
+   (integer-only, same rejection style) and a `_BIT_LITERAL_RE`
+   (`^b(\d+)$`) branch computing `1 << N`, checked before the general
+   `_NUMBER_RE` branch since the two patterns never overlap but bN
+   needs to resolve to a real value here rather than fall through to
+   `_resolve_reference` and fail as an unknown field.
+
+**Validated**, matching the handover's own bar for what "wired
+correctly" means, not just "syntactically present":
+- Real tokenization run through the actual `resolve.py` file (not a
+  standalone re-implementation): 12 cases incl. `b0`, `b0value` (must
+  NOT split), `bacon` (must NOT split at all), multi-digit bit
+  positions, all four new operators alone and combined, all passed.
+- A real end-to-end compile of a tiny fixture combining `b0`, `~`,
+  `|`, `&`, `^`, and parens on a plain `u64` field through the full
+  parse/resolve/report pipeline (not the exporters, which stage 1
+  never touches): computed values confirmed correct by hand
+  (`b0|b1|b3` -> `0b1011`, `mask & ~b1` -> `0b1001` turning off bit 1,
+  `mask ^ b2` -> `0b1111`, `(b0|b1) & ~b4` -> `0b11`).
+- Real error path: a bitwise op against a float-typed field rejected
+  with `bitwise operator '|' applied to a non-integer operand: 1.5 | 1
+  -- bitwise operators require integer operands`, phase 6.
+- Full `export_golden.py` regression: 72/72, zero content diffs
+  (see below for a path-separator false-positive this surfaced and
+  ruled out).
+- `multi_file_test/test_multi_file.py` Checks 1-3 (forward/backward
+  references, the deliberate collision, zero-match error paths): all
+  PASSED. Check 4 (shell-independence) could not run in this
+  environment at all -- see the real, unrelated bug below.
+
+**A real, pre-existing bug found and fixed along the way, unrelated to
+flags/bN**: `parser.py`'s `parse_file()` opened source files with
+`open(path, "r")`, no explicit encoding, so on this Windows machine's
+non-UTF-8 default codepage a source file containing genuine UTF-8
+multi-byte characters gets mis-decoded (`cafe with an accent` came out
+as `cafÃ©`-style mojibake, silently corrupting content rather than
+raising anything). Confirmed this was pre-existing by stashing this
+session's changes and re-running the same fixture against unmodified
+`dev` -- identical mojibake, so nothing in this session's own edits
+introduced it. Also confirmed `combine.py`'s multi-file reader already
+opens with `encoding="utf-8"` explicitly -- the correct fix already
+existed as an established pattern elsewhere in the codebase, just
+never applied to the single-file path. Fixed by adding the same
+`encoding="utf-8"` to `parse_file()`. This is exactly the kind of gap
+that only ever surfaces on a non-UTF-8-default platform, which is
+presumably why 70+ fixtures' worth of prior sessions in a UTF-8-default
+Linux/Mac sandbox never hit it. Re-ran the full golden regression after
+the fix: the one real content diff dropped to zero, confirming the fix
+and ruling out any other cause.
+
+**A false-positive surfaced during regression, investigated and ruled
+out, not a real diff**: `export_golden.py` uses `glob`, which on
+Windows returns fixture keys with `\` path separators instead of the
+committed corpus's `/`. This makes every fixture key differ from the
+committed `golden_output.json` in a raw diff even though nothing about
+compiled output actually changed. Verified by normalizing separators
+in both the freshly regenerated and the git-committed HEAD version and
+diffing structurally (same keyset, same per-fixture content) -- zero
+real diffs once the platform-specific key format is normalized out.
+Did not "fix" `export_golden.py` for this (out of scope for the
+current task, and the existing corpus format/committed keys are a
+Linux/Mac-sandbox convention this project has always used) -- noting
+it here so a future Windows-native session doesn't mistake this for a
+real regression again.
+
+**A second, real pre-existing environment gap found, not fixed**:
+several hand-written CLI test suites (`multi_file_test/test_multi_file.py`'s
+`test_shell_independence`, `export_68000_test/test_68000_cli.py`'s
+single-file-invocation check, likely others in the same family)
+hardcode Unix-style `/tmp/...` output paths and, in the multi-file
+case, also shell out to `bash` directly to simulate quote-handling.
+Neither `/tmp` nor `bash` exist on this Windows machine. Confirmed this
+is a pre-existing sandbox assumption, not something this session's
+changes touched (the failures are `FileNotFoundError` on the literal
+`/tmp/...` path, from CLI code this session never edited). Not fixed --
+genuinely out of scope for the flags/bN task, and repointing every
+`/tmp` reference plus finding a Windows substitute for the bash check
+is a real, separate piece of work someone should decide to take on
+deliberately. Flagging clearly rather than silently working around it:
+**this Windows environment cannot fully run this project's own test
+suites as committed**, on top of already lacking every real toolchain
+(g++, gcc, vbcc, ACME/64tass/KickAssembler, py65, z80 emulator) the
+project's own validation standard requires. Today's work was still
+verified to the project's real standard within what stage 1 actually
+touches (pure Python expression evaluation, no export code), but this
+gap will need resolving, either by installing the missing tools here
+or by returning to a sandboxed environment, before Stage 4 (export)
+of the flags feature can be done to the same bar as every prior
+export-touching change in this project.
+
+**Not yet done, next**: Stage 2 (parsing the `flags` construct itself)
+per the handover's own remaining plan. Stage 1 as scoped there is
+complete.
+
+## Windows portability pass on the test suite, requested directly
+
+Immediately after the entry above, the person clarified something the
+handover doc didn't know: this project moved from Claude.ai cloud
+sessions to **Claude Code running locally in VS Code on their own
+Windows 10 machine** -- every edit already lands directly in their
+real working copy (a real clone of this repo), nothing needs
+delivering as a tarball, and the flagged "this Windows environment
+cannot fully run this project's own test suites as committed" gap from
+the entry above was a real, fixable problem, not just an
+environment-mismatch note to live with. Requested directly: port the
+Linux-only assumptions to Windows rather than working around them.
+
+**`multi_file_test/test_multi_file.py`**: `test_shell_independence()`'s
+hardcoded `/tmp/gddl_multi_file_shell_indep_test.asm` replaced with
+`tempfile.gettempdir()`-based path (this project's already-established
+`combine.py`/`export_binary.py` convention of using real stdlib
+primitives rather than a hand-rolled path join). The bash half of the
+same check (real shell present, pattern quoted so that shell can't
+expand it, simulating "what actually happens on Windows cmd.exe" per
+the check's own original comment) doesn't need simulating on an actual
+Windows machine -- it IS that case. Made conditional: `bash -c` with
+the exact original single-quoted command if `shutil.which("bash")`
+finds one (preserves the exact prior behavior unmodified on any
+machine that does have bash), otherwise `subprocess.run(cmd,
+shell=True)`, which on Windows invokes `cmd.exe` via `COMSPEC` --
+proven correct by realizing cmd.exe/PowerShell never expand `*` for an
+external command's arguments regardless of quoting, so this is a
+direct test of the real target case, not a workaround standing in for
+one. Verified: all 5 checks now PASS end to end on this machine,
+including Check 4 specifically, which failed outright before this fix
+(`FileNotFoundError` on `/tmp/...`).
+
+**`export_68000_test/test_68000_cli.py`**: seven separate hardcoded
+`/tmp/...` literals (every check that writes CLI output somewhere)
+replaced the same way, `tempfile.gettempdir()` computed once at module
+level. No shell/bash dependency existed in this file already (its own
+shell-independence check only ever used list-argv subprocess, no
+`shell=True` variant), so only the path fix was needed here. Verified:
+all 6 checks now PASS end to end on this machine, all previously
+blocked by the same `FileNotFoundError` class of failure.
+
+Both fixes verified by actually running the suites, not just read for
+plausibility -- exactly this project's own established bar. Full
+`export_golden.py` regression re-run after both fixes: 72/72, zero
+content diffs (path-separator false-positive again present and again
+ruled out the same way as the entry above; `golden_output.json` left
+uncommitted/reverted rather than checked in with corrupted key
+separators, same reasoning as before).
+
+**Found, not fixed, flagged rather than silently left**:
+`export_z80_c_test/crossover_sweep.py` (a standalone §16.2 spec-table
+measurement script, not part of the standard regression set this
+project's own conventions call out) hardcodes both a Linux sandbox
+path to a specific zsdcc build (`BIN =
+"/home/claude/tools/zsdcc-src/sdcc/bin"`) and Unix-style `:`-separated
+`PATH` joining, on top of its own `/tmp/crossover` work directory.
+Deliberately not touched: fixing the path alone wouldn't make this
+script runnable, since the actual zsdcc toolchain it depends on isn't
+installed anywhere accessible right now, Windows or otherwise, and
+this project's own "verify every claim against real output" standard
+means a portability fix that can't actually be run and confirmed isn't
+one that should be claimed as done. Whoever picks up real Z80
+toolchain installation on this machine should revisit this file
+specifically.
+
+Confirmed via a full search of `compiler-python/` for `/tmp/` and
+`bash` references that these three files were the complete set --
+nothing else in the tree has this class of gap as of this pass.

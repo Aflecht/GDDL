@@ -14,7 +14,7 @@ from ast_nodes import (
 )
 from errors import CompileWarning
 
-OPERATORS = ("+", "-", "*", "/")
+OPERATORS = ("+", "-", "*", "/", "|", "&", "^")
 
 
 def _is_quote_escaped(s: str, i: int) -> bool:
@@ -603,5 +603,5 @@ def parse_source(source: str) -> Program:
 
 
 def parse_file(path: str) -> Program:
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return parse_source(f.read())

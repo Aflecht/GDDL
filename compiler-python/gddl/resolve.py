@@ -153,6 +153,7 @@ _FLOAT_MAX_MAGNITUDE = {
 
 _NUMBER_RE = re.compile(r"^-?\d+(\.\d+)?([eE][+-]?\d+)?$")
 _STRING_TYPE_RE = re.compile(r"^string\s+(\d+)$")
+_BIT_LITERAL_RE = re.compile(r"^b(\d+)$")
 
 
 class Resolver:
@@ -436,7 +437,8 @@ class Resolver:
 
     _TOKEN_RE = re.compile(
         r"\d+\.\d+(?:[eE][+-]?\d+)?|\d+(?:[eE][+-]?\d+)?|"
-        r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*|[+\-*/()]"
+        r"b\d+(?!\w)|"
+        r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*|[+\-*/()~|&^]"
     )
 
     def _tokenize(self, expr: str, line: int):
@@ -493,7 +495,7 @@ class Resolver:
         return self._fold_left(value, tokens, scope, line)
 
     def _fold_left(self, value, tokens, scope, line):
-        while tokens and tokens[0] in ("+", "-", "*", "/"):
+        while tokens and tokens[0] in ("+", "-", "*", "/", "|", "&", "^"):
             op, tokens = tokens[0], tokens[1:]
             if not tokens:
                 raise GDDLResolveError(
@@ -503,7 +505,8 @@ class Resolver:
         return value, tokens
 
     def _parse_operand(self, tokens, scope, line):
-        """operand := NUMBER | reference | '(' expr ')' | '-' operand | '+' operand"""
+        """operand := NUMBER | BIT_LITERAL | reference | '(' expr ')'
+        | '-' operand | '+' operand | '~' operand"""
         if not tokens:
             raise GDDLResolveError("expected an operand, found end of expression", line)
         tok = tokens[0]
@@ -515,6 +518,14 @@ class Resolver:
                     f"unary '{tok}' applied to a non-numeric value: {value!r}", line)
             return (-value if tok == "-" else value), rest
 
+        if tok == "~":
+            value, rest = self._parse_operand(tokens[1:], scope, line)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise GDDLResolveError(
+                    f"unary '~' applied to a non-integer value: {value!r} -- "
+                    "bitwise operators require integer operands", line)
+            return ~value, rest
+
         if tok == "(":
             value, rest = self._parse_expr_tokens(tokens[1:], scope, line)
             if not rest or rest[0] != ")":
@@ -523,6 +534,10 @@ class Resolver:
 
         if tok == ")":
             raise GDDLResolveError("unexpected ')'", line)
+
+        m = _BIT_LITERAL_RE.match(tok)
+        if m:
+            return (1 << int(m.group(1))), tokens[1:]
 
         if _NUMBER_RE.match(tok):
             if "." in tok or "e" in tok or "E" in tok:
@@ -536,6 +551,17 @@ class Resolver:
             raise GDDLResolveError(
                 f"operator '{op}' applied to non-numeric operand(s): "
                 f"{left!r} {op} {right!r}", line)
+        if op in ("|", "&", "^"):
+            if not isinstance(left, int) or not isinstance(right, int):
+                raise GDDLResolveError(
+                    f"bitwise operator '{op}' applied to a non-integer operand: "
+                    f"{left!r} {op} {right!r} -- bitwise operators require "
+                    "integer operands", line)
+            if op == "|":
+                return left | right
+            if op == "&":
+                return left & right
+            return left ^ right
         if op == "+":
             return left + right
         if op == "-":

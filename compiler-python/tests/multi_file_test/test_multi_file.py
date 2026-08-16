@@ -37,8 +37,10 @@ Run directly: python3 test_multi_file.py
 """
 
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -167,7 +169,9 @@ def test_shell_independence():
     print("=== Check 4: shell-independence, real subprocess, no shell involved ===")
     gddl_dir = os.path.join(os.path.dirname(_DIR), "..", "gddl")
     gddl_dir = os.path.normpath(gddl_dir)
-    out_stem = "/tmp/gddl_multi_file_shell_indep_test.asm"
+    # Platform temp dir, not a hardcoded /tmp -- this suite runs on Windows
+    # too, where /tmp doesn't exist.
+    out_stem = os.path.join(tempfile.gettempdir(), "gddl_multi_file_shell_indep_test.asm")
 
     # base_*.weapon, not *.weapon: weapons/ also holds duplicate.weapon,
     # a deliberate cross-file name collision fixture for Check 2's own
@@ -197,19 +201,36 @@ def test_shell_independence():
     assert "Weapon_Sword:" in out, "glob expansion did not occur -- no shell was involved to do it"
     print("  list-argv subprocess (zero shell involvement): glob correctly expanded by the program")
 
-    # Real bash, but the pattern is single-quoted so bash CANNOT expand
-    # it even though a real shell is genuinely present -- simulates
-    # what actually happens on Windows cmd.exe/PowerShell.
-    cmd = (f"{sys.executable} {os.path.join(gddl_dir, 'export_z80.py')} "
-           f"'{os.path.join(_DIR, 'weapons', 'base_*.weapon')}' "
-           f"{FILE2_ELEMENTS} {FILE3_WEAPON_TYPE} "
-           f"--type Weapon --z80-pointer-table=on -o {out_stem}")
-    result2 = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
-    assert result2.returncode == 0, f"quoted-glob bash invocation failed: {result2.stderr}"
+    # A real shell present, but with the pattern quoted so THAT shell
+    # cannot expand it -- proves expansion is the program's own doing,
+    # not an artifact of whichever shell happens to be running it.
+    # Two forms depending on what's actually available on this machine:
+    #   - bash, if installed: pattern single-quoted, which bash's own
+    #     globbing would otherwise expand if it could reach it.
+    #   - otherwise, the platform's native shell via shell=True -- on
+    #     Windows this is cmd.exe (through COMSPEC), which is also the
+    #     real target this whole check exists for: cmd.exe/PowerShell
+    #     never expand '*' for an external command's arguments, so this
+    #     is a direct test of the real case, not a simulation of it.
+    if shutil.which("bash"):
+        cmd = (f"{sys.executable} {os.path.join(gddl_dir, 'export_z80.py')} "
+               f"'{os.path.join(_DIR, 'weapons', 'base_*.weapon')}' "
+               f"{FILE2_ELEMENTS} {FILE3_WEAPON_TYPE} "
+               f"--type Weapon --z80-pointer-table=on -o {out_stem}")
+        result2 = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
+        shell_desc = "quoted-glob bash invocation"
+    else:
+        cmd = (f'"{sys.executable}" "{os.path.join(gddl_dir, "export_z80.py")}" '
+               f'"{os.path.join(_DIR, "weapons", "base_*.weapon")}" '
+               f'"{FILE2_ELEMENTS}" "{FILE3_WEAPON_TYPE}" '
+               f'--type Weapon --z80-pointer-table=on -o "{out_stem}"')
+        result2 = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        shell_desc = "quoted-glob native-shell (cmd.exe) invocation"
+    assert result2.returncode == 0, f"{shell_desc} failed: {result2.stderr}"
     with open(out_stem) as f:
         out2 = f.read()
     assert "Weapon_Sword:" in out2, "quoted glob was not expanded by the program"
-    print("  quoted-glob bash invocation (shell present, prevented from expanding): "
+    print(f"  {shell_desc} (shell present, prevented from expanding): "
           "glob correctly expanded by the program")
 
     os.remove(out_stem)
