@@ -76,27 +76,37 @@ listed here; those are settled, not pending.
    manifest built this session) -- section 14.6 describes a broader
    manifest (every `define`'s fields, every instance's name/stable
    ID) that was designed but never built.
-2. **SPEC.md section 14.7: a force-emit flag for C++'s `_Indexed`
-   companion enums** -- explicitly marked "Planned, not yet
-   implemented" in the spec text itself.
-3. **Z80's `--z88dk-output=c` mode doesn't support `--layout=soa`**
+2. **Z80's `--z88dk-output=c` mode doesn't support `--layout=soa`**
    -- marked "remains unimplemented" in SPEC.md section 13's
    layout-compatibility table.
-4. **Arrays on z88dk-C mode are implemented but never
+3. **Arrays on z88dk-C mode are implemented but never
    toolchain-verified** -- `zsdcc` isn't installed on this Windows
    machine. See this file's "Arrays work, stage 3" entry.
-5. **Arrays under `--layout=soa` on 6502 and both Z80 assembly
+4. **Arrays under `--layout=soa` on 6502 and both Z80 assembly
    dialects** -- deliberately scoped out of arrays' stage 3, not
    ruled out permanently. See "Arrays work, stage 3" entry.
-6. **`string N` fields under `--layout=soa` on 6502/Z80** -- a
-   pre-existing gap, same root cause arrays' own SoA gap (#5) mirrors:
+5. **`string N` fields under `--layout=soa` on 6502/Z80** -- a
+   pre-existing gap, same root cause arrays' own SoA gap (#4) mirrors:
    a non-power-of-two element width needs a real multiply neither
    target's multiply-avoidance discipline (SPEC.md section 16) has a
    renderer for yet.
-7. **Struct/identifier/flags-typed array elements** -- explicitly
+6. **Struct/identifier/flags-typed array elements** -- explicitly
    deferred to "a later pass" in the arrays design itself; current
    scope is scalar and `string N` elements only. See SPEC.md section
    21.1.
+
+**Found already resolved while drawing up this list, corrected rather
+than left stale:** SPEC.md sections 8.5 and 14.7 both described a
+"planned, not yet implemented" force-emit flag for an unreferenced,
+width-declared domain (the `_Indexed` companion enum on C++; the
+entire domain's compact constants on 6502/Z80/68000). Checked directly
+against the real exporters rather than trusted at face value: all four
+targets' existing `--emit-all-domains` flag already does exactly this,
+confirmed with a real fixture and a real compile on each (a
+width-declared, zero-reference `ActionAttack` domain produces nothing
+without the flag, its full companion enum or constant table with it
+on). SPEC.md sections 8.5, 14.7, and the cross-reference in section 4
+were all corrected to describe this as implemented, not planned.
 
 ## Core language recap
 
