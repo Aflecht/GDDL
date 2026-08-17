@@ -57,6 +57,47 @@ There are two other sessions this one coordinates with:
   or the implementation is wrong — that gets sorted through the lead
   session.
 
+## Known gaps / pending work (not-forgotten list)
+
+Consolidated here specifically so these don't get lost in this file's
+own chronological narrative below -- each one is discussed in more
+detail at its own point in the stage-by-stage history, and each has a
+matching mention in `SPEC.md` where relevant. Real, open gaps only --
+deliberate, permanent design non-goals (6502's missing AoS-linear
+layout, mods being unable to declare new schema types at runtime,
+GDDL never generating scripting-language bindings itself) are NOT
+listed here; those are settled, not pending.
+
+1. **SPEC.md section 14.6's own "metadata manifest" for scripting-VM
+   binding-glue generation** -- described in the spec, never actually
+   implemented as code. Distinct from both `.gddlmeta.json` (section
+   17.2, binary export's field-layout description) and
+   `.gddlids.json` (section 20, the narrower identifier/flags-only
+   manifest built this session) -- section 14.6 describes a broader
+   manifest (every `define`'s fields, every instance's name/stable
+   ID) that was designed but never built.
+2. **SPEC.md section 14.7: a force-emit flag for C++'s `_Indexed`
+   companion enums** -- explicitly marked "Planned, not yet
+   implemented" in the spec text itself.
+3. **Z80's `--z88dk-output=c` mode doesn't support `--layout=soa`**
+   -- marked "remains unimplemented" in SPEC.md section 13's
+   layout-compatibility table.
+4. **Arrays on z88dk-C mode are implemented but never
+   toolchain-verified** -- `zsdcc` isn't installed on this Windows
+   machine. See this file's "Arrays work, stage 3" entry.
+5. **Arrays under `--layout=soa` on 6502 and both Z80 assembly
+   dialects** -- deliberately scoped out of arrays' stage 3, not
+   ruled out permanently. See "Arrays work, stage 3" entry.
+6. **`string N` fields under `--layout=soa` on 6502/Z80** -- a
+   pre-existing gap, same root cause arrays' own SoA gap (#5) mirrors:
+   a non-power-of-two element width needs a real multiply neither
+   target's multiply-avoidance discipline (SPEC.md section 16) has a
+   renderer for yet.
+7. **Struct/identifier/flags-typed array elements** -- explicitly
+   deferred to "a later pass" in the arrays design itself; current
+   scope is scalar and `string N` elements only. See SPEC.md section
+   21.1.
+
 ## Core language recap
 
 - **Identifiers** (`identifier X ... key = "description"`) are types
