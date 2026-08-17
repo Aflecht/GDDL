@@ -44,6 +44,7 @@ Naming is shared with both assembly paths (§16.1.1): `{Type}_Instances`,
 """
 
 from .export_z80 import type_sizeof, ExportZ80Error, _string_n
+from .registry import _try_parse_array_type
 
 
 # C89 types for zsdcc/Z80. `int` is 16-bit on this target, so u16/i16
@@ -97,6 +98,41 @@ def _c_type(type_tokens: str, reg) -> str:
             "(scalar u8/u16/i8/i16, identifier-typed, and string N leaf "
             "fields only)")
     return _C_TYPES[t]
+
+
+def _c_array_declaration_parts(array_info, reg):
+    """Arrays design, C89 (matches export_68000.py's identical helper --
+    the dimension lives in the declarator, after the name, not in the
+    type; a 'string N' element folds its width in as the final bracket
+    dimension). Returns (base_c_type, bracket_suffix)."""
+    n = _string_n(array_info.element_type)
+    if n is not None:
+        c_type = "char"
+        dims = list(array_info.dims) + [n]
+    else:
+        c_type = _c_type(array_info.element_type, reg)
+        dims = list(array_info.dims)
+    suffix = "".join(f"[{d}]" for d in dims)
+    return c_type, suffix
+
+
+def _c_array_value_literal(value, dims, element_type, reg, domain_index_to_key) -> str:
+    """Plain single-brace nesting at every level -- C89 needs no
+    std::array-style double-brace treatment (confirmed against a real
+    vbcc compile for 68000's identical C89 target; re-confirmed here
+    against real zsdcc specifically before this was treated as settled
+    for THIS toolchain too, not assumed to carry over -- see
+    HANDOFF.md)."""
+    n = _string_n(element_type)
+    if len(dims) == 1:
+        if n is not None:
+            parts = [_c_string_literal(v) for v in value]
+        else:
+            parts = [_render_value(v, element_type, reg, domain_index_to_key) for v in value]
+    else:
+        parts = [_c_array_value_literal(v, dims[1:], element_type, reg, domain_index_to_key)
+                 for v in value]
+    return "{ " + ", ".join(parts) + " }"
 
 
 def _c_field_name(path: str) -> str:
@@ -169,6 +205,11 @@ def _render_header(domains, types, pointer_table, reg) -> str:
                 # special-casing export_cpp.py does at its own
                 # declaration site.
                 lines.append(f"    char {_c_field_name(path)}[{str_n}];")
+                continue
+            array_info = _try_parse_array_type(tokens.strip())
+            if array_info is not None:
+                c_type, suffix = _c_array_declaration_parts(array_info, reg)
+                lines.append(f"    {c_type} {_c_field_name(path)}{suffix};")
             else:
                 lines.append(f"    {_c_type(tokens, reg)} {_c_field_name(path)};")
         lines.append(f"}} {t.name};")
@@ -206,6 +247,14 @@ def _render_value(value, tokens, reg, domain_index_to_key) -> str:
     if isinstance(value, tuple) and value[0] == "domain_index":
         _, domain, index = value
         return f"{domain}_{domain_index_to_key[domain][index]}"
+    if isinstance(value, list):
+        array_info = _try_parse_array_type(tokens.strip())
+        if array_info is None:
+            raise ExportZ80Error(
+                f"array value {value!r} but declared type {tokens!r} "
+                "isn't array-shaped -- can't export")
+        return _c_array_value_literal(
+            value, array_info.dims, array_info.element_type, reg, domain_index_to_key)
     if isinstance(value, str):
         return _c_string_literal(value)
     return str(value)

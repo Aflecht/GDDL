@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 *.code-workspace
+*.obj
+*.o
 compiler-python/tools/
 compiler-python/*.egg-info/
 compiler-python/build/

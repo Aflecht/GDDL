@@ -61,6 +61,7 @@ from .export_cpp import (
     export_instances_for_type, _flatten_leaves, _flatten_value, _topo_sort_defines,
     _string_n, _align_columns,
 )
+from .registry import _try_parse_array_type
 from .resolve import IdentifierRef, StructValue
 from .validate import check_and_report
 
@@ -306,6 +307,44 @@ def _c_field_type(type_tokens: str, reg, domain_widths: dict) -> str:
     return c_type
 
 
+def _c_array_declaration_parts(array_info, reg, domain_widths: dict):
+    """Arrays design, C (unlike C++'s std::array<>): the dimension lives
+    in the DECLARATOR, after the name ('int32_t name[2];'), not in the
+    type itself -- real C arrays need no aggregate-wrapper class and no
+    std::array-style double-brace treatment at all (confirmed against a
+    real vbcc compile before this was written -- see HANDOFF.md). A
+    'string N' element folds its width in as the FINAL bracket
+    dimension ('char name[2][16];' for a 2-element array of 16-byte
+    strings), the natural C extension of 'char name[16];' a plain
+    (non-array) string field already gets. Returns (base_c_type,
+    bracket_suffix)."""
+    n = _string_n(array_info.element_type)
+    if n is not None:
+        c_type = "char"
+        dims = list(array_info.dims) + [n]
+    else:
+        c_type = _c_field_type(array_info.element_type, reg, domain_widths)
+        dims = list(array_info.dims)
+    suffix = "".join(f"[{d}]" for d in dims)
+    return c_type, suffix
+
+
+def _c_array_value_literal(value, dims, element_type: str, reg) -> str:
+    """Renders a (possibly nested) array value as a C89 aggregate
+    initializer -- plain single-brace nesting at every level (no
+    std::array-style doubling; confirmed against a real vbcc compile
+    before this was written -- see HANDOFF.md)."""
+    n = _string_n(element_type)
+    if len(dims) == 1:
+        if n is not None:
+            parts = [_c_string_literal(v) for v in value]
+        else:
+            parts = [_c_value_literal(v, element_type, reg) for v in value]
+    else:
+        parts = [_c_array_value_literal(v, dims[1:], element_type, reg) for v in value]
+    return "{ " + ", ".join(parts) + " }"
+
+
 def _c_string_literal(s: str) -> str:
     """C89 string literal, escaped. GDDL strings are already validated
     to fit within their field's N-1 byte capacity (§5, String Length
@@ -328,6 +367,13 @@ def _c_value_literal(value, type_tokens: str, reg) -> str:
         d = reg.defines[nested_type]
         parts = [_c_value_literal(value.fields[f.name], f.type_tokens, reg) for f in d.fields]
         return "{ " + ", ".join(parts) + " }"
+    if isinstance(value, list):
+        array_info = _try_parse_array_type(t)
+        if array_info is None:
+            raise Export68000Error(
+                f"array value {value!r} but declared type {type_tokens!r} "
+                "isn't array-shaped -- can't export")
+        return _c_array_value_literal(value, array_info.dims, array_info.element_type, reg)
     if isinstance(value, str):
         return _c_string_literal(value)
     if isinstance(value, bool):
@@ -434,8 +480,13 @@ def render_c89_split(domains: List[DomainInfo], types: List[TypeInfo], reg,
                 if n is not None:
                     field_rows.append(("char", f"{f.name}[{n}];"))
                 else:
-                    c_type = _c_field_type(f.type_tokens, reg, domain_widths)
-                    field_rows.append((c_type, f"{f.name};"))
+                    array_info = _try_parse_array_type(f.type_tokens.strip())
+                    if array_info is not None:
+                        c_type, suffix = _c_array_declaration_parts(array_info, reg, domain_widths)
+                        field_rows.append((c_type, f"{f.name}{suffix};"))
+                    else:
+                        c_type = _c_field_type(f.type_tokens, reg, domain_widths)
+                        field_rows.append((c_type, f"{f.name};"))
             for row in _align_columns(field_rows):
                 header.append(f"    {row}")
             header.append(f"}} {type_name};")
@@ -466,10 +517,19 @@ def render_c89_split(domains: List[DomainInfo], types: List[TypeInfo], reg,
                     rendered = [_c_value_literal(v, type_tokens, reg) for v in values]
                     c.append(f"const char {label}[{n}][{str_n}] = {{ {', '.join(rendered)} }};")
                 else:
-                    c_type = _c_field_type(type_tokens, reg, domain_widths)
-                    header.append(f"extern const {c_type} {label}[{n}];")
-                    rendered = [_c_value_literal(v, type_tokens, reg) for v in values]
-                    c.append(f"const {c_type} {label}[{n}] = {{ {', '.join(rendered)} }};")
+                    array_info = _try_parse_array_type(type_tokens.strip())
+                    if array_info is not None:
+                        elem_c_type, elem_suffix = _c_array_declaration_parts(
+                            array_info, reg, domain_widths)
+                        header.append(f"extern const {elem_c_type} {label}[{n}]{elem_suffix};")
+                        rendered = [_c_value_literal(v, type_tokens, reg) for v in values]
+                        c.append(f"const {elem_c_type} {label}[{n}]{elem_suffix} = "
+                                 f"{{ {', '.join(rendered)} }};")
+                    else:
+                        c_type = _c_field_type(type_tokens, reg, domain_widths)
+                        header.append(f"extern const {c_type} {label}[{n}];")
+                        rendered = [_c_value_literal(v, type_tokens, reg) for v in values]
+                        c.append(f"const {c_type} {label}[{n}] = {{ {', '.join(rendered)} }};")
             header.append("")
             c.append("")
     else:

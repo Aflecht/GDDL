@@ -59,8 +59,9 @@ between generate_header/generate_split in the C++ exporter for the
 exact same reason).
 """
 
-from .export_6502 import DomainInfo, TypeInfo, ZeroPageAllocation, gather_soa_columns
+from .export_6502 import DomainInfo, TypeInfo, ZeroPageAllocation, gather_soa_columns, flatten_array_ir_value
 from .export_cpp import _string_n
+from .registry import _try_parse_array_type
 
 
 _WIDTH_TO_DIRECTIVE = {"u8": ".byte", "u16": ".word", "u32": None, "u64": None}
@@ -223,6 +224,12 @@ def render_kickassembler(domains: list, types: list, zp_alloc: ZeroPageAllocatio
             for inst in t.instances:
                 lines.append(f".label {t.name}_{inst.name}_Index = {inst.index}")
             for path, type_tokens, values in gather_soa_columns(t):
+                if _try_parse_array_type(type_tokens.strip()) is not None:
+                    raise ValueError(
+                        f"6502 SoA layout doesn't support array-typed fields "
+                        f"yet (field {path!r}) -- matching this target's "
+                        "existing SoA string-field gap, arrays are AoS-only "
+                        "for now; use --layout aos instead")
                 width = _leaf_byte_width(type_tokens, domain_widths)
                 rendered = []
                 for v in values:
@@ -257,6 +264,18 @@ def render_kickassembler(domains: list, types: list, zp_alloc: ZeroPageAllocatio
                 str_n = _string_n(type_tokens)
                 if str_n is not None:
                     lines.extend(render_string_leaf_kickassembler(value, str_n, path))
+                    continue
+                array_info = _try_parse_array_type(type_tokens.strip())
+                if array_info is not None:
+                    flat = flatten_array_ir_value(value, array_info.dims)
+                    elem_n = _string_n(array_info.element_type)
+                    for i, v in enumerate(flat):
+                        elem_path = f"{path}[{i}]"
+                        if elem_n is not None:
+                            lines.extend(render_string_leaf_kickassembler(v, elem_n, elem_path))
+                        else:
+                            elem_directive = _leaf_directive(array_info.element_type, domain_widths)
+                            lines.append(f"\t{elem_directive} {v}\t// {elem_path}")
                     continue
                 directive = _leaf_directive(type_tokens, domain_widths)
                 if isinstance(value, tuple) and value[0] == "domain_index":

@@ -62,7 +62,7 @@ single-line initializers rather than reformatted under this rule.
 """
 
 from .resolve import StructValue, IdentifierRef
-from .registry import fnv1a_64
+from .registry import fnv1a_64, _try_parse_array_type
 from .validate import check_and_report
 
 
@@ -147,7 +147,74 @@ def _cpp_field_type(type_tokens: str, reg):
         # a `namespace Domain { constexpr WIDTH member = ...; }` of bit
         # constants (see _render_flags_namespace).
         return _CPP_INT_TYPES[reg.flags_widths[t]]
+    array_info = _try_parse_array_type(t)
+    if array_info is not None:
+        return _cpp_array_field_type(array_info, reg)
     raise ValueError(f"unrecognized field type {type_tokens!r} -- can't export")
+
+
+def _cpp_array_field_type(array_info, reg):
+    """Arrays design: 'ElementType : dim1 : dim2 : ...' -> nested
+    std::array, built from the innermost dimension outward
+    (dims=[2, 3] -> std::array<std::array<int32_t, 3>, 2>, matching
+    the value shape '{a,b,c},{d,e,f}': two outer groups of three).
+    A 'string N' element becomes std::array<char, N> at the innermost
+    level, not the raw C-array 'char[N]' a plain (non-array) string
+    field gets -- a raw array can't be a std::array's own element type,
+    only another aggregate class can."""
+    n = _string_n(array_info.element_type)
+    if n is not None:
+        elem_cpp = f"std::array<char, {n}>"
+    else:
+        elem_cpp = _cpp_field_type(array_info.element_type, reg)
+    t = elem_cpp
+    for dim in reversed(array_info.dims):
+        t = f"std::array<{t}, {dim}>"
+    return t
+
+
+def _cpp_type_is_aggregate(type_tokens: str, reg) -> bool:
+    """True if _cpp_field_type(type_tokens, reg) is itself a C++
+    aggregate class (needs the well-known std::array double-brace
+    treatment -- {{ ... }}, not { ... } -- when wrapped in an OUTER
+    std::array<T, N>, since std::array wraps a raw C array internally
+    and a single brace layer only initializes that ONE member).
+    Every C++ type this exporter produces for a non-array field
+    (int/float, an enum class, a flags width's plain int) is NOT an
+    aggregate in this sense; only an array-typed field's std::array<...>
+    is. Confirmed against a real MSVC compile before this distinction
+    was added -- see HANDOFF.md."""
+    return _try_parse_array_type(type_tokens.strip()) is not None
+
+
+def _cpp_array_value_literal(value, dims, element_type, reg) -> str:
+    """Renders a (possibly nested) array VALUE as a C++ aggregate
+    initializer. Mirrors _cpp_array_field_type's own type-side logic:
+    a level needs double bracing whenever its own contained type is
+    itself an aggregate -- true for every non-innermost dimension
+    (the contained type is another std::array), and true at the
+    innermost dimension too when the element type is 'string N' (the
+    contained type is std::array<char, N>, still an aggregate); single
+    bracing suffices only when the innermost level holds a genuinely
+    primitive C++ type (a plain number). Verified against a real MSVC
+    compile for the 1D/2D/3D-numeric and 1D-string cases before this
+    was written -- see HANDOFF.md."""
+    is_leaf_level = len(dims) == 1
+    n = _string_n(element_type)
+    contained_is_aggregate = (not is_leaf_level) or (n is not None)
+
+    if is_leaf_level:
+        if n is not None:
+            parts = [f"{{ {_cpp_string_literal(v)} }}" for v in value]
+        else:
+            parts = [_cpp_value_literal(v, element_type, reg) for v in value]
+    else:
+        parts = [_cpp_array_value_literal(v, dims[1:], element_type, reg) for v in value]
+
+    inner = ", ".join(parts)
+    if contained_is_aggregate:
+        return "{{ " + inner + " }}"
+    return "{ " + inner + " }"
 
 
 def _render_flags_namespace(domain_name, block, reg):
@@ -327,10 +394,32 @@ def _leaf_binary_kind(type_tokens: str, reg):
     if n is not None:
         return ("string", None, n)
 
+    array_info = _try_parse_array_type(t)
+    if array_info is not None:
+        # Arrays design, first-pass scope: scalar and string elements
+        # only (already enforced at registration -- struct/identifier/
+        # flags elements never reach here). Total width is simply
+        # element_width * total_element_count -- row-major, contiguous,
+        # no padding, exactly the "match how C++ does this" layout the
+        # design calls for (confirmed against a real MSVC pointer-
+        # arithmetic stride check before this was written -- see
+        # HANDOFF.md), which naturally falls out of plain concatenation.
+        elem_kind, _elem_fmt, elem_width = _leaf_binary_kind(array_info.element_type, reg)
+        if elem_kind not in ("scalar", "string"):
+            raise SchemaComputationError(
+                f"array element type {array_info.element_type!r} isn't "
+                "supported for binary/schema export (scalar or string N "
+                "only -- should already have been caught as a phase 4 "
+                "error before export ever ran)")
+        total_count = 1
+        for d in array_info.dims:
+            total_count *= d
+        return ("array", array_info, elem_width * total_count)
+
     raise SchemaComputationError(
         f"binary/schema export doesn't support field type {type_tokens!r} -- "
         "scalar u8/u16/u32/u64/i8/i16/i32/i64/f32/f64, string N, "
-        "identifier-typed (plain or @Domain), and composition only")
+        "identifier-typed (plain or @Domain), array, and composition only")
 
 
 def leaf_binary_width(type_tokens: str, reg) -> int:
@@ -482,7 +571,19 @@ def emit_soa_type(lines, type_name, reg, resolver, is_last_type):
                     _cpp_value_literal(flat_per_instance[k][li], type_tokens, reg)
                     for k in range(count)
                 )
-                lines.append(f"    inline constexpr std::array<{cpp_type}, {count}> {path} = {{ {values} }};")
+                # Arrays design: an array-typed leaf's cpp_type is itself
+                # std::array<...>, an aggregate -- this outer per-field
+                # SoA array then needs the same double-brace treatment
+                # any std::array<AggregateType, N> does (confirmed against
+                # a real MSVC compile, see HANDOFF.md). Every prior leaf
+                # type this exporter ever produced (int/float, enum
+                # class, a flags width's plain int) was NOT an aggregate,
+                # so this is purely additive -- the existing single-brace
+                # form is untouched for every non-array leaf.
+                if _cpp_type_is_aggregate(type_tokens, reg):
+                    lines.append(f"    inline constexpr std::array<{cpp_type}, {count}> {path} = {{{{ {values} }}}};")
+                else:
+                    lines.append(f"    inline constexpr std::array<{cpp_type}, {count}> {path} = {{ {values} }};")
         if li != len(leaves) - 1:
             lines.append("")  # between field-array decls; not after the last (registry follows)
     lines.append("}")
@@ -634,6 +735,14 @@ def _cpp_value_literal(value, type_tokens: str, reg) -> str:
         parts = [_cpp_value_literal(value.fields[f.name], f.type_tokens, reg)
                  for f in d.fields]
         return t + "{ " + ", ".join(parts) + " }"
+
+    if isinstance(value, list):
+        array_info = _try_parse_array_type(t)
+        if array_info is None:
+            raise ValueError(
+                f"array value {value!r} but declared type {type_tokens!r} "
+                "isn't array-shaped -- can't export")
+        return _cpp_array_value_literal(value, array_info.dims, array_info.element_type, reg)
 
     if isinstance(value, str):
         return _cpp_string_literal(value)

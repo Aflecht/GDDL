@@ -52,6 +52,7 @@ from typing import List, Tuple, Optional
 from .export_cpp import (
     _flatten_leaves, _flatten_value, _string_n, export_instances_for_type,
 )
+from .registry import _try_parse_array_type
 from .resolve import IdentifierRef
 from .validate import check_and_report
 
@@ -312,15 +313,51 @@ def _render_leaf_value(value, type_tokens, reg):
     plain Python str -- each renderer's own emission code handles the
     quoted literal + padding, since the directive syntax differs across
     the three dialects (ACME: `!text`/`!byte`, 64tass: `.text`/`.byte`,
-    KickAssembler: `.text`/`.byte`)."""
+    KickAssembler: `.text`/`.byte`).
+
+    Arrays design: an array-typed leaf's value stays a (possibly
+    nested) Python list, recursively converted through this SAME
+    function at each leaf position -- identifier/struct/flags elements
+    are impossible here (rejected at registration), so only the
+    plain-scalar and string branches above are ever actually reached at
+    the innermost level; this just threads the recursion down to them."""
     if isinstance(value, IdentifierRef):
         domain = value.domain
         block = reg.identifiers[domain]
         index = next(i for i, e in enumerate(block.entries) if e.key == value.key)
         return ("domain_index", domain, index)
+    if isinstance(value, list):
+        array_info = _try_parse_array_type(type_tokens.strip())
+        if array_info is None:
+            raise Export6502Error(
+                f"array value {value!r} but declared type {type_tokens!r} "
+                "isn't array-shaped -- can't export")
+        return _render_array_leaf_value(value, array_info.dims, array_info.element_type, reg)
     if isinstance(value, str):
         return value   # string N leaf -- kept as Python str, renderer handles emission
     return value  # int/float scalars
+
+
+def _render_array_leaf_value(value, dims, element_type, reg):
+    if len(dims) == 1:
+        return [_render_leaf_value(v, element_type, reg) for v in value]
+    return [_render_array_leaf_value(v, dims[1:], element_type, reg) for v in value]
+
+
+def flatten_array_ir_value(value, dims):
+    """Row-major flatten of an array leaf's (possibly nested) IR value
+    into a flat Python list -- every dialect renderer's own AoS
+    emission loop needs this same flattening (assembly data directives
+    have no nesting concept; a multi-dimensional array is just a flat,
+    contiguous sequence of element values in row-major order, matching
+    the design's own 'match how C++ does this' layout instruction), so
+    it lives here once rather than being reimplemented per dialect."""
+    if len(dims) == 1:
+        return list(value)
+    flat = []
+    for v in value:
+        flat.extend(flatten_array_ir_value(v, dims[1:]))
+    return flat
 
 
 def gather_type_info(reg, resolver, type_name) -> TypeInfo:

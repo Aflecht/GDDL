@@ -74,6 +74,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from .export_cpp import export_instances_for_type, _flatten_leaves, _flatten_value, _string_n
+from .registry import _try_parse_array_type
 from .resolve import IdentifierRef
 from .validate import check_and_report
 
@@ -223,13 +224,46 @@ def gather_flags_domain_info(reg, type_names, emit_all_domains: bool = False) ->
 def _render_leaf_value(value, type_tokens, reg):
     """A single flattened leaf value, in the shared IR's representation.
     Identifier values always become ('domain_index', domain, index) on
-    this target (no logical IDs, ever), exactly as on 6502."""
+    this target (no logical IDs, ever), exactly as on 6502.
+
+    Arrays design: an array-typed leaf's value stays a (possibly
+    nested) Python list, recursively converted through this SAME
+    function at each leaf position, exactly mirroring export_6502.py's
+    own array handling (identifier/struct/flags elements are impossible
+    here -- rejected at registration -- so only the plain-scalar/string
+    passthrough below is ever actually reached at the innermost level)."""
     if isinstance(value, IdentifierRef):
         domain = value.domain
         block = reg.identifiers[domain]
         index = next(i for i, e in enumerate(block.entries) if e.key == value.key)
         return ("domain_index", domain, index)
+    if isinstance(value, list):
+        array_info = _try_parse_array_type(type_tokens.strip())
+        if array_info is None:
+            raise ExportZ80Error(
+                f"array value {value!r} but declared type {type_tokens!r} "
+                "isn't array-shaped -- can't export")
+        return _render_array_leaf_value(value, array_info.dims, array_info.element_type, reg)
     return value
+
+
+def _render_array_leaf_value(value, dims, element_type, reg):
+    if len(dims) == 1:
+        return [_render_leaf_value(v, element_type, reg) for v in value]
+    return [_render_array_leaf_value(v, dims[1:], element_type, reg) for v in value]
+
+
+def flatten_array_ir_value(value, dims):
+    """Row-major flatten of an array leaf's (possibly nested) IR value
+    into a flat Python list -- see export_6502.py's identical helper
+    for the full reasoning (assembly data directives have no nesting
+    concept)."""
+    if len(dims) == 1:
+        return list(value)
+    flat = []
+    for v in value:
+        flat.extend(flatten_array_ir_value(v, dims[1:]))
+    return flat
 
 
 def gather_type_info(reg, resolver, type_name) -> TypeInfo:
@@ -300,10 +334,22 @@ def _leaf_size_bytes(type_tokens: str, reg) -> int:
         # below), already verified for every size 1..64 on the real
         # emulator.
         return n
+
+    array_info = _try_parse_array_type(type_tokens.strip())
+    if array_info is not None:
+        # Arrays design: total width = element width * total element
+        # count, row-major/contiguous, no padding -- the same
+        # computation export_cpp.py's binary/schema path uses.
+        elem_width = _leaf_size_bytes(array_info.element_type, reg)
+        total_count = 1
+        for d in array_info.dims:
+            total_count *= d
+        return elem_width * total_count
+
     raise ExportZ80Error(
         f"Z80 export doesn't support field type {type_tokens!r} yet "
-        "(scalar u8/u16/i8/i16, identifier-typed, and string N leaf "
-        "fields only)")
+        "(scalar u8/u16/i8/i16, identifier-typed, string N, and array "
+        "leaf fields only)")
 
 
 def type_sizeof(type_info, reg) -> int:

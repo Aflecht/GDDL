@@ -3937,4 +3937,190 @@ design surfaces whether multi-dimensional element access turns out to
 be needed sooner than expected; noted here so stage 3 doesn't have to
 rediscover it from scratch.
 
+## Arrays work, stage 3: export across all five targets
+
+Third of five staged passes. The biggest single stage of this feature
+by a wide margin -- every export target's field-type mapping and
+value-rendering machinery needed real, target-specific changes, and
+two of those changes (C++'s and C89's exact aggregate-initializer
+brace rules) are the kind of thing this project's own history says not
+to guess at, so both were pinned down against a real compiler BEFORE
+any generator code was written, not after.
+
+**C++ (`export_cpp.py`), verified first, real MSVC:** wrote a small
+standalone probe (`std::array<int32_t,2>`, a 2D and 3D nested numeric
+`std::array`, a 1D `std::array<std::array<char,16>,4>` of fixed
+strings) and compiled it before touching the generator. Confirmed:
+- A `std::array<T,N>` needs the well-known double-brace treatment
+  (`{{ ... }}`, not `{ ... }`) whenever `T` is itself an aggregate
+  class type -- which is every non-innermost array dimension, and the
+  innermost dimension too when the element is `string N`
+  (`std::array<char,N>` is an aggregate). Single bracing suffices only
+  when the innermost level holds a genuinely primitive type (a plain
+  number).
+- Contiguity (row-major, matching the design's "match how C++ does
+  this" instruction) falls out of `std::array`'s own memory layout for
+  free -- confirmed with a real pointer-arithmetic stride check
+  (`&A2[1] - &A2[0] == 3 * sizeof(int32_t)`), not assumed.
+
+Implementation: `_cpp_array_field_type` (builds the nested
+`std::array<...>` type string, innermost dimension outward -- a
+`string N` element becomes `std::array<char, N>`, never the raw
+`char[N]` a plain non-array string field gets, since a raw array can't
+itself be another `std::array`'s element type), `_cpp_type_is_aggregate`,
+and `_cpp_array_value_literal` (the recursive brace-decision function,
+implementing the rule confirmed above). `_cpp_field_type` and
+`_cpp_value_literal` both got one new branch each, folding array
+support directly into the existing dispatch rather than adding a
+parallel code path -- every existing caller of either function
+(AoS struct fields, AoS-linear, split mode, the C++17.5 schema table)
+gets array support for free, since none of them needed touching
+themselves. The ONE place that genuinely needed its own new logic:
+`emit_soa_type`'s per-field SoA array declaration, since an
+array-typed leaf's SoA column is the first case where the OUTER
+`std::array<cpp_type, instance_count>` wrapping ALSO needs the
+double-brace treatment (its own contained type, another
+`std::array<...>`, is itself an aggregate) -- every leaf type this
+exporter produced before arrays (int/float, an enum class, a flags
+width's plain int) was never an aggregate, so this exact case simply
+never came up before.
+
+**Binary export / schema table (shared in `export_cpp.py`,
+`export_binary.py`):** `_leaf_binary_kind` gained an `"array"` kind
+(total width = element width * total element count, row-major,
+contiguous, no padding -- matching the C++ layout confirmed above);
+`export_binary.py`'s `pack_leaf_value` gained a matching branch plus
+`_pack_array_value`, recursively packing each element via
+`pack_leaf_value` itself (an array element is always scalar or string,
+never itself array-shaped, so this recursion can't re-enter the
+"array" branch). `canonical_schema_string`/`compute_schema_hash`
+needed zero changes -- they already just use `type_tokens.strip()`
+verbatim as part of the hash input, array syntax included.
+
+**68000 (`export_68000.py`), verified with real vbcc:** C89 (unlike
+C++) puts an array's dimension in the DECLARATOR, after the field
+name (`int32_t name[2];`), not in the type itself -- and, confirmed
+directly with a real vbcc probe before writing any generator code,
+needs NO double-brace treatment at all: plain single-brace nesting at
+every level (`int grid[2][3] = { {1,2,3}, {4,5,6} };`) compiles and
+runs correctly, real C arrays having no `std::array`-style hidden
+wrapper member to trip over. `_c_array_declaration_parts` (returns
+`(base_c_type, bracket_suffix)`, folding a `string N` element's own
+width in as the final bracket dimension -- `char name[2][16];` for a
+2-element array of 16-byte strings, the natural C extension of a
+plain string field's own `char name[16];`) and
+`_c_array_value_literal` (simple single-brace recursion, no aggregate
+distinction needed). Wired into both the AoS struct-field declaration
+site and the SoA field-array declaration site (68000's SoA, unlike
+6502/Z80's, has no precedent gap to match -- C's raw arrays don't have
+6502/Z80 assembly's "no nesting concept" problem, so SoA arrays needed
+no special-casing or rejection here at all, just the same declarator
+logic as AoS).
+
+**6502 (`export_6502.py` + all three dialects) and Z80 (`export_z80.py`
++ SjASMPlus/z88dk-z80asm), verified with real assemblers + real
+emulator memory read-back:** assembly data directives have no nesting
+concept at all -- an array is just a flat, contiguous sequence of
+element values in row-major order. `flatten_array_ir_value` (identical
+helper added to both `export_6502.py` and `export_z80.py`) flattens a
+possibly-nested array IR value into that flat sequence once; each
+dialect renderer's own AoS emission loop then emits one directive (or
+multi-line string block) per flattened element, reusing that dialect's
+own existing scalar/string emission functions for the element type --
+no new per-dialect emission logic beyond the flatten-and-loop, since
+the element-level rendering was already correct. `export_z80.py`'s
+shared `_leaf_size_bytes` (used for `type_sizeof`, the AoS stride
+needed by the `--z80-pointer-table=off` direct-indexing path) also
+gained array support, computed the same way as the binary exporter's
+width (element width * total count) -- 6502 needed no equivalent
+change since its own zero-page allocation is about type/domain COUNTS
+only, never per-field byte width.
+
+**A real, deliberate scope decision, matching an EXISTING precedent in
+this exact codebase, not a new inconsistency:** both 6502 and Z80
+already had an unimplemented SoA gap for `string N` fields (documented
+directly in each renderer's own module docstring: "SoA string support
+is not yet implemented," on the reasoning that a non-power-of-two
+width would need a real multiply to index, which neither CPU's
+multiply-avoidance discipline has a renderer for yet). Arrays hit the
+exact same underlying problem -- an array-typed SoA column's per-
+instance stride is `element_width * total_count`, generally not a
+power of two either -- so array support in SoA mode is scoped out
+here too, for both targets, with an explicit, clear, immediate
+Python-level rejection (`ValueError`/`ExportZ80Error` naming the field
+and pointing at `--layout aos`) rather than either reimplementing the
+whole SoA-indexing multiply problem as a arrays-specific side quest,
+or (worse) silently falling through to broken output the way the
+PRE-EXISTING string gap technically still does on 6502 today (its own
+SoA loop doesn't actually raise cleanly for strings, confirmed by
+reading it -- a real, pre-existing weakness, not something this stage
+introduced or was in scope to fix). AoS mode is fully supported for
+arrays on both targets, all three 6502 dialects and both Z80 assembly
+dialects, real-toolchain verified.
+
+**z88dk C mode (`export_z80_z88dk_c.py`) -- implemented but NOT
+toolchain-verified, a real, honestly-recorded gap, not a silent
+skip:** applied the exact same C89 declaration/value logic as
+`export_68000.py` (`_c_array_declaration_parts`,
+`_c_array_value_literal`, both confirmed structurally identical to the
+68000 versions), since this target is also plain C89. `zsdcc` itself
+is NOT installed on this Windows machine -- checked directly
+(`compiler-python/tools/` has no `sdcc*.exe`), and HANDOFF.md's own
+prior entry for it references a `/home/claude/tools/...` path from a
+now-defunct Linux cloud-sandbox session, confirming it was never built
+here. This is the exact same category of gap as `g++`'s absence
+blocking `test_schema_table_cpp.py` earlier this session -- a
+pre-existing environment limitation, not something arrays broke, and
+not something in scope to fix by building a Z80 C compiler toolchain
+from source now. Confidence is still reasonably high (the identical
+C89 single-brace aggregate-init rule was verified against real vbcc
+for the structurally identical 68000 case, and SDCC has no known
+reason to diverge from standard C89 aggregate-initialization
+semantics specifically, unlike its calling-convention/register-
+allocation internals, which genuinely are custom) -- but "reasonably
+high confidence" is explicitly flagged as weaker than this project's
+own real-toolchain-verified bar, not conflated with it.
+
+**Verified, not assumed, for everything real-toolchain-checkable:** a
+combined fixture (Enemy: a 1D `i32:2` array, a 2D `i32:2:3` array, a
+1D `string 16:4` array of names) exported and independently verified
+per target:
+- C++: real MSVC compile (`/W4`, zero warnings) + real execution, both
+  AoS (single-header) and SoA modes -- direct field access, real
+  `Registry::Find(name)` runtime lookup, row-major stride check,
+  `sizeof(Enemy) == SchemaTable[0].record_size` (96 bytes, zero
+  padding either side).
+- Binary export: independent Python read-back (shares no code with the
+  writer, same discipline as `test_binary_export.py`'s own
+  `independent_reader.py`) of the real `.gddldata.bin` bytes, byte-for-
+  byte, confirming the manifest's own claimed `schema_hash` matches
+  C++'s compile-time table exactly (`0x86fcd4cb436de7da`, both paths).
+- 68000: real vbcc compile + real vamos execution, AoS and SoA both,
+  including the same row-major stride check.
+- 6502: real assemble + real py65 memory read-back, all three dialects
+  (ACME, 64tass, KickAssembler), each independently confirming the
+  exact same 24-byte flat layout at the instance's label address.
+- Z80: real assemble + real z80-emulator memory read-back, both
+  assembly dialects (SjASMPlus, z88dk-z80asm), same 24-byte layout
+  confirmed both ways.
+- Both 6502 and Z80's SoA-array rejection confirmed to actually fire
+  (real `--layout soa` invocation, real raised error, real message).
+
+Full existing regression suite re-run clean throughout: `export_golden.py`
+(79 fixtures, zero content differences -- this stage touched only
+export modules, never the core phase 1-8 pipeline), all four
+real-toolchain driver suites (17/9/8/4, none of the PRE-EXISTING,
+non-array fixtures affected), `test_68000_cli.py`,
+`test_binary_export.py`, `multi_file_test.py`, `test_ids_manifest.py`.
+
+**Not yet done, next**: stage 4 (permanent corpus/regression
+fixtures -- matching flags' own stage 5 precedent, this is where the
+ad hoc real-toolchain verification fixtures built for this stage get
+turned into permanent, committed test cases wired into each driver
+suite's own CASES list, the same way `export_test_flags.gddl` landed
+in `run_all_cpp_tests.py`), then stage 5 (docs, SPEC.md and
+`language-basics.md`). The z88dk-C zsdcc verification gap above should
+be revisited if/when that toolchain ever gets built on this machine --
+not urgent, but worth remembering rather than quietly forgetting.
+
 Zero em-dashes (checked directly, this project's own hard rule).

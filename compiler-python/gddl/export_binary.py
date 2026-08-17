@@ -184,8 +184,37 @@ def pack_leaf_value(value, type_tokens: str, reg) -> bytes:
         index = next(i for i, e in enumerate(block.entries) if e.key == value.key)
         return struct.pack(f"<{fmt}", index)
 
+    if kind == "array":
+        # Arrays design: `fmt` carries the ArrayTypeInfo itself for this
+        # kind (see _leaf_binary_kind's own docstring on this module's
+        # loosely-typed (kind, fmt, width) shape -- fmt's meaning is
+        # already kind-dependent for every other kind too). Packs each
+        # leaf element via THIS SAME function, recursively -- an array
+        # element is always scalar or string N (enforced at
+        # registration), never itself array-shaped, so there's no risk
+        # of this recursion re-entering the "array" branch.
+        array_info = fmt
+        return _pack_array_value(value, array_info.dims, array_info.element_type, reg)
+
     # scalar
     return struct.pack(f"<{fmt}", value)
+
+
+def _pack_array_value(value, dims, element_type: str, reg) -> bytes:
+    """Row-major, contiguous, no padding -- packs each element in turn,
+    recursing one dimension at a time, concatenating the results.
+    Confirmed to match the same layout a real compiled nested
+    std::array<...> produces (pointer-arithmetic stride check against
+    real MSVC output, not assumed) -- see HANDOFF.md."""
+    if len(value) != dims[0]:
+        raise ExportBinaryError(
+            f"array value has {len(value)} element(s) at this nesting "
+            f"level, expected {dims[0]} -- should already have been "
+            "caught as a phase 6 array_shape_mismatch error before "
+            "export ever ran")
+    if len(dims) == 1:
+        return b"".join(pack_leaf_value(v, element_type, reg) for v in value)
+    return b"".join(_pack_array_value(v, dims[1:], element_type, reg) for v in value)
 
 
 def pack_record(value: StructValue, type_name: str, reg, leaves) -> bytes:
