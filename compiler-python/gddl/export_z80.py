@@ -493,7 +493,8 @@ def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "as
                     "function and inlining is the compiler's own decision, "
                     "not the exporter's to make via a MACRO/ENDM block")
             from .export_z80_z88dk_c import render_z88dk_c
-            return render_z88dk_c(domains, types, pointer_table=pointer_table, reg=reg)
+            return render_z88dk_c(domains, types, pointer_table=pointer_table, reg=reg,
+                                  layout=layout)
         raise ValueError(f"unknown z88dk_output {z88dk_output!r} -- must be 'asm' or 'c'")
     raise ValueError(f"unknown toolchain {toolchain!r} -- must be 'sjasmplus' or 'z88dk'")
 
@@ -520,7 +521,7 @@ def _cli():
     ap.add_argument("--z80-pointer-table", choices=["on", "off"], required=True,
                      help="pointer table (on) or direct addressing (off), required")
     ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
-                     help="aos (default) or soa data layout (soa not available with --z88dk-output=c)")
+                     help="aos (default) or soa data layout")
     ap.add_argument("--z80-find-macro", choices=["on", "off"], default="off",
                      help="also emit an inline macro variant of Find (default: off)")
     ap.add_argument("--emit-all-domains", action="store_true",
@@ -549,11 +550,6 @@ def _cli():
               "(§16.2) -- SoA data is already flattened into per-field "
               "arrays with nothing to point at.", file=sys.stderr)
         pointer_table = False
-        if args.z88dk_output == "c":
-            ap.error("--layout=soa is not implemented for --z88dk-output=c "
-                     "(§13.7 scopes this pass to the two assembly paths, "
-                     "sjasmplus and z88dk-asm; C mode SoA is a deliberate, "
-                     "separate gap, not a silent omission)")
 
     if args.z88dk_output == "c" and args.z80_find_macro == "on":
         ap.error("--z80-find-macro applies to the assembly output paths "

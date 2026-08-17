@@ -76,18 +76,17 @@ listed here; those are settled, not pending.
    manifest built this session) -- section 14.6 describes a broader
    manifest (every `define`'s fields, every instance's name/stable
    ID) that was designed but never built.
-2. **Z80's `--z88dk-output=c` mode doesn't support `--layout=soa`**
-   -- marked "remains unimplemented" in SPEC.md section 13's
-   layout-compatibility table.
-3. **Arrays under `--layout=soa` on 6502 and both Z80 assembly
+2. **Arrays under `--layout=soa` on 6502 and both Z80 assembly
    dialects** -- deliberately scoped out of arrays' stage 3, not
-   ruled out permanently. See "Arrays work, stage 3" entry.
-4. **`string N` fields under `--layout=soa` on 6502/Z80** -- a
-   pre-existing gap, same root cause arrays' own SoA gap (#3) mirrors:
-   a non-power-of-two element width needs a real multiply neither
-   target's multiply-avoidance discipline (SPEC.md section 16) has a
-   renderer for yet.
-5. **Struct/identifier/flags-typed array elements** -- explicitly
+   ruled out permanently. See "Arrays work, stage 3" entry. (Note:
+   `z88dk` C mode's `--layout=soa` does NOT share this gap -- see
+   "Also resolved" below.)
+3. **`string N` fields under `--layout=soa` on 6502/Z80 assembly**
+   -- a pre-existing gap, same root cause arrays' own SoA gap (#2)
+   mirrors: a non-power-of-two element width needs a real multiply
+   neither dialect's multiply-avoidance discipline (SPEC.md section
+   16) has a renderer for yet. Also does NOT apply to `z88dk` C mode.
+4. **Struct/identifier/flags-typed array elements** -- explicitly
    deferred to "a later pass" in the arrays design itself; current
    scope is scalar and `string N` elements only. See SPEC.md section
    21.1.
@@ -122,6 +121,26 @@ future runs: the `embedded` target's *default* CLIB pulls in a console
 driver and fails to link with `undefined symbol: fputc_cons_native`
 even when the program never calls `printf`; `-clib=sdcc_ix` (the
 SDCC-paired, `-nostdlib` variant) avoids that requirement entirely.
+
+**Also resolved:** "Z80's `--z88dk-output=c` mode doesn't support
+`--layout=soa`." Implemented in `export_z80_z88dk_c.py`: one
+`extern`-declared, dense-index-order array per leaf field, no struct,
+no `{Type}_Registry`, no `{Type}_Find` (§13.4 -- the same dense index
+that finds an AoS instance already indexes every field array
+directly), reusing the shared `gather_soa_columns` helper the two Z80
+assembly dialects already use. Deliberately does NOT carry over the
+assembly dialects' `string N`/array-typed-field rejection (gaps #2/#3
+above): those dialects hand-write the index*stride multiply themselves
+and only have a renderer for a power-of-two stride, but C mode leaves
+all indexing to `zsdcc`, which strength-reduces `index * stride` for
+any constant stride -- the same reasoning that already lets AoS mode's
+`{Type}_Find` support every struct size (§16.1). Verified with two real
+`zcc +embedded -compiler=sdcc -clib=sdcc_ix` compile+link runs, data
+sections inspected byte-for-byte: a scalar/identifier-typed fixture
+(`u16` + an identifier domain, 3 instances) and the same array/`string
+N` fixture used for the AoS array verification just above. Both
+matched exactly. Test assets committed under
+`export_z80_c_test/soa/` and `export_z80_c_test/soa_arrays/`.
 
 ## Core language recap
 

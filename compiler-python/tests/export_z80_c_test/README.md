@@ -45,6 +45,25 @@ outside it falls through to a ~500+ T-state runtime multiply.
   ("Also resolved: Arrays on z88dk-C mode...") for the full account,
   including why `-clib=sdcc_ix` is needed instead of the target's
   default CLIB.
+- **`--layout=soa`** (§13.7): `soa/` (scalar `u16` + identifier-typed
+  fields, 3 instances, source `../export_z80_test/soa_field_minimal.gddl`)
+  and `soa_arrays/` (array-typed and `string N`-typed fields, source
+  `../export_z80_test/export_test_z80_arrays.gddl`) both compile under
+  `zcc +embedded -compiler=sdcc -clib=sdcc_ix`, data section inspected
+  and matched byte-for-byte. Unlike the two Z80 assembly dialects, C
+  mode's SoA does NOT reject `string N`/array-typed fields: those
+  dialects hand-write the index*stride multiply and only have a
+  renderer for a power-of-two stride, but C mode leaves all indexing to
+  zsdcc, which strength-reduces index*stride for any constant stride --
+  the same reasoning that already lets AoS mode's `Find()` support
+  every struct size (§16.1).
+
+Each subdirectory (`composition_u16/`, `string_field/`, `soa/`,
+`soa_arrays/`) holds its own self-contained `gddl_z80_export.{h,c}` +
+`consumer.c` trio, generated for that specific fixture and compiled with
+`-c` to prove clean compilation (and, for the top-level AoS trio, real
+multi-TU linking) -- not full-program links, matching the note below
+about one-source-file-per-invocation.
 
 Note SDCC compiles only one source file per invocation (`warning 120`);
 compile each TU to `.rel` with `-c`, then link.
