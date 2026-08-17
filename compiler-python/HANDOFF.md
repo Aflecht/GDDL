@@ -68,25 +68,17 @@ layout, mods being unable to declare new schema types at runtime,
 GDDL never generating scripting-language bindings itself) are NOT
 listed here; those are settled, not pending.
 
-1. **SPEC.md section 14.6's own "metadata manifest" for scripting-VM
-   binding-glue generation** -- described in the spec, never actually
-   implemented as code. Distinct from both `.gddlmeta.json` (section
-   17.2, binary export's field-layout description) and
-   `.gddlids.json` (section 20, the narrower identifier/flags-only
-   manifest built this session) -- section 14.6 describes a broader
-   manifest (every `define`'s fields, every instance's name/stable
-   ID) that was designed but never built.
-2. **Arrays under `--layout=soa` on 6502 and both Z80 assembly
+1. **Arrays under `--layout=soa` on 6502 and both Z80 assembly
    dialects** -- deliberately scoped out of arrays' stage 3, not
    ruled out permanently. See "Arrays work, stage 3" entry. (Note:
    `z88dk` C mode's `--layout=soa` does NOT share this gap -- see
    "Also resolved" below.)
-3. **`string N` fields under `--layout=soa` on 6502/Z80 assembly**
-   -- a pre-existing gap, same root cause arrays' own SoA gap (#2)
+2. **`string N` fields under `--layout=soa` on 6502/Z80 assembly**
+   -- a pre-existing gap, same root cause arrays' own SoA gap (#1)
    mirrors: a non-power-of-two element width needs a real multiply
    neither dialect's multiply-avoidance discipline (SPEC.md section
    16) has a renderer for yet. Also does NOT apply to `z88dk` C mode.
-4. **Struct/identifier/flags-typed array elements** -- explicitly
+3. **Struct/identifier/flags-typed array elements** -- explicitly
    deferred to "a later pass" in the arrays design itself; current
    scope is scalar and `string N` elements only. See SPEC.md section
    21.1.
@@ -129,7 +121,7 @@ no `{Type}_Registry`, no `{Type}_Find` (§13.4 -- the same dense index
 that finds an AoS instance already indexes every field array
 directly), reusing the shared `gather_soa_columns` helper the two Z80
 assembly dialects already use. Deliberately does NOT carry over the
-assembly dialects' `string N`/array-typed-field rejection (gaps #2/#3
+assembly dialects' `string N`/array-typed-field rejection (gaps #1/#2
 above): those dialects hand-write the index*stride multiply themselves
 and only have a renderer for a power-of-two stride, but C mode leaves
 all indexing to `zsdcc`, which strength-reduces `index * stride` for
@@ -141,6 +133,32 @@ sections inspected byte-for-byte: a scalar/identifier-typed fixture
 N` fixture used for the AoS array verification just above. Both
 matched exactly. Test assets committed under
 `export_z80_c_test/soa/` and `export_z80_c_test/soa_arrays/`.
+
+**Also resolved:** "SPEC.md section 14.6's own 'metadata manifest' for
+scripting-VM binding-glue generation" -- described in the spec, never
+actually implemented as code. Implemented in the new
+`export_bindings.py`, C++ exporter only (`--emit-bindings-manifest`,
+writes `<output>.gddlbindings.json`), rejected outright when combined
+with `--layout=soa` since SoA output has no struct for a "per-field
+getter thunk that dereferences `instance->field`" to mean anything
+against -- `aos`/`aos-linear` share byte-identical field layout, so no
+layout parameter is needed beyond that one rejection. Domain content
+(`"domains"`) is reused verbatim from `export_ids.build_ids_manifest`
+rather than a second, independently-written domain walk, confirmed by
+a direct equality check in the test suite -- one source of truth for
+"every domain this compile unit declared," matching the same scope the
+C++ header's own enum/namespace emission already uses unconditionally.
+Type/field/instance content (`"types"`) is new: every `define`'s
+DECLARED field list (never flattened through composition, unlike the
+assembly/binary targets -- a real C++ struct keeps composition as real
+nested structs, and `struct`-kind fields name another entry in the
+same `types` list rather than inlining it again) plus every
+fully-resolved, non-delete instance's name and stable ID
+(`reg.get_instance_id`, cross-checked directly against the real
+generated `.cpp`'s own registry entries, not just trusted). Test suite
+at `export_bindings_test/test_bindings_manifest.py`, 5 checks
+(content/every field kind, delete-template exclusion, domain-content
+reuse, real-CLI opt-in, the SoA rejection).
 
 ## Core language recap
 

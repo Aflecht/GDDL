@@ -24,10 +24,11 @@ conventions message):
   - Instances:  GDDL::TypeName_Instances::InstanceName
   - Registries: GDDL::TypeName_Registry::{Table, Find(uint64_t), Find(string_view)}
 
-NOT yet handled (explicitly out of scope for this first pass, per the
-"minimal starting scope" instruction -- revisit once this is validated):
-  - `indexed` mode (§8.3) -- only logical-ID-style export, the default.
-  - Multi-file output, metadata manifest (§13.5).
+Both items this docstring used to list as "NOT yet handled" -- indexed
+mode (§8.3) and the metadata manifest -- are implemented; see their own
+paragraphs below and export_bindings.py (§14.6's manifest, opt-in via
+--emit-bindings-manifest) respectively. Multi-file input is handled by
+combine.py, upstream of this module entirely.
 
 RESOLVED since the first pass: instance stable IDs are now computed and
 collision-checked at registration (phase 4, Registry.__init__), for
@@ -1710,11 +1711,22 @@ def _cli():
     ap.add_argument("--emit-ids-manifest", action="store_true",
                      help="also write <output>.gddlids.json, every identifier/flags "
                           "domain declared, for cross-mod script references (default: off)")
+    ap.add_argument("--emit-bindings-manifest", action="store_true",
+                     help="also write <output>.gddlbindings.json, every define's fields "
+                          "and every instance's name/stable ID, for scripting-VM "
+                          "binding-glue generation (§14.6; not available with --layout=soa, "
+                          "default: off)")
     ap.add_argument("-o", "--output", default="generated",
                      help="output path stem (default: stdout for single-header, 'generated' otherwise)")
     ap.add_argument("--verbose-errors", action="store_true",
                      help="tag each error with its internal [phase N, check] (default: off)")
     args = ap.parse_args()
+
+    if args.emit_bindings_manifest and args.layout == "soa":
+        ap.error("--emit-bindings-manifest is not available with --layout=soa (§14.6) "
+                 "-- the manifest describes a compiled struct's fields for direct "
+                 "'instance->field' access, and SoA output has no struct at all "
+                 "(§13.1 fully flattens every field into its own parallel array)")
 
     try:
         paths = resolve_inputs(args.source)
@@ -1752,6 +1764,11 @@ def _cli():
 
     if args.emit_ids_manifest:
         manifest_path = write_ids_manifest(resolver.reg, args.output)
+        print(f"wrote {manifest_path}")
+
+    if args.emit_bindings_manifest:
+        from .export_bindings import write_bindings_manifest
+        manifest_path = write_bindings_manifest(resolver.reg, resolver, args.output)
         print(f"wrote {manifest_path}")
 
 

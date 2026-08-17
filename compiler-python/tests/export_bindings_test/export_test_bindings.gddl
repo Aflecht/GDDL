@@ -1,0 +1,53 @@
+// Fixture for --emit-bindings-manifest (SPEC.md section 14.6). Exercises
+// every field `kind` the manifest describes: struct composition
+// (stats), string N (label), identifier default form (attack) and
+// indexed form (fast_dispatch, same domain -- proves the manifest
+// distinguishes them per FIELD, not per domain), flags (components),
+// and array (scores). Also exercises the delete-template pattern
+// (TemplateOnly), proving the manifest's instance list matches
+// export_instances_for_type's own delete-exclusion exactly, same as
+// the real C++ export.
+
+identifier ActionAttack u8
+	melee_weapon  = "Standard attack done with a melee weapon"
+	ranged_weapon = "Standard attack done with a ranged weapon"
+
+flags ComponentFlags u8
+	none          = 0
+	is_movable    = b0
+	is_damageable = b1
+
+define Stats
+	hp = u16
+	mp = u16
+
+define Creature
+	stats         = Stats
+	label         = string 16
+	attack        = ActionAttack
+	fast_dispatch = @ActionAttack
+	components    = ComponentFlags
+	scores        = u8 : 3
+
+Stats FighterStats
+	hp = 100
+	mp = 20
+
+Creature Human_Fighter
+	stats = FighterStats
+	label = "Fighter"
+	attack = ActionAttack.melee_weapon
+	fast_dispatch = ActionAttack.ranged_weapon
+	components = ComponentFlags.is_movable
+	scores = 1, 2, 3
+
+Creature TemplateOnly delete
+	stats = FighterStats
+	label = "Template"
+	attack = ActionAttack.melee_weapon
+	fast_dispatch = ActionAttack.melee_weapon
+	components = ComponentFlags.none
+	scores = 0, 0, 0
+
+Creature RealFromTemplate = TemplateOnly
+	label = "Real"

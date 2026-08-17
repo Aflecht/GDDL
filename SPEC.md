@@ -841,6 +841,43 @@ Instead, GDDL exports a **metadata manifest** — a new export target (in the sp
 
 A separate, project-specific tool (understanding the actual scripting language's embedding conventions) reads this manifest and generates the real binding glue — registering types with the VM, generating per-field getter thunks that dereference the real C++ memory (valid for an in-process VM sharing the same address space, which is the case this was designed against), and exposing each type's registry for script-side lookup and iteration identical in spirit to the C++ side. This keeps GDDL itself permanently scripting-language-agnostic while still making automated, always-in-sync binding generation possible — the metadata manifest is what makes it automatable at all, replacing what would otherwise be hand-maintained bindings that silently drift out of sync every time a `.gddl` file's schema changes.
 
+#### 14.6.1 The `--emit-bindings-manifest` Flag
+
+Boolean, opt-in, off by default, C++ exporter only -- no other export target has an in-process scripting VM sharing its address space, so no other target has anything for this manifest's per-field getter thunks to dereference. Writes `<output>.gddlbindings.json`, derived from `-o`/`--output`'s existing stem, the same "a manifest accompanies an export rather than replacing it" convention already established for `.gddlmeta.json` (§17.2) and `.gddlids.json` (§20.2).
+
+**Not available with `--layout=soa`.** SoA output (§13) has no struct at all -- every field is fully flattened into its own parallel array (§13.1) -- so there is nothing for "per-field getter thunk that dereferences `instance->field`" to mean. `aos` and `aos-linear` share byte-identical struct/field layout (they only differ in how instances are stored and looked up, never in a struct's own field list), so the manifest's content is identical for either and needs no layout-specific branching beyond this one rejection.
+
+#### 14.6.2 Content
+
+```json
+{
+  "domains": [
+    { "name": "ActionAttack", "kind": "identifier", "members": [ "..." ] }
+  ],
+  "types": [
+    {
+      "name": "Creature",
+      "fields": [
+        { "name": "stats", "kind": "struct", "type": "Stats" },
+        { "name": "label", "kind": "string", "width": 16 },
+        { "name": "attack", "kind": "identifier", "domain": "ActionAttack", "indexed": false },
+        { "name": "fast_dispatch", "kind": "identifier", "domain": "ActionAttack", "indexed": true },
+        { "name": "components", "kind": "flags", "domain": "ComponentFlags" },
+        { "name": "scores", "kind": "array", "dims": [3], "element": { "kind": "scalar", "type": "u8" } }
+      ],
+      "instances": [
+        { "name": "Human_Fighter", "stable_id": "246fb5e1bf51ef67" }
+      ]
+    }
+  ]
+}
+```
+
+- **`domains`** is reused verbatim from `.gddlids.json`'s own content (§20.3) -- both describe "every domain this compile unit declared," the same scope the C++ header's own enum/namespace emission already uses unconditionally (§14, every domain in `reg.identifiers`/`reg.flags` gets emitted regardless of whether any field references it). One domain-listing implementation, not two that could quietly drift apart, the same "one hash function" discipline §17.4 argues for.
+- **`types`** covers every `define` in the compile unit (C++ export has no per-request type subset at all -- everything is always exported), dependency order. Each type's `fields` list is the DECLARED field list, never flattened through composition (§13.1's flattening is a target-specific export concern for the assembly/binary targets; a real C++ struct keeps composition as real nested structs, and a binding tool generating `instance->stats.hp`-style getter thunks needs exactly that shape, not a flattened `stats_hp` path). A `struct`-kind field names another entry in this same `types` list rather than inlining its fields again, mirroring how the generated C++ struct itself refers to the nested type by name.
+- **Field `kind`** is one of `scalar`, `string`, `identifier`, `flags`, `struct`, `array` -- the same classification `Registry.field_category()` already uses internally, exposed as a JSON-friendly vocabulary instead of raw GDDL type-token text. An `identifier`-kind field additionally carries `indexed` (`@Domain` vs. plain `Domain`, §8.3) -- tracked per FIELD, not per domain, since the same domain can be referenced both ways by different fields in the same compile unit. An `array`-kind field carries `dims` and a recursive `element` descriptor (current arrays scope, §21.1, only allows scalar/string N elements, so `element` never actually nests further today).
+- **`instances`** lists every fully-resolved, non-delete instance (the identical filter the C++ exporter itself applies, §6.6) with its precomputed stable ID (§6.8), so a delete-marked template instance never appears here any more than it appears in the generated `.cpp`.
+
 ### 14.7 Indexed Mode (§8.3) in C++
 
 On 6502, indexed mode exists to eliminate load-time resolution cost — but `inline constexpr` already gives C++ that property unconditionally, indexed or not. The problem indexed mode actually solves in C++ is different: **dispatch efficiency.** A domain's default logical-ID values are sparse 64-bit hashes; a `switch` or array lookup over them can't become an O(1) jump, forcing a binary search or comparison chain. Indexed mode gives hot-path dispatch code (e.g. a per-frame attack-handler lookup across thousands of instances) a small, dense, declaration-ordered value instead.
@@ -1133,7 +1170,7 @@ An `--exclude` pattern, for skipping specific paths inside a recursive glob (a `
 | Instance stable IDs | Same FNV-1a-64/qualified-name mechanism as identifiers (`TypeName::InstanceName`). What registries are keyed by. |
 | ID collision detection | One shared table across all identifier + instance IDs project-wide. Any collision is a hard compile error, never a warning. |
 | C++ export | `inline constexpr` instances (never bare `constexpr`), per-type registry forces retention + enables lookup, direct + dynamic access over the same data, no generic query engine — plain iteration instead. |
-| Scripting bindings | Out of GDDL's scope. GDDL exports a metadata manifest; a separate project-specific tool generates the actual binding glue for whatever language/VM is in use. |
+| Scripting bindings | Out of GDDL's scope. GDDL exports a metadata manifest (`--emit-bindings-manifest`, C++ only, not available with `--layout=soa`); a separate project-specific tool generates the actual binding glue for whatever language/VM is in use. |
 | Determinism | Identical source + settings -> identical output, always. |
 | Identifiers manifest | `--emit-ids-manifest`, all five exporters. Every identifier/flags domain, unconditionally. For a separately-compiled script compiler resolving `Domain.key` across independently-compiled mods, not section 14.6's in-process VM binding-glue manifest. |
 | Arrays | `ElementType : dim1 : dim2 : ...`. Outermost value brace always optional, every level inward required. Scalar/string elements only this pass. Bracket-indexed element access/modification (assign and op-statement), one-dimensional only this pass. Row-major, contiguous, no padding, uniformly across all five export targets. |
