@@ -252,3 +252,129 @@ line 4: flags member 'is_pickupable' claims bit 2 ('= b2'), but 'is_damageable' 
 ```
 
 Auto-assignment accounts for every explicit claim in the whole domain, not just ones declared earlier in the file, so reordering members around an explicit `bN` never causes a collision. And, matching `identifier`'s own width check, a domain whose real bit-flag members outnumber what its declared width can address is caught the same way, at registration.
+
+## Arrays: fixed-size sequences
+
+A field can be a fixed-size sequence of values instead of a single one, a min/max pair, a small grid, a handful of names, declared with `: dimN` after the element type:
+
+```gddl
+define Enemy
+	damage_min_max = i32 : 2
+
+Enemy Goblin
+	damage_min_max = 10, 30
+```
+
+```cpp
+struct Enemy
+{
+    std::array<int32_t, 2> damage_min_max;
+};
+
+const Enemy Goblin = { { 10, 30 } };
+```
+
+The outermost `{ }` around a value is always optional, `damage_min_max = { 10, 30 }` means exactly the same thing as the line above. For more than one dimension, that same outermost layer stays optional, but every level from there inward needs its own braces to say where one group ends and the next begins:
+
+```gddl
+define Grid
+	cells = i32 : 2 : 3
+
+Grid Level1
+	cells = { 1, 2, 3 }, { 4, 5, 6 }
+```
+
+```cpp
+struct Grid
+{
+    std::array<std::array<int32_t, 3>, 2> cells;
+};
+
+const Grid Level1 = { {{ { 1, 2, 3 }, { 4, 5, 6 } }} };
+```
+
+Two outer groups of three, dimensions read left to right the same way the value's own braces nest, outermost to innermost. A third dimension would just nest one layer deeper on both sides.
+
+`string N`'s own width composes with the array syntax the same way any other element type does:
+
+```gddl
+define Party
+	names = string 16 : 3
+
+Party Heroes
+	names = "Alice", "Bob", "Carol"
+```
+
+```cpp
+struct Party
+{
+    std::array<std::array<char, 16>, 3> names;
+};
+
+const Party Heroes = { {{ { "Alice" }, { "Bob" }, { "Carol" } }} };
+```
+
+Array elements are scalars or strings only, for now, struct-typed and identifier-typed elements are explicitly deferred to a later pass:
+
+```gddl
+identifier ActionAttack
+	melee_weapon = "Standard melee attack"
+
+define Enemy
+	actions = ActionAttack : 2
+```
+
+```
+line 5: field 'actions' in 'Enemy' declares an array of identifier domain 'ActionAttack' -- identifier-typed array elements are not yet supported (first-pass scope is scalar and string elements only)
+```
+
+An element inside the value itself can be an expression, not just a bare literal, cross-field references and arithmetic both work exactly as they do anywhere else:
+
+```gddl
+define Enemy
+	base_power = i32
+	powers = i32 : 2
+
+Enemy Goblin
+	base_power = 100
+	powers = base_power, base_power + 5
+```
+
+`powers` resolves to `[100, 105]`.
+
+### Reading and changing one element
+
+Square brackets reach into a specific element, for both a plain assign and an op-statement, the same "current value is the implicit left operand" rule every op-statement already has, applied per element instead of per field. The motivating case is copy-then-adjust: a derived instance copies a base's array, then tweaks just one entry:
+
+```gddl
+define Enemy
+	damage_min_max = i32 : 2
+
+Enemy BaseGoblin
+	damage_min_max = 10, 30
+
+Enemy StrongerGoblin = BaseGoblin
+	damage_min_max[1] + 50
+```
+
+```cpp
+const Enemy BaseGoblin = { { 10, 30 } };
+const Enemy StrongerGoblin = { { 10, 80 } };
+```
+
+Only index 1 changed, `30 + 50`, index 0 carried over untouched. Bracket indexing needs the array to already hold a full value first, from a literal earlier in the same instance, or copied in from a source instance, the same way an op-statement on any other field needs a current value to read before it can modify it.
+
+Bracket indexing is one-dimensional only for now. A 2D or deeper array still assigns fine as a whole with a literal, just not element by element:
+
+```gddl
+define Grid
+	cells = i32 : 2 : 3
+
+Grid Level1
+	cells = { 1, 2, 3 }, { 4, 5, 6 }
+	cells[0] = 99
+```
+
+```
+Level1: ERROR - line 6: 'cells[0]': bracket indexing is only supported for one-dimensional arrays in this pass -- 'cells' has 2 dimensions; assign the full array with a literal instead
+```

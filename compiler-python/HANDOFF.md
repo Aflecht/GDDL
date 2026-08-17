@@ -4249,3 +4249,71 @@ compiler before being written down, not hand-derived). The z88dk-C
 zsdcc verification gap (stage 3) remains open, not urgent.
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+## Arrays work, stage 5: documentation (feature complete)
+
+Fifth and last of the staged passes. Every `.gddl` snippet in both new
+doc sections was actually run through the real compiler before being
+written down -- captured output copy-pasted verbatim, never hand-typed
+approximations -- then re-verified a second time, independently, right
+before this entry was written (a small standalone script re-resolving
+the two most load-bearing example instances and asserting their exact
+field values), confirming the committed doc text still matches real
+output, not just at the moment it was first captured. No code changed
+this stage, so no regression suite re-run was needed or performed --
+same precedent flags' own stage 6 (docs) already established.
+
+**`SPEC.md` section 21 (Arrays), appended at the end** (same reasoning
+as section 20's own placement: several existing sections are cited by
+number throughout code comments and other docs, so appending avoids
+renumbering anything already referenced elsewhere). Four subsections:
+21.1 declaration and element-type scope (with the real
+`array_element_type_unsupported` error shown verbatim); 21.2 value
+literals, the outermost-optional/inner-required brace rule stated with
+every example from the original design notes plus the 3-dimensional
+case; 21.3 bracket indexing, including the "always either UNINIT as a
+whole or fully populated as a whole" invariant and its direct
+consequence (why the bare/modify-only form's absence for arrays is
+what makes that invariant hold), and the one-dimensional-only scope
+limit stated as a real, explicit constraint with its own real error
+text, not glossed over; 21.4 export shape, per-target notes covering
+the C++ double-brace rule, C89's simpler single-brace rule (68000 and
+z88dk C mode both), the 6502/Z80 AoS-only restriction explicitly
+tied back to those two targets' own pre-existing `string N` SoA gap
+(the same underlying non-power-of-two-stride problem, not a new,
+unrelated limitation), and binary export's width computation. Also
+added an "Arrays" row to section 19's design-summary table, following
+section 20's own precedent for extending that table rather than
+leaving it to go stale.
+
+**`docs/language-basics.md`'s new "Arrays: fixed-size sequences"
+section**, appended after the existing Flags section (matching how
+Flags itself was appended after Identifier domains). Purely additive:
+nothing else in the file touched. Covers, in the same
+worked-example-then-generated-output style Flags already established:
+1D declaration and literal; the outer-brace-optional/inner-required
+rule via a real 2D example; `string N` composing with array syntax;
+the explicit struct/identifier/flags element-type rejection, shown
+with real error text; an array element as a full expression
+(cross-field reference plus arithmetic, not just a bare literal); the
+bracket-indexed copy-and-adjust motivating example end to end, with
+its real generated C++; and the one-dimensional-only bracket-indexing
+limit, again with real error text rather than a paraphrase.
+Deliberately does NOT cover cross-target export shape (that's SPEC.md
+section 21.4's job) -- matching Flags' own choice to show C++ output
+only, language-basics.md stays about language semantics, not a
+target-by-target export reference.
+
+**This completes the arrays feature, all five stages**, per
+`GDDL_Session_Handover.md` section 5's own original plan: parser
+(stage 1), registry/resolution (stage 2), export across all five
+targets (stage 3), permanent corpus/regression fixtures (stage 4),
+documentation (stage 5, this entry). Two honestly-recorded, open gaps
+remain from stage 3, neither blocking: z88dk C mode's array support is
+implemented but not toolchain-verified (`zsdcc` isn't installed on
+this machine); SoA layout doesn't support array-typed fields on 6502
+or Z80 yet (matching those targets' own pre-existing `string N` SoA
+gap, not a new one arrays introduced). Both are noted in SPEC.md
+section 21.4 and this file's own stage-3 entry, not silently dropped.
+
+Zero em-dashes (checked directly, this project's own hard rule).

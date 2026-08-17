@@ -1134,6 +1134,7 @@ An `--exclude` pattern, for skipping specific paths inside a recursive glob (a `
 | Scripting bindings | Out of GDDL's scope. GDDL exports a metadata manifest; a separate project-specific tool generates the actual binding glue for whatever language/VM is in use. |
 | Determinism | Identical source + settings -> identical output, always. |
 | Identifiers manifest | `--emit-ids-manifest`, all five exporters. Every identifier/flags domain, unconditionally. For a separately-compiled script compiler resolving `Domain.key` across independently-compiled mods, not section 14.6's in-process VM binding-glue manifest. |
+| Arrays | `ElementType : dim1 : dim2 : ...`. Outermost value brace always optional, every level inward required. Scalar/string elements only this pass. Bracket-indexed element access/modification (assign and op-statement), one-dimensional only this pass. Row-major, contiguous, no padding, uniformly across all five export targets. |
 
 ---
 
@@ -1185,6 +1186,108 @@ Every identifier and flags domain the compile unit declared, **unconditionally**
 ### 20.4 The Shipping Game Never Reads This File
 
 Same discipline §17.6 already states plainly for the binary export format: this manifest exists for a separate, offline script-compilation step, never for a shipping game's runtime. A compiled script's bytecode carries only the resolved logical ID or bit value the script compiler already looked up; by the time a game's VM executes it, the text `Domain.key` the script's author actually wrote no longer exists anywhere in the pipeline, resolved once, permanently, the same way every other GDDL-derived identifier already is by the time it reaches compiled output.
+
+---
+
+## 21. Arrays
+
+### 21.1 Declaration
+
+A field can hold a fixed-size sequence of values instead of one:
+
+```
+field = ElementType : dim1 : dim2 : ... : dimN
+```
+
+`dim1..dimN` are positive integers, outermost dimension first, matching both the left-to-right order they're written in and the value literal's own outer-to-inner brace nesting (§21.2). `damage_min_max = i32 : 2` is a 2-element array of `i32`; `cells = i32 : 2 : 3` is 2 outer groups of 3.
+
+**Element type scope, this pass: scalar (`u8`/`u16`/.../`f64`) and `string N` only.** A struct-typed, identifier-typed, or flags-typed element is explicitly deferred to a later pass, each rejected individually and by name at registration, never a generic "unsupported type" message:
+
+```
+identifier ActionAttack
+    melee_weapon = "Standard melee attack"
+
+define Enemy
+    actions = ActionAttack : 2
+```
+
+```
+field 'actions' in 'Enemy' declares an array of identifier domain 'ActionAttack' -- identifier-typed array elements are not yet supported (first-pass scope is scalar and string elements only)
+```
+
+A malformed dimension (non-integer, zero, or negative) is a separate, distinct rejection from an unsupported element type: a well-formed shape with a disallowed element versus a shape that doesn't parse as an array declaration at all.
+
+### 21.2 Value Literals
+
+**The single outermost brace layer is always optional; every level from there inward requires explicit braces to disambiguate nested groups.** Confirmed examples, all equivalent in pairs:
+
+```
+damage_min_max = 10, 30                              // i32 : 2
+damage_min_max = { 10, 30 }                          // i32 : 2, same thing
+cells = { 1, 2, 3 }, { 4, 5, 6 }                     // i32 : 2 : 3
+cells = {{ 1, 2, 3 }, { 4, 5, 6 }}                   // i32 : 2 : 3, same thing
+grid3d = {{ 1, 2, 3 }, { 4, 5, 6 }}, {{ 7, 8, 9 }, { 10, 11, 12 }}   // i32 : 2 : 2 : 3
+```
+
+A `string N` element composes with the array syntax exactly like any other element type (`names = string 16 : 4`); each element is an ordinary quoted string literal, comma-splitting is quote-aware (a literal comma inside a quoted array element is never mistaken for a group separator).
+
+**An array element is a full expression, not just a bare literal.** Cross-field references and arithmetic both work inside an element exactly as they do anywhere else in the language, evaluated through the same expression evaluator a plain scalar field's right-hand side already uses:
+
+```
+define Enemy
+    base_power = i32
+    powers = i32 : 2
+
+Enemy Goblin
+    base_power = 100
+    powers = base_power, base_power + 5
+```
+
+`Goblin.powers` resolves to `[100, 105]`.
+
+A value literal whose element count doesn't match the declared dimension exactly, at every nesting level, is a hard compile-time error (`array_shape_mismatch`), including the case of a multi-dimensional literal missing its required inner braces (indistinguishable from "wrong count at the outer level" once flattened, and reported as exactly that).
+
+### 21.3 Element Access and Modification (Bracket Indexing)
+
+**Direct bracket indexing** reaches one element, for both a plain assign and an op-statement, chosen over a struct-style nested-block modify-only form specifically so a derived instance can copy a base's array and adjust just one entry:
+
+```
+define Enemy
+    damage_min_max = i32 : 2
+
+Enemy BaseGoblin
+    damage_min_max = 10, 30
+
+Enemy StrongerGoblin = BaseGoblin
+    damage_min_max[1] + 50
+```
+
+`StrongerGoblin.damage_min_max == [10, 80]` -- only index 1 changed (`30 + 50`); index 0 carried over from the copy untouched. The op-statement form follows the same "current value at that index is the implicit leading operand" rule every other op-statement already has (§6.3), applied per element instead of per field.
+
+**An array field is always either UNINIT as a whole, or fully populated as a whole, never partially initialized element by element.** This follows directly from rejecting the bare/modify-only form for arrays (§21.1): there is no mechanism that builds an array up incrementally while leaving the rest UNINIT the way a bare struct field can. A bracket-indexed assign or op-statement therefore requires the array to already hold a full value -- a literal earlier in the same instance body, or copied in via `= Source` -- before touching one element; reading or writing an index on a still-UNINIT array is the same hard, unconditional error reading any other uninitialized field already is (§7).
+
+**Bracket indexing is one-dimensional only, this pass.** Nothing in this design specifies what `field[N]` should mean for a 2D+ array (index into the outermost dimension only, returning a sub-array? require chained brackets?), so rather than guess, a bracket-indexed assign or op-statement on a multi-dimensional array is a dedicated, explicit rejection naming the field's real dimension count:
+
+```
+cells[0] = 99   // cells : i32 : 2 : 3
+```
+
+```
+'cells[0]': bracket indexing is only supported for one-dimensional arrays in this pass -- 'cells' has 2 dimensions; assign the full array with a literal instead
+```
+
+Full-literal assignment of a multi-dimensional array (§21.2) is completely unaffected by this restriction -- only per-element bracket access is scoped down.
+
+An out-of-bounds index (`array_index_out_of_range`) and bracket indexing on a field that isn't array-typed at all (a static, phase-5 check, same shape as any other field-shape mismatch) are both hard compile-time errors, named specifically rather than falling through to a generic message.
+
+### 21.4 Export Shape
+
+**Row-major, contiguous, no padding, uniformly across every export target** -- matching how C arrays already lay out in memory on every one of these targets, not a GDDL-specific convention invented for this feature.
+
+- **C++**: nested `std::array<...>`, built from the innermost dimension outward (`i32 : 2 : 3` becomes `std::array<std::array<int32_t, 3>, 2>`). A `string N` element becomes `std::array<char, N>` at the innermost level, never the raw `char[N]` a plain (non-array) string field gets -- a raw C array can't itself be another `std::array`'s element type, only another aggregate class can. Value literals follow `std::array`'s own well-known double-brace rule: a level needs `{{ ... }}` whenever its own contained type is itself an aggregate (every non-innermost dimension, and the innermost dimension too when the element is `string N`); single bracing suffices only when the innermost level holds a genuinely primitive type.
+- **68000 (C89 via vbcc) and Z80's z88dk C mode (C89 via zsdcc)**: the dimension lives in the declarator, after the field name (`int32_t name[2][3];`), the ordinary C rule -- never in the type itself. Value literals need no `std::array`-style double bracing at all: plain single-brace nesting at every level, since a raw C array has no hidden wrapper member to trip over.
+- **6502 (all three dialects: ACME, KickAssembler, 64tass) and Z80's two assembly dialects (SjASMPlus, z88dk-z80asm)**: assembly data directives have no nesting concept, so an array flattens to a plain, contiguous run of per-element directives, row-major. **AoS only, this pass** -- array-typed fields are not yet supported under `--layout=soa` on either target, rejected with an explicit, immediate error rather than attempting it. This is not a new gap: both targets already had an unimplemented SoA gap for `string N` fields (a non-power-of-two element width would need a real multiply to index, which neither target's multiply-avoidance discipline (§16) has a renderer for yet); array-typed SoA columns hit the identical underlying problem, so they're scoped out the same way, for the same reason.
+- **Standalone binary export (§17)**: total width = element width * total element count, packed identically to every other target's contiguous layout; the schema hash (§17.4) includes the array's own type declaration text verbatim, so a dimension change is a real, detected schema change like any other.
 
 ---
 
