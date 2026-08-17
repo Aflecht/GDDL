@@ -36,11 +36,54 @@ generic recursion-depth-style detection) with an actual designed check
 that names the exact cycle, e.g. `Human_Fighter -> Boss -> Human_Fighter`.
 """
 
+from dataclasses import dataclass
+from typing import List
+
 from .ast_nodes import (
     Program, IdentifierBlock, FlagsBlock, DefineBlock, InstanceDecl,
     AssignStmt, BareFieldStmt,
 )
 from .errors import CompileError
+
+
+@dataclass
+class ArrayTypeInfo:
+    """Parsed shape of an array-typed field's type_tokens ('ElementType
+    : dim1 : dim2 : ... : dimN', arrays design). `dims` is outermost-to-
+    innermost nesting order, matching both the type declaration's own
+    left-to-right colon order and a value literal's own outer-to-inner
+    brace nesting order (e.g. dims=[2, 3] corresponds to a value shaped
+    '{a, b, c}, {d, e, f}' -- two outer groups of three)."""
+    element_type: str
+    dims: List[int]
+
+
+def _try_parse_array_type(type_tokens: str):
+    """Syntactic-only parse of 'ElementType : dim1 : dim2 : ... : dimN'.
+    Never raises: returns None for anything that doesn't cleanly parse,
+    whether that's genuinely not array syntax at all (no ':' present)
+    or a colon present but a malformed dimension -- field_category()
+    needs a total function that always succeeds (it's called from many
+    contexts that don't expect it to raise), so a REAL compile error
+    for the "attempted array syntax but got it wrong" case is reported
+    separately, once, at registration time (Registry._check_array_field_types),
+    where a line number is actually available."""
+    if ":" not in type_tokens:
+        return None
+    parts = [p.strip() for p in type_tokens.split(":")]
+    element_type = parts[0]
+    dim_texts = parts[1:]
+    if not element_type or not dim_texts:
+        return None
+    dims = []
+    for dt in dim_texts:
+        if not dt.isdigit():
+            return None
+        n = int(dt)
+        if n <= 0:
+            return None
+        dims.append(n)
+    return ArrayTypeInfo(element_type=element_type, dims=dims)
 
 # FNV-1a, 64-bit output, over the UTF-8 bytes of the description text
 # exactly as written -- no normalization.
@@ -249,6 +292,11 @@ class Registry:
         # circular_dependency already use, not per-instance errors.
         self.duplicate_errors.extend(self._check_indexed_field_types())
 
+        # Arrays design: array field type declaration validation. Same
+        # "validate once at registration, field_category() itself never
+        # raises" precedent as the check just above.
+        self.duplicate_errors.extend(self._check_array_field_types())
+
     def _assign_flags_bits(self, node, entries):
         """Computes each entry's real bit-claim value and populates
         self.flags_values. Follows the spec's auto-assignment rule
@@ -388,6 +436,76 @@ class Registry:
                     ))
         return errors
 
+    def _check_array_field_types(self):
+        """Arrays design: two static checks over every field of every
+        define whose type_tokens contains ':' (attempted array syntax) --
+        - Malformed dimension syntax ('ElementType : dim1 : ...' didn't
+          parse: non-integer or non-positive dimension, or no dimensions
+          at all).
+        - A struct, identifier-domain, or flags-domain element type --
+          all three explicitly deferred to a later pass by the design
+          (first-pass scope is scalar and string elements only), so
+          each gets its own specific, named rejection here rather than
+          silently falling through to some other category.
+
+        Deliberately does NOT validate that a non-struct/identifier/flags
+        element type is a genuinely KNOWN scalar type name (u8, string N,
+        etc.) -- matching this project's own existing, established
+        leniency for plain (non-array) scalar fields, which likewise
+        never validate their type name against a fixed vocabulary at
+        registration time. Introducing new, array-specific strictness
+        here that the rest of the language doesn't have would be an
+        inconsistency, not an improvement."""
+        errors = []
+        for type_name, d in self.defines.items():
+            for f in d.fields:
+                t = f.type_tokens.strip()
+                if ":" not in t:
+                    continue
+                info = _try_parse_array_type(t)
+                if info is None:
+                    errors.append(CompileError(
+                        phase=4,
+                        check="array_type_malformed",
+                        line=f.line,
+                        message=f"field '{f.name}' in '{type_name}' has a malformed "
+                                f"array type {t!r} -- expected 'ElementType : dim1 : "
+                                "dim2 : ...', each dimension a positive integer",
+                    ))
+                    continue
+                elem = info.element_type
+                if elem in self.defines:
+                    errors.append(CompileError(
+                        phase=4,
+                        check="array_element_type_unsupported",
+                        line=f.line,
+                        message=f"field '{f.name}' in '{type_name}' declares an array "
+                                f"of struct type '{elem}' -- struct-typed array "
+                                "elements are not yet supported (first-pass scope is "
+                                "scalar and string elements only)",
+                    ))
+                elif elem in self.identifiers:
+                    errors.append(CompileError(
+                        phase=4,
+                        check="array_element_type_unsupported",
+                        line=f.line,
+                        message=f"field '{f.name}' in '{type_name}' declares an array "
+                                f"of identifier domain '{elem}' -- identifier-typed "
+                                "array elements are not yet supported (first-pass "
+                                "scope is scalar and string elements only)",
+                    ))
+                elif elem in self.flags:
+                    errors.append(CompileError(
+                        phase=4,
+                        check="array_element_type_unsupported",
+                        line=f.line,
+                        message=f"field '{f.name}' in '{type_name}' declares an array "
+                                f"of flags domain '{elem}' -- flags-typed array "
+                                "elements are not yet supported (first-pass scope is "
+                                "scalar and string elements only)",
+                    ))
+        return errors
+
     def _instance_dependencies(self, decl: InstanceDecl):
         """Every instance name this InstanceDecl directly depends on:
         the top-level `= Source` copy, plus every nested `field =
@@ -511,7 +629,12 @@ class Registry:
 
     def field_category(self, struct_type_name: str, field_name: str):
         """Returns (category, type_name) where category is 'struct',
-        'identifier', 'flags', or 'scalar' -- or (None, None) if unknown.
+        'identifier', 'flags', 'array', or 'scalar' -- or (None, None)
+        if unknown. For 'array', type_name is an ArrayTypeInfo, not a
+        plain string -- every other category's type_name is a bare
+        type/domain name string, so callers that assume a string for
+        every category need updating when they start handling 'array'
+        (grep this project's own call sites for the precedent).
 
         §8.3: a valid '@Domain' (domain exists and is a real identifier
         domain) is treated EXACTLY like plain 'Domain' here -- resolution
@@ -524,7 +647,19 @@ class Registry:
         '@X' text as type_name, an inert no-op, since that misuse is
         already reported as a hard compile-time error by
         Registry._check_indexed_field_types regardless of what happens
-        here."""
+        here.
+
+        Arrays design: 'ElementType : dim1 : dim2 : ...' is recognized
+        here purely by SHAPE (does it parse via _try_parse_array_type,
+        which never raises) -- validity of the shape (element type
+        actually being scalar/string, not struct/identifier/flags;
+        malformed dimension syntax) is a SEPARATE, one-time check at
+        registration (Registry._check_array_field_types), the same
+        division of labor §8.3's '@Domain' handling above already uses.
+        This function must stay a total, always-succeeding classifier:
+        it's called from many contexts (phase 5's error-collection
+        loops, resolve.py's direct-exception flow) that don't expect it
+        to ever raise."""
         t = self.field_type(struct_type_name, field_name)
         if t is None:
             return None, None
@@ -540,6 +675,9 @@ class Registry:
             return "identifier", t
         if t in self.flags:
             return "flags", t
+        array_info = _try_parse_array_type(t)
+        if array_info is not None:
+            return "array", array_info
         return "scalar", t
 
     def is_struct_type(self, type_name: str) -> bool:

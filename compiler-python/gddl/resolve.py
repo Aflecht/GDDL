@@ -61,7 +61,7 @@ from .ast_nodes import AssignStmt, OpStmt, BareFieldStmt, RawStmt
 from .registry import Registry
 from .errors import CompileError
 from .phase5 import run_phase5
-from .parser import _unescape_string_content, _StringEscapeError
+from .parser import _unescape_string_content, _StringEscapeError, _is_quote_escaped
 
 UNINIT_SENTINEL_DOC = None
 
@@ -154,6 +154,56 @@ _FLOAT_MAX_MAGNITUDE = {
 _NUMBER_RE = re.compile(r"^-?\d+(\.\d+)?([eE][+-]?\d+)?$")
 _STRING_TYPE_RE = re.compile(r"^string\s+(\d+)$")
 _BIT_LITERAL_RE = re.compile(r"^b(\d+)$")
+
+
+# ---- array value literal parsing (arrays design) ----
+#
+# Two small, quote-and-brace-aware text primitives, in the same spirit
+# as parser.py's own split_top_level_equals: array element/group
+# separators (',') can themselves sit inside a quoted string element
+# (a 'string N : M' array), so a naive str.split(',') would mis-split
+# a literal comma inside a string element's own text.
+
+def _is_single_brace_group(text: str) -> bool:
+    """True if `text` (already stripped) is exactly ONE brace-delimited
+    group: starts with '{', ends with '}', and that opening brace's
+    matching close is the string's LAST character -- not just "starts
+    with '{' and ends with '}'", which '{1,2},{3,4}' also satisfies but
+    is NOT a single group (two groups, comma-joined)."""
+    if not (text.startswith("{") and text.endswith("}")):
+        return False
+    depth = 0
+    for i, c in enumerate(text):
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return i == len(text) - 1
+    return False
+
+
+def _split_top_level_commas(text: str):
+    """Splits on commas at brace-depth 0, outside quoted strings.
+    Quote-awareness mirrors parser.py's _is_quote_escaped exactly (the
+    same backslash-run-parity check, imported rather than reimplemented)."""
+    parts = []
+    depth = 0
+    in_string = False
+    start = 0
+    for i, c in enumerate(text):
+        if c == '"' and not _is_quote_escaped(text, i):
+            in_string = not in_string
+        elif not in_string:
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+            elif c == "," and depth == 0:
+                parts.append(text[start:i])
+                start = i + 1
+    parts.append(text[start:])
+    return [p.strip() for p in parts]
 
 
 class Resolver:
@@ -259,6 +309,17 @@ class Resolver:
     def _apply_assign(self, scope: StructValue, stmt: AssignStmt, allow_incomplete: bool):
         category, type_name = self.reg.field_category(scope.type_name, stmt.field_name)
 
+        # Defensive backstop: phase 5 (phase5.py's AssignStmt check) already
+        # rejects bracket indexing on a non-array field statically, for
+        # every instance that reaches phase 6 at all -- same "kept as a
+        # backstop even once an earlier phase already catches it" precedent
+        # this file's own resolve_instance() circular-dependency check uses.
+        if stmt.index is not None and category != "array":
+            raise GDDLResolveError(
+                f"bracket indexing used on '{stmt.field_name}' "
+                f"({category or 'unknown'}-typed) -- only array-typed "
+                "fields support bracket-indexed assignment", stmt.line)
+
         if category == "struct":
             rhs = stmt.rhs.strip()
             if rhs not in self.reg.instances:
@@ -276,6 +337,15 @@ class Resolver:
                 f"scalar field '{stmt.field_name}' has an indented block "
                 "under a plain assign -- only struct-typed fields can "
                 "have children here", stmt.line)
+
+        if category == "array":
+            if stmt.index is not None:
+                self._apply_array_element_assign(scope, stmt, type_name)
+            else:
+                rhs = stmt.rhs.strip()
+                value = self._parse_array_literal(rhs, type_name, scope, stmt.field_name, stmt.line)
+                scope.fields[stmt.field_name] = value
+            return
 
         if category == "identifier":
             rhs = stmt.rhs.strip()
@@ -318,13 +388,28 @@ class Resolver:
 
     def _apply_op(self, scope: StructValue, stmt: OpStmt, allow_incomplete: bool):
         category, type_name = self.reg.field_category(scope.type_name, stmt.field_name)
+
+        # Defensive backstop: phase 5 already rejects both halves of this
+        # (bracket indexing on a non-array field, and a non-indexed
+        # op-statement on an array field) statically -- see phase5.py's
+        # OpStmt check and _apply_assign's own matching comment above.
+        if stmt.index is not None:
+            if category != "array":
+                raise GDDLResolveError(
+                    f"bracket indexing used on '{stmt.field_name}' "
+                    f"({category or 'unknown'}-typed) -- only array-typed "
+                    "fields support bracket-indexed operator statements", stmt.line)
+            self._apply_array_element_op(scope, stmt, type_name)
+            return
+
         if category is not None and category not in ("scalar", "flags"):
             raise GDDLResolveError(
                 f"operator statement on '{stmt.field_name}' (a {category}-typed "
                 "field) -- operator statements only apply to plain scalar "
                 "and flags-typed fields, which have a current numeric value "
                 "to read-modify-write; struct and identifier-domain fields "
-                "don't", stmt.line)
+                "don't (an array-typed field's element can be, via bracket "
+                "indexing)", stmt.line)
 
         current = scope.fields.get(stmt.field_name, UNINIT)
         if current is UNINIT:
@@ -362,6 +447,149 @@ class Resolver:
 
         self._apply_statements(sub, stmt.children, allow_incomplete)
         scope.fields[stmt.field_name] = sub
+
+    # ---- arrays (design: direct bracket indexing, no bare/nested-block
+    # form -- see AssignStmt/OpStmt.index and their call sites above) ----
+
+    def _apply_array_element_assign(self, scope: StructValue, stmt: AssignStmt, array_info):
+        """'field[N] = expr' -- modifies ONE existing element. Requires
+        the array to already hold a full value (a prior full-literal
+        assign in this same instance body, or copied in from a source
+        instance) -- arrays never support the bare/modify-only field's
+        build-up-incrementally-leaving-the-rest-UNINIT capability (that
+        form was explicitly rejected for arrays by the design in favor
+        of bracket indexing), so an array field is always either UNINIT
+        as a whole or fully populated as a whole, never partially."""
+        if len(array_info.dims) != 1:
+            raise GDDLResolveError(
+                f"'{stmt.field_name}[{stmt.index}]': bracket indexing is "
+                "only supported for one-dimensional arrays in this pass -- "
+                f"'{stmt.field_name}' has {len(array_info.dims)} dimensions; "
+                "assign the full array with a literal instead", stmt.line,
+                check="array_multidim_index_unsupported")
+
+        current = scope.fields.get(stmt.field_name, UNINIT)
+        if current is UNINIT:
+            raise GDDLResolveError(
+                f"'{stmt.field_name}' is indexed ('[{stmt.index}]') before "
+                "being initialized -- an array must already hold a full "
+                "value (a literal assign, or copied in from a source "
+                "instance) before an individual element can be assigned "
+                "by index", stmt.line, check="uninitialized_read")
+
+        size = array_info.dims[0]
+        if not (0 <= stmt.index < size):
+            raise GDDLResolveError(
+                f"'{stmt.field_name}[{stmt.index}]': index out of bounds -- "
+                f"'{stmt.field_name}' has {size} element(s), valid indices "
+                f"are 0..{size - 1}", stmt.line, check="array_index_out_of_range")
+
+        rhs = stmt.rhs.strip()
+        val = self._parse_array_element(rhs, array_info.element_type, scope,
+                                         stmt.field_name, stmt.line)
+        current[stmt.index] = val
+
+    def _apply_array_element_op(self, scope: StructValue, stmt: OpStmt, array_info):
+        """'field[N] <op> expr' -- read-modify-write of ONE existing
+        element, exactly the scalar op-statement rule ("current value at
+        that index is the implicit leading operand") applied per-element
+        instead of per-field. Reuses _eval_op_expr unchanged: a string
+        element's current value naturally rejects here via that
+        function's own non-numeric-current check, the same way a plain
+        string-typed scalar field already does."""
+        if len(array_info.dims) != 1:
+            raise GDDLResolveError(
+                f"'{stmt.field_name}[{stmt.index}]': bracket indexing is "
+                "only supported for one-dimensional arrays in this pass -- "
+                f"'{stmt.field_name}' has {len(array_info.dims)} dimensions",
+                stmt.line, check="array_multidim_index_unsupported")
+
+        current_array = scope.fields.get(stmt.field_name, UNINIT)
+        if current_array is UNINIT:
+            raise GDDLResolveError(
+                f"'{stmt.field_name}' is indexed ('[{stmt.index}]') by an "
+                f"operator statement ('{stmt.op} {stmt.rhs}') before being "
+                "initialized -- an array must already hold a full value "
+                "before an individual element can be read-modify-written "
+                "by index", stmt.line, check="uninitialized_read")
+
+        size = array_info.dims[0]
+        if not (0 <= stmt.index < size):
+            raise GDDLResolveError(
+                f"'{stmt.field_name}[{stmt.index}]': index out of bounds -- "
+                f"'{stmt.field_name}' has {size} element(s), valid indices "
+                f"are 0..{size - 1}", stmt.line, check="array_index_out_of_range")
+
+        current_elem = current_array[stmt.index]
+        val = self._eval_op_expr(current_elem, stmt.op, stmt.rhs, scope, stmt.line,
+                                  is_flags=False)
+        coerced = self._coerce_numeric(
+            val, f"{stmt.field_name}[{stmt.index}]", array_info.element_type, stmt.line)
+        current_array[stmt.index] = coerced
+
+    def _parse_array_literal(self, text, array_info, scope: StructValue, field_name, line):
+        """Parses a full array-value literal against array_info.dims.
+        The single OUTERMOST brace layer is always optional; every level
+        from there inward requires explicit braces to disambiguate
+        nested groups (exactly the design's own rule) -- implemented as
+        peeling at most ONE optional enclosing '{...}' here, before
+        dimension-based recursion begins in _parse_array_group, which
+        always requires braces at every level it descends into."""
+        text = text.strip()
+        if _is_single_brace_group(text):
+            text = text[1:-1].strip()
+        return self._parse_array_group(
+            text, array_info.dims, array_info.element_type, scope, field_name, line)
+
+    def _parse_array_group(self, text, dims, element_type, scope: StructValue, field_name, line):
+        parts = _split_top_level_commas(text)
+        expected = dims[0]
+        if len(parts) != expected:
+            raise GDDLResolveError(
+                f"'{field_name}': expected {expected} element(s) at this "
+                f"nesting level, got {len(parts)} ({text!r})", line,
+                check="array_shape_mismatch")
+
+        if len(dims) == 1:
+            return [self._parse_array_element(p, element_type, scope, field_name, line)
+                    for p in parts]
+
+        result = []
+        for p in parts:
+            p = p.strip()
+            if not _is_single_brace_group(p):
+                raise GDDLResolveError(
+                    f"'{field_name}': inner grouping braces are required "
+                    f"here (got {p!r}) -- only the single outermost brace "
+                    "layer of an array literal is optional; every level "
+                    "inward must be explicitly wrapped in '{{...}}' to "
+                    "disambiguate shape", line, check="array_shape_mismatch")
+            result.append(self._parse_array_group(
+                p[1:-1].strip(), dims[1:], element_type, scope, field_name, line))
+        return result
+
+    def _parse_array_element(self, text, element_type, scope: StructValue, field_name, line):
+        """Parses/evaluates ONE leaf element: a quoted string literal, or
+        a numeric expression through the SAME evaluator scalar fields
+        already use (cross-field references, bN literals, arithmetic all
+        work inside an array element exactly as in a plain scalar
+        assign) -- then coerces/range-checks it against the element type,
+        reusing _coerce_numeric/_check_string_length verbatim, the same
+        functions a plain scalar field of that type already goes
+        through."""
+        text = text.strip()
+        if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+            try:
+                val = _unescape_string_content(text[1:-1])
+            except _StringEscapeError as e:
+                raise GDDLResolveError(f"'{field_name}': {e.message}", line,
+                                        check="string_escape")
+            return self._check_string_length(val, field_name, element_type, line)
+
+        val = self._eval_expr(text, scope, line, is_flags=False)
+        if isinstance(val, str):
+            return self._check_string_length(val, field_name, element_type, line)
+        return self._coerce_numeric(val, field_name, element_type, line)
 
     # ---- numeric type coercion + range enforcement (spec §5) ----
 

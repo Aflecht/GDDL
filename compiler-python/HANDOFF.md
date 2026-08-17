@@ -3765,3 +3765,176 @@ bracket-indexed assign/op-statements into phase 6 evaluation, op
 statements' "current value at that index" rule).
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+## Arrays work, stage 2: registry/resolution
+
+Second of five staged passes (see stage 1 above for the full plan and
+its own reasoning). This stage covers everything stage 1 explicitly
+deferred: interpreting `type_tokens` array syntax into a real field
+category, resolving array value literals, and wiring bracket-indexed
+assign/op-statements (parsed in stage 1, unused until now) into actual
+phase 6 evaluation.
+
+**Registry-level (`registry.py`)**: added `ArrayTypeInfo` (dataclass,
+`element_type: str`, `dims: List[int]`, outermost-to-innermost) and
+`_try_parse_array_type()`, a pure, never-raising syntactic parser of
+`'ElementType : dim1 : dim2 : ...'`. `field_category()` now returns
+`("array", ArrayTypeInfo)` for a field whose type_tokens parses this
+way -- the one genuinely new thing every existing caller of
+`field_category()` needed checking against: for every category before
+this, the second return value was always a bare string; for `"array"`
+it's now an object. Grepped and re-read every call site (phase5.py x6,
+resolve.py x5, registry.py's own dependency-walk x2) before writing
+anything -- most needed zero changes at all, since they already
+fall through generically to "not struct, reject children" /
+"not struct, reject bare-field" style checks that correctly handle
+`"array"` for free, without ever touching the payload. Only phase5's
+OpStmt check and resolve.py's `_apply_assign`/`_apply_op` needed real
+new logic (see below).
+
+**A real, deliberate scope decision, not pre-specified by the
+design**: `_check_array_field_types()` (registration-time validation,
+same pattern as `_check_indexed_field_types` for `@Domain`) rejects a
+struct, identifier-domain, or flags-domain element type by name
+(explicitly deferred per the design), but does NOT validate that a
+non-rejected element type is a genuinely KNOWN scalar type (`u8`,
+`string N`, etc.) against a fixed vocabulary. Checked first: plain,
+non-array scalar fields don't get this validation either today (a
+typo'd type name on an ordinary field silently never gets coerced or
+range-checked by anything, anywhere in the pipeline -- a real,
+pre-existing, unrelated gap, confirmed by reading `_coerce_numeric`,
+not fixed here since it's well outside arrays' own scope and would be
+a materially bigger, separate change). Matching that existing
+leniency for array element types keeps arrays consistent with how the
+rest of the language already behaves, rather than introducing new,
+array-specific strictness nothing else has.
+
+**Resolution-level (`resolve.py`)**: a full array VALUE is always a
+plain, possibly-nested Python list (`[10, 30]`, `[[10,30,5],[20,50,8]]`)
+-- no new wrapper value type. This works because of one load-bearing
+design decision, confirmed against the spec's own principles rather
+than assumed: **an array field is always either UNINIT as a whole, or
+fully populated as a whole, never partially initialized element by
+element.** The design explicitly rejected the bare/modify-only
+nested-block form for arrays in favor of direct bracket indexing --
+which means arrays never get that form's "build up incrementally,
+leaving the rest UNINIT" capability at all. A bracket-indexed assign
+or op-statement requires the array to ALREADY hold a full value (a
+prior full-literal assign earlier in the same instance body, or copied
+in via `= Source`) before touching one element -- exactly the same
+"read an uninitialized field, hard error, no exceptions" rule scalar
+op-statements already enforce, just generalized to per-element. This
+one decision is why phase 8's completeness check
+(`validate.py::_find_uninitialized`) needed ZERO changes: a fully
+populated array is just a plain list, never a `StructValue`, so the
+existing `isinstance(field_val, StructValue)` recursion check already
+correctly treats it as "not missing" with no array-specific code path
+added at all.
+
+**Array value literal parsing**: `_parse_array_literal` /
+`_parse_array_group` / `_parse_array_element`, plus two small
+quote-and-brace-aware text primitives (`_is_single_brace_group`,
+`_split_top_level_commas`) in the same spirit as `parser.py`'s own
+`split_top_level_equals` (imported `_is_quote_escaped` from `parser.py`
+rather than reimplementing it -- `resolve.py` already imports other
+parser-private helpers this same way). Implements the design's rule
+exactly: the single outermost brace layer is always optional (peeled
+at most once, before any dimension-based recursion begins);
+every level from there inward requires explicit braces to disambiguate
+nested groups, enforced by the recursive `_parse_array_group` never
+having an optional-brace branch of its own. Comma-splitting is
+quote-aware specifically because a `string N` array element can itself
+contain a literal comma (`"Carol, Jr."`), which a naive
+`text.split(",")` would have mis-split -- caught by writing check 7 in
+the verification script below before assuming it would just work.
+
+**A real, deliberate extension beyond what the shown examples
+demonstrate**: each array element is parsed through the exact same
+`_eval_expr` evaluator a plain scalar field's RHS already goes
+through, not a narrower literal-only parser -- so an array element can
+be a cross-field reference, a `bN` literal, or an arithmetic
+expression, not just a bare number. The design's own examples only
+ever show plain numeric literals, but nothing about the design rejects
+this, and reusing the existing evaluator verbatim (rather than
+building a second, narrower one) is both less code and more
+consistent with how every other value-producing position in the
+language already works. Confirmed working, not just assumed, via
+check 8 below.
+
+**A real gap in the design notes, resolved here, documented rather
+than silently decided:** the design's own examples of bracket indexing
+(`damage_min_max[1] = 200`) are all 1D; nothing specifies what
+`field[N]` should mean for a 2D+ array (index into the outermost
+dimension only, returning a sub-array? require chained brackets,
+`field[1][2]`, which stage 1's parser doesn't support at all -- it
+only ever parses one bracket pair?). Rather than guess at unspecified
+multi-dimensional bracket syntax, bracket indexing is scoped to
+one-dimensional arrays only for this pass: a bracket-indexed
+assign/op-statement on a 2D+ array is a clear, dedicated
+`array_multidim_index_unsupported` error naming the field's actual
+dimension count and pointing at the full-literal-assign alternative,
+never a silent misinterpretation. Full-literal assignment of 2D+
+arrays (any dimensionality) works completely unaffected -- only
+per-element bracket access is scoped down.
+
+**Phase 5 gets new checks too, not just phase 6:** bracket-indexing
+shape validation (is the field actually array-typed; does an
+op-statement without brackets on an array field make sense -- it
+doesn't, a whole array has no single current numeric value to
+read-modify-write) is a purely STATIC check needing only the AST and
+registry, matching phase 5's own existing charter exactly
+("field_shape: every field referenced in a statement exists on its
+declared enclosing struct type... only valid on struct-typed fields").
+Added to both `AssignStmt` and `OpStmt` handling in
+`_walk_statements`. `resolve.py`'s own matching checks in
+`_apply_assign`/`_apply_op` are kept anyway, explicitly commented as
+defensive backstops now unreachable in normal operation (any instance
+phase 5 already rejects never reaches phase 6 resolution at all, per
+`resolve_all()`'s own skip-already-errored-instances logic) -- the
+exact same "keep the redundant check anyway" precedent this file's own
+`resolve_instance()` circular-dependency backstop already documents
+for the identical reason.
+
+**Verified, not assumed:** a 22-check scratch script (not yet
+permanent fixtures -- see stage 1's own entry for why corpus fixtures
+land later, once export exists too, matching flags' own precedent):
+1D array literals both with and without the optional outer braces
+(confirmed equivalent); 2D and 3D nested literals; bracket-indexed
+element assign; bracket-indexed op-statement reproducing the design's
+own motivating "copy a base instance, then adjust one element" case
+end to end (`BaseGoblin.damage_min_max = [10,30]`,
+`StrongerGoblin = BaseGoblin` then `damage_min_max[1] + 50` ->
+`[10, 80]`); string array elements including one containing a literal
+comma inside its own quotes; a cross-field-reference-plus-arithmetic
+expression as an array element; an uninitialized array read via
+bracket op-statement (rejected); an out-of-bounds index (rejected);
+multi-dimensional bracket indexing (rejected, dedicated check name);
+a wrong total element count (rejected); a multi-dim literal missing
+its required inner braces (rejected); struct/identifier/flags element
+types, each rejected individually at registration with its own
+specific message; malformed and zero-valued dimensions (rejected at
+registration); a whole-array op-statement with no brackets (rejected,
+phase 5); bracket indexing on a plain scalar field (rejected, phase
+5); a never-initialized array field correctly reported `incomplete` by
+phase 8 with no array-specific code needed; numeric range enforcement
+applying to an individual array element exactly as it already does for
+a plain scalar field. All 22 passed.
+
+Full regression suite re-run clean: `export_golden.py` (79 fixtures,
+structurally diffed against the previously committed
+`golden_output.json`, zero content differences at all this time --
+unlike stage 1, none of this stage's new/changed error messages
+happened to be exercised by any existing corpus fixture's error path),
+all four real-toolchain driver suites (17/9/8/4), `test_68000_cli.py`,
+`test_binary_export.py`, `multi_file_test.py`, `test_ids_manifest.py`.
+
+**Not yet done, next**: stage 3 (export across all five targets --
+`std::array`/nested `std::array` in C++, matching row-major contiguous
+layout uniformly across 6502/Z80/68000/binary per the design's own
+"match how C++ does this" instruction). Stage 2's one-dimensional-only
+bracket-indexing scope decision may be worth revisiting once export
+design surfaces whether multi-dimensional element access turns out to
+be needed sooner than expected; noted here so stage 3 doesn't have to
+rediscover it from scratch.
+
+Zero em-dashes (checked directly, this project's own hard rule).

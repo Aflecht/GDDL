@@ -78,6 +78,17 @@ def _walk_statements(stmts, scope_type, reg):
                 return CompileError(
                     phase=5, check="field_shape", line=stmt.line,
                     message=f"'{stmt.field_name}' is not a field of '{scope_type}'")
+            # Arrays design: bracket indexing ('field[N] = expr') is only
+            # meaningful on an array-typed field -- both the full-literal
+            # form (stmt.index is None) and the single-element form
+            # (stmt.index is not None) are valid for 'array', so no
+            # index-specific rejection is needed for that category here.
+            if stmt.index is not None and category != "array":
+                return CompileError(
+                    phase=5, check="field_shape", line=stmt.line,
+                    message=f"bracket indexing used on '{stmt.field_name}' (a "
+                            f"{category}-typed field) -- only array-typed "
+                            "fields support bracket-indexed assignment")
             if category == "struct":
                 if stmt.children:
                     nested_scope_type = field_type
@@ -97,13 +108,29 @@ def _walk_statements(stmts, scope_type, reg):
                 return CompileError(
                     phase=5, check="field_shape", line=stmt.line,
                     message=f"'{stmt.field_name}' is not a field of '{scope_type}'")
+            # Arrays design: an op-statement on an array field ONLY makes
+            # sense bracket-indexed ('field[N] <op> expr') -- a whole
+            # array has no single current numeric value to read-modify-
+            # write, so stmt.index is None on an array field is rejected
+            # by the same fallthrough as struct/identifier below, not a
+            # separate branch.
+            if stmt.index is not None:
+                if category != "array":
+                    return CompileError(
+                        phase=5, check="field_shape", line=stmt.line,
+                        message=f"bracket indexing used on '{stmt.field_name}' "
+                                f"(a {category}-typed field) -- only "
+                                "array-typed fields support bracket-indexed "
+                                "operator statements")
+                continue
             if category not in ("scalar", "flags"):
                 return CompileError(
                     phase=5, check="field_shape", line=stmt.line,
                     message=f"operator statement on '{stmt.field_name}' (a "
                             f"{category}-typed field) -- operator statements "
                             "only apply to plain scalar and flags-typed "
-                            "fields")
+                            "fields, or an array-typed field's element via "
+                            "bracket indexing")
             continue
 
     return None
