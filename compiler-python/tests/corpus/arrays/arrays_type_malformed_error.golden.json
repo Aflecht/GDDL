@@ -1,0 +1,26 @@
+{
+  "fixture": "arrays_type_malformed_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [
+      {
+        "phase": 4,
+        "check": "array_type_malformed",
+        "line": 9,
+        "message": "line 9: field 'non_integer_dim' in 'Outer' has a malformed array type 'i32 : x' -- expected 'ElementType : dim1 : dim2 : ...', each dimension a positive integer"
+      },
+      {
+        "phase": 4,
+        "check": "array_type_malformed",
+        "line": 10,
+        "message": "line 10: field 'zero_dim' in 'Outer' has a malformed array type 'i32 : 0' -- expected 'ElementType : dim1 : dim2 : ...', each dimension a positive integer"
+      }
+    ],
+    "warnings": [],
+    "instances": {}
+  }
+}

@@ -1,0 +1,16 @@
+// Real .gddldata.bin/.gddlmeta.json validation for the arrays feature --
+// stage 4's "real compiled/run output" requirement for the standalone
+// binary export target. See corpus/arrays/ for the phase 1-8 golden-locked
+// coverage; this fixture covers the export-side half those fixtures can't
+// capture. Read back independently in test_binary_export.py's
+// check_array_readback, sharing no code with the writer.
+
+define Enemy
+	damage_min_max = i32 : 2
+	grid = i32 : 2 : 3
+	names = string 16 : 4
+
+Enemy Goblin
+	damage_min_max = 10, 30
+	grid = { 1, 2, 3 }, { 4, 5, 6 }
+	names = "Alice", "Bob", "Carol, Jr.", "Dave"

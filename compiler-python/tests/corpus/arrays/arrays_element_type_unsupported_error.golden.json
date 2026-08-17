@@ -1,0 +1,32 @@
+{
+  "fixture": "arrays_element_type_unsupported_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [
+      {
+        "phase": 4,
+        "check": "array_element_type_unsupported",
+        "line": 22,
+        "message": "line 22: field 'structs' in 'Outer' declares an array of struct type 'Inner' -- struct-typed array elements are not yet supported (first-pass scope is scalar and string elements only)"
+      },
+      {
+        "phase": 4,
+        "check": "array_element_type_unsupported",
+        "line": 23,
+        "message": "line 23: field 'identifiers' in 'Outer' declares an array of identifier domain 'ActionAttack' -- identifier-typed array elements are not yet supported (first-pass scope is scalar and string elements only)"
+      },
+      {
+        "phase": 4,
+        "check": "array_element_type_unsupported",
+        "line": 24,
+        "message": "line 24: field 'flags_field' in 'Outer' declares an array of flags domain 'ComponentFlags' -- flags-typed array elements are not yet supported (first-pass scope is scalar and string elements only)"
+      }
+    ],
+    "warnings": [],
+    "instances": {}
+  }
+}

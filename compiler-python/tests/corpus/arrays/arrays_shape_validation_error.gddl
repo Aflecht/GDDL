@@ -1,0 +1,28 @@
+// Fixture: arrays_shape_validation_error
+// Rule under test: arrays design -- two static (phase 5) shape checks,
+// each isolated on its own instance: a whole-array op-statement with no
+// bracket index makes no sense (a whole array has no single current
+// numeric value to read-modify-write) and is rejected the same way
+// struct/identifier fields already are; bracket indexing on a field that
+// ISN'T array-typed is rejected too. Both are purely static checks
+// needing only the AST and registry -- caught before phase 6 resolution
+// ever runs for the affected instance.
+
+define Enemy
+	damage_min_max = i32 : 2
+	hitpoints = u32
+
+Enemy WholeArrayOp
+	damage_min_max = 10, 30
+	damage_min_max + 5
+
+Enemy BracketOnScalar
+	hitpoints = 100
+	hitpoints[0] = 5
+
+// Expected: real, hard compile-time errors (phase 5, check: field_shape),
+// one per instance.
+//   WholeArrayOp: operator statement on 'damage_min_max' (an array-typed
+//   field) without bracket indexing is rejected.
+//   BracketOnScalar: bracket indexing used on 'hitpoints' (a scalar-typed
+//   field) is rejected -- only array-typed fields support it.

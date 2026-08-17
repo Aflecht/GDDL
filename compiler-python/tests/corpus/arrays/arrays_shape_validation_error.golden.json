@@ -1,0 +1,28 @@
+{
+  "fixture": "arrays_shape_validation_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "WholeArrayOp": {
+        "status": "error",
+        "phase": 5,
+        "check": "field_shape",
+        "line": 17,
+        "message": "line 17: operator statement on 'damage_min_max' (a array-typed field) -- operator statements only apply to plain scalar and flags-typed fields, or an array-typed field's element via bracket indexing"
+      },
+      "BracketOnScalar": {
+        "status": "error",
+        "phase": 5,
+        "check": "field_shape",
+        "line": 21,
+        "message": "line 21: bracket indexing used on 'hitpoints' (a scalar-typed field) -- only array-typed fields support bracket-indexed assignment"
+      }
+    }
+  }
+}

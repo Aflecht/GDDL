@@ -1,14 +1,289 @@
 {
   "_meta": {
-    "fixture_count": 79,
+    "fixture_count": 89,
     "batches": [
       {
         "name": "main_corpus",
-        "count": 79
+        "count": 89
       }
     ]
   },
   "fixtures": {
+    "arrays\\arrays_1d_literal_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Goblin": {
+          "status": "ok",
+          "resolved": {
+            "damage_min_max": [
+              10,
+              30
+            ]
+          },
+          "phase": null,
+          "check": null
+        },
+        "GoblinBraced": {
+          "status": "ok",
+          "resolved": {
+            "damage_min_max": [
+              10,
+              30
+            ]
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "arrays\\arrays_bracket_index_copy_and_adjust_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "BaseGoblin": {
+          "status": "ok",
+          "resolved": {
+            "base_power": 100,
+            "powers": [
+              100,
+              105
+            ],
+            "damage_min_max": [
+              10,
+              30
+            ]
+          },
+          "phase": null,
+          "check": null
+        },
+        "StrongerGoblin": {
+          "status": "ok",
+          "resolved": {
+            "base_power": 100,
+            "powers": [
+              100,
+              105
+            ],
+            "damage_min_max": [
+              10,
+              80
+            ]
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "arrays\\arrays_bracket_index_errors_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "OutOfBounds": {
+          "status": "error",
+          "phase": 6,
+          "check": "array_index_out_of_range",
+          "line": 21,
+          "message": "line 21: 'damage_min_max[5]': index out of bounds -- 'damage_min_max' has 2 element(s), valid indices are 0..1"
+        },
+        "NeverInitialized": {
+          "status": "error",
+          "phase": 6,
+          "check": "uninitialized_read",
+          "line": 24,
+          "message": "line 24: 'damage_min_max' is indexed ('[0]') by an operator statement ('+ 5') before being initialized -- an array must already hold a full value before an individual element can be read-modify-written by index"
+        },
+        "MultiDimIndexed": {
+          "status": "error",
+          "phase": 6,
+          "check": "array_multidim_index_unsupported",
+          "line": 28,
+          "message": "line 28: 'cells[0]': bracket indexing is only supported for one-dimensional arrays in this pass -- 'cells' has 2 dimensions; assign the full array with a literal instead"
+        }
+      }
+    },
+    "arrays\\arrays_element_type_unsupported_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "array_element_type_unsupported",
+          "line": 22,
+          "message": "line 22: field 'structs' in 'Outer' declares an array of struct type 'Inner' -- struct-typed array elements are not yet supported (first-pass scope is scalar and string elements only)"
+        },
+        {
+          "phase": 4,
+          "check": "array_element_type_unsupported",
+          "line": 23,
+          "message": "line 23: field 'identifiers' in 'Outer' declares an array of identifier domain 'ActionAttack' -- identifier-typed array elements are not yet supported (first-pass scope is scalar and string elements only)"
+        },
+        {
+          "phase": 4,
+          "check": "array_element_type_unsupported",
+          "line": 24,
+          "message": "line 24: field 'flags_field' in 'Outer' declares an array of flags domain 'ComponentFlags' -- flags-typed array elements are not yet supported (first-pass scope is scalar and string elements only)"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
+    "arrays\\arrays_multidim_literal_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "G": {
+          "status": "ok",
+          "resolved": {
+            "cells2d": [
+              [
+                10,
+                30,
+                5
+              ],
+              [
+                20,
+                50,
+                8
+              ]
+            ],
+            "cells3d": [
+              [
+                [
+                  10,
+                  30,
+                  5
+                ],
+                [
+                  20,
+                  50,
+                  8
+                ]
+              ],
+              [
+                [
+                  1,
+                  2,
+                  3
+                ],
+                [
+                  4,
+                  5,
+                  6
+                ]
+              ]
+            ]
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "arrays\\arrays_never_initialized_incomplete.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "Incomplete": {
+          "status": "incomplete",
+          "phase": 8,
+          "check": "final_completeness",
+          "missing_fields": [
+            "damage_min_max"
+          ],
+          "resolved": {
+            "damage_min_max": {
+              "__uninitialized__": true
+            },
+            "hitpoints": 100
+          }
+        }
+      }
+    },
+    "arrays\\arrays_shape_mismatch_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "WrongCount": {
+          "status": "error",
+          "phase": 6,
+          "check": "array_shape_mismatch",
+          "line": 17,
+          "message": "line 17: 'damage_min_max': expected 2 element(s) at this nesting level, got 3 ('10, 20, 30')"
+        },
+        "MissingBraces": {
+          "status": "error",
+          "phase": 6,
+          "check": "array_shape_mismatch",
+          "line": 20,
+          "message": "line 20: 'cells': expected 2 element(s) at this nesting level, got 6 ('10, 30, 5, 20, 50, 8')"
+        }
+      }
+    },
+    "arrays\\arrays_shape_validation_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "WholeArrayOp": {
+          "status": "error",
+          "phase": 5,
+          "check": "field_shape",
+          "line": 17,
+          "message": "line 17: operator statement on 'damage_min_max' (a array-typed field) -- operator statements only apply to plain scalar and flags-typed fields, or an array-typed field's element via bracket indexing"
+        },
+        "BracketOnScalar": {
+          "status": "error",
+          "phase": 5,
+          "check": "field_shape",
+          "line": 21,
+          "message": "line 21: bracket indexing used on 'hitpoints' (a scalar-typed field) -- only array-typed fields support bracket-indexed assignment"
+        }
+      }
+    },
+    "arrays\\arrays_string_elements_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {
+        "P": {
+          "status": "ok",
+          "resolved": {
+            "names": [
+              "Alice",
+              "Bob",
+              "Carol, Jr.",
+              "Dave"
+            ]
+          },
+          "phase": null,
+          "check": null
+        }
+      }
+    },
+    "arrays\\arrays_type_malformed_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "array_type_malformed",
+          "line": 9,
+          "message": "line 9: field 'non_integer_dim' in 'Outer' has a malformed array type 'i32 : x' -- expected 'ElementType : dim1 : dim2 : ...', each dimension a positive integer"
+        },
+        {
+          "phase": 4,
+          "check": "array_type_malformed",
+          "line": 10,
+          "message": "line 10: field 'zero_dim' in 'Outer' has a malformed array type 'i32 : 0' -- expected 'ElementType : dim1 : dim2 : ...', each dimension a positive integer"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
     "circular_references\\circular_reference_direct_two_instance.gddl": {
       "status": "parsed",
       "duplicate_errors": [

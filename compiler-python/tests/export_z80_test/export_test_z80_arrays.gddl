@@ -1,0 +1,15 @@
+// Real assemble/execute validation for the arrays feature on the Z80
+// export target (both assembly dialects) -- stage 4's "real compiled/run
+// output" requirement. See corpus/arrays/ for the phase 1-8 golden-locked
+// coverage; this fixture covers the export-side half those fixtures can't
+// capture. u8-only elements, matching this target's own real scope.
+
+define Enemy
+	damage_min_max = u8 : 2
+	grid = u8 : 2 : 3
+	names = string 8 : 2
+
+Enemy Goblin
+	damage_min_max = 10, 30
+	grid = { 1, 2, 3 }, { 4, 5, 6 }
+	names = "Al", "Bo"

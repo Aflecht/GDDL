@@ -1,0 +1,19 @@
+// Fixture: arrays_multidim_literal_valid
+// Rule under test: arrays design -- multi-dimensional array literals.
+// The single outermost brace layer stays optional regardless of
+// dimensionality; every level from there inward requires explicit braces
+// to disambiguate nested groups. dims are outermost-to-innermost, matching
+// both the type declaration's own left-to-right colon order and the
+// value's own outer-to-inner brace nesting.
+
+define Grid
+	cells2d = i32 : 2 : 3
+	cells3d = i32 : 2 : 2 : 3
+
+Grid G
+	cells2d = { 10, 30, 5 }, { 20, 50, 8 }
+	cells3d = {{ 10, 30, 5 }, { 20, 50, 8 }}, {{ 1, 2, 3 }, { 4, 5, 6 }}
+
+// Expected: compiles cleanly, no error.
+//   G.cells2d == [[10, 30, 5], [20, 50, 8]]
+//   G.cells3d == [[[10, 30, 5], [20, 50, 8]], [[1, 2, 3], [4, 5, 6]]]

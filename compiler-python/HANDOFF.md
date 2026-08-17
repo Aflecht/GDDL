@@ -4124,3 +4124,128 @@ be revisited if/when that toolchain ever gets built on this machine --
 not urgent, but worth remembering rather than quietly forgetting.
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+## Arrays work, stage 4: permanent corpus/regression fixtures
+
+Fourth of five staged passes -- matching `flags`' own stage 5
+precedent exactly (see that entry above): this is where the phase 1-8
+golden-locking discipline and the ad hoc real-toolchain fixtures built
+during stage 3 both become permanent, committed regression coverage,
+not one-off scratchpad verification that evaporates at the end of a
+session.
+
+**`tests/corpus/arrays/` -- ten new fixtures, phases 1-8 only, no
+export.** Same discipline as `corpus/flags/`'s own manifest states
+plainly: every value in each fixture's "Expected" comment was computed
+by hand first, then confirmed byte-for-byte against
+`export_golden.py`'s real captured output before the `.golden.json`
+was written, via a small script reading the freshly regenerated
+`golden_output.json` and wrapping each new fixture's real `output`
+block in the standard `fixture`/`capture_status`/`captured_at`/`output`
+envelope -- never hand-transcribed, avoiding exactly the kind of
+transcription error that discipline exists to prevent. All ten matched
+their hand-computed expectations exactly on the first real run.
+Positive baselines (1D and multi-dimensional literals, string
+elements including a literal comma inside a quoted element, and the
+design's own bracket-indexed copy-and-adjust motivating example, end
+to end); negative paths for every rejection this feature has: shape
+mismatch (wrong count, missing inner braces), each of the three
+explicitly-deferred element types individually, malformed/zero
+dimensions, out-of-bounds/uninitialized/multi-dimensional bracket
+indexing, both phase-5 static shape checks, and phase 8 completeness
+needing zero array-specific code. See `corpus/arrays/MANIFEST.md` for
+the full table and the stage-4 coverage checklist. Surgically merged
+into the committed `golden_output.json` (structurally diffed first --
+exactly the 10 new fixtures added, zero content differences to the
+existing 79 -- same discipline as every other corpus update this
+session).
+
+**Real-toolchain export fixtures, wired into every driver suite's own
+`CASES` list, matching the exact `.gddl` + committed generated output +
+hand-written test + CASES-entry pattern `export_test_flags.gddl`
+already established:**
+
+- **C++** (`export_cpp_test/`): `export_test_arrays.gddl`, committed
+  `generated_arrays.h` (AoS) and `generated_arrays_soa.h` (SoA), and
+  `test_generated_arrays.cpp` / `test_generated_arrays_soa.cpp` --
+  static-assert-checkable in single-header mode (as flags' own test
+  already established), plus a real runtime `Registry::Find(name)`
+  lookup and a row-major stride check. Added to `run_all_cpp_tests.py`'s
+  `CASES` (17 -> 19; that count is computed from `len(CASES)`, needed
+  no manual fix).
+- **6502** (`export_6502_test/`): one `.gddl` (u8-only elements,
+  matching this target's real scope) exported to all three dialects'
+  own committed `.asm`, one hand-written harness per dialect (pure
+  data check -- no code execution needed, matching the reasoning
+  already used for the stage-3 ad hoc verification), one check script
+  per dialect. Added to `ACME_CASES`/`TASS64_CASES`/`KICKASS_CASES`
+  (9 -> 12).
+- **Z80** (`export_z80_test/`): same pattern, both assembly dialects
+  (SjASMPlus, z88dk-z80asm). Added to `SJASMPLUS_CASES`/`Z88DK_CASES`
+  (8 -> 10).
+- **68000** (`export_68000_test/`): AoS and SoA both, following
+  `test_68000_soa.c`/`test_68000_aos_split.c`'s own established shape.
+  Added to `CASES` (4 -> 6).
+- **Binary export** (`export_binary_test/`): a dedicated, SEPARATE
+  fixture and build (`export_test_binary_arrays.gddl`, `check_array_readback`
+  as a new numbered check, Check 4) rather than touching the existing
+  Item/Object coverage fixture -- purely additive, no risk to
+  already-locked schema/offset expectations elsewhere in that suite.
+  `independent_reader.py` itself needed real new logic here, not just
+  a new fixture: `_independent_parse_array_type` (a SECOND, genuinely
+  independent parser of `'ElementType : dim1 : dim2 : ...'`,
+  deliberately NOT importing `registry._try_parse_array_type` -- the
+  same independence reasoning the whole file's module docstring
+  already states is the actual point of it existing) and
+  `_unpack_array_level` (row-major recursive unpack, confirmed against
+  the writer's layout rather than assumed to match it).
+
+**A real, small gap found and fixed along the way, not silently
+carried forward:** three of the four assembly-target driver scripts
+(`run_all_6502_tests.py`, `run_all_z80_tests.py`,
+`run_all_68000_tests.py`) print a hardcoded `"N/N"` pass count at the
+end rather than computing it from the CASES list length the way
+`run_all_cpp_tests.py` already does (`len(CASES)`). Updating each
+`CASES` list without updating this string would have silently printed
+a stale, wrong count once the new array cases started passing --
+caught by actually reading the real output after the first re-run
+(6502 printed "9/9" with 12 real passing cases), not assumed correct.
+Fixed all three to the real new counts (12/12, 10/10, 6/6) rather than
+also converting them to `len(...)`-computed strings, matching this
+project's own "the smallest change that fixes the actual problem"
+discipline -- these three files' own existing style already hardcodes
+the dialect-count English text (`"all three dialects"`, `"both
+dialects"`) right next to the number, so a full refactor to computed
+counts would be a larger, unrelated change than this stage needed to
+make.
+
+**Cleanup, not part of the feature itself:** three stray MSVC `.obj`
+files had leaked into the repo root during stage 3's own ad hoc
+compile probes (already fixed then); this stage found two more stray
+build artifacts of the same general kind -- the compiled vbcc test
+binaries `test_68000_arrays`/`test_68000_arrays_soa`, landing in
+`export_68000_test/` alongside their own `.c` source before being
+caught. Added both to `.gitignore` (matching that file's existing
+per-binary-name convention for this directory, not a wildcard) and
+removed them from the working tree.
+
+Full regression suite re-run clean, one final time, everything
+together: `export_golden.py` (89 fixtures now, structurally diffed --
+exactly the 10 new array fixtures, zero content differences to the
+other 79), all four real-toolchain driver suites at their new real
+counts (19/12/10/6), `test_68000_cli.py`, `test_binary_export.py`
+(now with its own new Check 4), `multi_file_test.py`,
+`test_ids_manifest.py`.
+
+**Not yet done, next**: stage 5, the last stage -- documentation.
+SPEC.md needs a new top-level section for arrays (following the exact
+pattern section 20 already set for the identifiers manifest earlier
+this session: append at the end rather than inserting in the middle,
+since several existing sections are cited by number throughout code
+comments and other docs). `language-basics.md` needs its own worked,
+verified-against-real-output section, matching how the flags feature's
+own documentation pass worked (every example re-run through the real
+compiler before being written down, not hand-derived). The z88dk-C
+zsdcc verification gap (stage 3) remains open, not urgent.
+
+Zero em-dashes (checked directly, this project's own hard rule).

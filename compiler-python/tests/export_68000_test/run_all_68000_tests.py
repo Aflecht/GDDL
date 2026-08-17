@@ -48,6 +48,8 @@ CASES = [
      "test_68000_subset_request_bug"),
     ("test_68000_soa.c", "generated_68000_soa.c", "test_68000_soa"),
     ("test_68000_aos_split.c", "generated_68000_minimal.c", "test_68000_aos_split"),
+    ("test_68000_arrays.c", "generated_68000_arrays.c", "test_68000_arrays"),
+    ("test_68000_arrays_soa.c", "generated_68000_arrays_soa.c", "test_68000_arrays_soa"),
 ]
 
 
@@ -87,7 +89,7 @@ def main():
         print(f"-- {out_stem} --")
         compile_and_run(test_c, generated_c, out_stem)
 
-    print("\nALL 68000 REAL-TOOLCHAIN CHECKS PASSED (4/4).")
+    print("\nALL 68000 REAL-TOOLCHAIN CHECKS PASSED (6/6).")
 
 
 if __name__ == "__main__":

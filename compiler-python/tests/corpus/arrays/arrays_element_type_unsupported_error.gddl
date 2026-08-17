@@ -1,0 +1,32 @@
+// Fixture: arrays_element_type_unsupported_error
+// Rule under test: arrays design -- struct-typed, identifier-typed, and
+// flags-typed array elements are all explicitly deferred to a later pass
+// (first-pass scope is scalar and string elements only). Each gets its
+// own specific, named rejection (check: array_element_type_unsupported),
+// not a generic "unsupported type" message -- three separate fields, each
+// isolating one rejected element kind. Define-only fixture (the error is
+// a property of the field declaration itself, phase 4 -- no instance
+// needed to trigger it, same convention as
+// flags_duplicate_bit_claim_error.gddl in corpus/flags/).
+
+define Inner
+	x = u32
+
+identifier ActionAttack
+	melee_weapon = "Standard melee attack"
+
+flags ComponentFlags u8
+	is_movable = b0
+
+define Outer
+	structs = Inner : 2
+	identifiers = ActionAttack : 2
+	flags_field = ComponentFlags : 2
+
+// Expected: real, hard compile-time errors (phase 4, check:
+// array_element_type_unsupported), one per field, three total.
+//   'structs': array of struct type 'Inner' -- not yet supported.
+//   'identifiers': array of identifier domain 'ActionAttack' -- not yet
+//   supported.
+//   'flags_field': array of flags domain 'ComponentFlags' -- not yet
+//   supported.

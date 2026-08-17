@@ -1,0 +1,27 @@
+{
+  "fixture": "arrays_string_elements_valid.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "P": {
+        "status": "ok",
+        "resolved": {
+          "names": [
+            "Alice",
+            "Bob",
+            "Carol, Jr.",
+            "Dave"
+          ]
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

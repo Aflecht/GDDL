@@ -1,0 +1,28 @@
+{
+  "fixture": "arrays_never_initialized_incomplete.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Incomplete": {
+        "status": "incomplete",
+        "phase": 8,
+        "check": "final_completeness",
+        "missing_fields": [
+          "damage_min_max"
+        ],
+        "resolved": {
+          "damage_min_max": {
+            "__uninitialized__": true
+          },
+          "hitpoints": 100
+        }
+      }
+    }
+  }
+}

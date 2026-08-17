@@ -1,0 +1,59 @@
+{
+  "fixture": "arrays_multidim_literal_valid.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "G": {
+        "status": "ok",
+        "resolved": {
+          "cells2d": [
+            [
+              10,
+              30,
+              5
+            ],
+            [
+              20,
+              50,
+              8
+            ]
+          ],
+          "cells3d": [
+            [
+              [
+                10,
+                30,
+                5
+              ],
+              [
+                20,
+                50,
+                8
+              ]
+            ],
+            [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                4,
+                5,
+                6
+              ]
+            ]
+          ]
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

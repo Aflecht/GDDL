@@ -1,0 +1,28 @@
+// Fixture: arrays_bracket_index_copy_and_adjust_valid
+// Rule under test: arrays design's own motivating example -- op-statements
+// apply to arrays via direct bracket indexing: a derived instance copies a
+// base's array, then adjusts just ONE element via 'field[N] <op> expr',
+// the "current value at that index is the implicit leading operand" rule
+// applied per-element instead of per-field. Also exercises a cross-field
+// reference and arithmetic expression as an array element's own value (the
+// same expression evaluator scalar fields already use, reused verbatim for
+// array element values, not a narrower literal-only parser).
+
+define Enemy
+	base_power = i32
+	powers = i32 : 2
+	damage_min_max = i32 : 2
+
+Enemy BaseGoblin
+	base_power = 100
+	powers = base_power, base_power + 5
+	damage_min_max = 10, 30
+
+Enemy StrongerGoblin = BaseGoblin
+	damage_min_max[1] + 50
+
+// Expected: compiles cleanly, no error.
+//   BaseGoblin.powers               == [100, 105]  (expression element)
+//   BaseGoblin.damage_min_max       == [10, 30]
+//   StrongerGoblin.damage_min_max   == [10, 80]  (index 1 only: 30 + 50;
+//                                                 index 0 unchanged, still 10)

@@ -42,6 +42,7 @@ import independent_reader as reader
 
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "export_test_binary_coverage.gddl")
+FIXTURE_ARRAYS = os.path.join(os.path.dirname(__file__), "export_test_binary_arrays.gddl")
 
 # Ground truth, extracted directly from the reference implementation
 # (resolver.cache), not hand-derived -- see the session transcript for
@@ -302,6 +303,58 @@ def check_schema_discrimination(build_dir):
           "record_size alone would not have; unrelated type unaffected.\n")
 
 
+def check_array_readback(build_dir):
+    """Check 4: arrays feature, stage 4's "real compiled/run output"
+    requirement for the standalone binary export target. A SEPARATE
+    fixture/build from checks 1-3 (Item/Object have no array fields) --
+    read back via independent_reader.py's own from-scratch array
+    unpacking (_independent_parse_array_type / _unpack_array_level,
+    sharing no code with export_binary.py's writer-side
+    _leaf_binary_kind / _pack_array_value), confirming row-major,
+    contiguous, no-padding layout end to end: 1D, 2D, and string N
+    array elements, including one containing a literal comma inside its
+    own quotes."""
+    print("=== Check 4: array read-back (independent, separate fixture) ===")
+    prog = parse_file(FIXTURE_ARRAYS)
+    resolver = resolve_all(prog)
+    reg = resolver.reg
+
+    out_stem = os.path.join(build_dir, "test_arrays")
+    export_binary(reg, resolver, ["Enemy"], out_stem)
+
+    with open(out_stem + ".gddldata.bin", "rb") as f:
+        data = f.read()
+    import json
+    with open(out_stem + ".gddlmeta.json") as f:
+        manifest = json.load(f)
+
+    _version, entries = reader.read_header_and_type_table(data)
+    entry = next(e for e in entries if e.name == "Enemy")
+    manifest_type = next(t for t in manifest["types"] if t["name"] == "Enemy")
+    fields = field_offsets_by_name(manifest_type)
+    records = reader.read_records_raw(data, entry)
+    assert len(records) == 1, f"expected 1 record, got {len(records)}"
+    record = records[0]
+
+    off, width, ftype = fields["damage_min_max"]
+    got = reader.unpack_field(record, off, width, ftype)
+    assert got == [10, 30], f"damage_min_max: got {got}, want [10, 30]"
+
+    off, width, ftype = fields["grid"]
+    got = reader.unpack_field(record, off, width, ftype)
+    assert got == [[1, 2, 3], [4, 5, 6]], f"grid: got {got}, want [[1, 2, 3], [4, 5, 6]]"
+
+    off, width, ftype = fields["names"]
+    got = reader.unpack_field(record, off, width, ftype)
+    want = ["Alice", "Bob", "Carol, Jr.", "Dave"]
+    assert got == want, f"names: got {got}, want {want}"
+
+    print("  damage_min_max: [10, 30]  [OK]")
+    print("  grid (row-major, 2D): [[1, 2, 3], [4, 5, 6]]  [OK]")
+    print(f"  names (string N elements, incl. embedded comma): {want}  [OK]")
+    print("Check 4 PASSED.\n")
+
+
 def main():
     build_dir = tempfile.mkdtemp(prefix="gddl_binary_test_")
     try:
@@ -321,6 +374,7 @@ def main():
         check_lookup_tables(reg, resolver, data, by_name)
         check_manifest_truthfulness(data, manifest)
         check_schema_discrimination(build_dir)
+        check_array_readback(build_dir)
 
         print("ALL CHECKS PASSED.")
     finally:

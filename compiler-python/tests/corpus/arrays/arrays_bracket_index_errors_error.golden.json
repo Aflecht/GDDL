@@ -1,0 +1,35 @@
+{
+  "fixture": "arrays_bracket_index_errors_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "OutOfBounds": {
+        "status": "error",
+        "phase": 6,
+        "check": "array_index_out_of_range",
+        "line": 21,
+        "message": "line 21: 'damage_min_max[5]': index out of bounds -- 'damage_min_max' has 2 element(s), valid indices are 0..1"
+      },
+      "NeverInitialized": {
+        "status": "error",
+        "phase": 6,
+        "check": "uninitialized_read",
+        "line": 24,
+        "message": "line 24: 'damage_min_max' is indexed ('[0]') by an operator statement ('+ 5') before being initialized -- an array must already hold a full value before an individual element can be read-modify-written by index"
+      },
+      "MultiDimIndexed": {
+        "status": "error",
+        "phase": 6,
+        "check": "array_multidim_index_unsupported",
+        "line": 28,
+        "message": "line 28: 'cells[0]': bracket indexing is only supported for one-dimensional arrays in this pass -- 'cells' has 2 dimensions; assign the full array with a literal instead"
+      }
+    }
+  }
+}

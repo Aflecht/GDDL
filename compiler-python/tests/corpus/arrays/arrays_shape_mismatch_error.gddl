@@ -1,0 +1,26 @@
+// Fixture: arrays_shape_mismatch_error
+// Rule under test: arrays design -- a value literal's element count must
+// match the declared dimension EXACTLY at every nesting level (check:
+// array_shape_mismatch), and every level from the outermost inward
+// requires explicit braces to disambiguate nested groups (a multi-dim
+// literal missing its required inner braces is the SAME check, a
+// different concrete trigger). Two separate instances, each isolating one
+// trigger.
+
+define Enemy
+	damage_min_max = i32 : 2
+
+define Grid
+	cells = i32 : 2 : 3
+
+Enemy WrongCount
+	damage_min_max = 10, 20, 30
+
+Grid MissingBraces
+	cells = 10, 30, 5, 20, 50, 8
+
+// Expected: real, hard compile-time errors (phase 6, check:
+// array_shape_mismatch), one per instance.
+//   WrongCount: 'damage_min_max' expected 2 elements, got 3.
+//   MissingBraces: 'cells' expected 2 elements at the outer level, got 6
+//   (no inner braces present to delimit the two required 3-element groups).

@@ -1,0 +1,16 @@
+// Fixture: arrays_string_elements_valid
+// Rule under test: arrays design -- string N array elements. Comma-splitting
+// of array elements/groups is quote-aware: a string element containing a
+// literal comma inside its own quotes must not be mis-split as a group
+// boundary.
+
+define Party
+	names = string 16 : 4
+
+Party P
+	names = "Alice", "Bob", "Carol, Jr.", "Dave"
+
+// Expected: compiles cleanly, no error.
+//   P.names == ["Alice", "Bob", "Carol, Jr.", "Dave"]
+//   (4 elements, not 5 -- the comma inside "Carol, Jr." is NOT a group
+//   separator)

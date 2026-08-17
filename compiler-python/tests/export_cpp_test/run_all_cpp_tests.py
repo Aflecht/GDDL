@@ -51,6 +51,8 @@ CASES = [
      "test_generated_composition_nested_u16_fields_single"),
     (["test_generated_scaleup2.cpp"], "test_generated_scaleup2"),
     (["test_generated_flags.cpp"], "test_generated_flags"),
+    (["test_generated_arrays.cpp"], "test_generated_arrays"),
+    (["test_generated_arrays_soa.cpp"], "test_generated_arrays_soa"),
 ]
 
 

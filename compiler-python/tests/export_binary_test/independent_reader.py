@@ -98,6 +98,34 @@ def read_lookup_table(data: bytes, entry: TypeTableEntry):
     return pairs
 
 
+def _independent_parse_array_type(field_type: str):
+    """A SECOND, from-scratch parser of 'ElementType : dim1 : dim2 : ...'
+    -- deliberately NOT importing registry._try_parse_array_type, for
+    the exact same independence reason this whole file exists (see
+    module docstring). Returns (element_type, dims) or None if
+    field_type isn't array-shaped."""
+    if ":" not in field_type:
+        return None
+    parts = [p.strip() for p in field_type.split(":")]
+    element_type = parts[0]
+    dims = [int(p) for p in parts[1:]]
+    return element_type, dims
+
+
+def _unpack_array_level(raw: bytes, dims, element_type: str, elem_width: int):
+    """Row-major/contiguous unpack, one dimension at a time -- the exact
+    same layout the writer's own _pack_array_value uses, confirmed
+    independently here rather than assumed to match."""
+    if len(dims) == 1:
+        return [unpack_field(raw[i * elem_width:(i + 1) * elem_width], 0, elem_width, element_type)
+                for i in range(dims[0])]
+    stride = elem_width
+    for d in dims[1:]:
+        stride *= d
+    return [_unpack_array_level(raw[i * stride:(i + 1) * stride], dims[1:], element_type, elem_width)
+            for i in range(dims[0])]
+
+
 def unpack_field(record: bytes, byte_offset: int, byte_width: int, field_type: str):
     """Unpacks a single field from a raw record's bytes, given the
     manifest's own field description (name/type/offset/width) -- this
@@ -106,6 +134,15 @@ def unpack_field(record: bytes, byte_offset: int, byte_width: int, field_type: s
     raw = record[byte_offset:byte_offset + byte_width]
 
     ft = field_type.strip()
+
+    array_shape = _independent_parse_array_type(ft)
+    if array_shape is not None:
+        element_type, dims = array_shape
+        elem_width = byte_width
+        for d in dims:
+            elem_width //= d
+        return _unpack_array_level(raw, dims, element_type, elem_width)
+
     if ft.startswith("@"):
         # indexed identifier: plain unsigned int of byte_width size
         fmt = {1: "<B", 2: "<H", 4: "<I", 8: "<Q"}[byte_width]

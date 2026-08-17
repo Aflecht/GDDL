@@ -1,0 +1,46 @@
+{
+  "fixture": "arrays_bracket_index_copy_and_adjust_valid.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "BaseGoblin": {
+        "status": "ok",
+        "resolved": {
+          "base_power": 100,
+          "powers": [
+            100,
+            105
+          ],
+          "damage_min_max": [
+            10,
+            30
+          ]
+        },
+        "phase": null,
+        "check": null
+      },
+      "StrongerGoblin": {
+        "status": "ok",
+        "resolved": {
+          "base_power": 100,
+          "powers": [
+            100,
+            105
+          ],
+          "damage_min_max": [
+            10,
+            80
+          ]
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

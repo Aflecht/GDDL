@@ -1,0 +1,19 @@
+// Fixture: arrays_never_initialized_incomplete
+// Rule under test: arrays design -- an array field that's never assigned
+// at all is caught by phase 8's ordinary completeness check with ZERO
+// array-specific code needed: a fully-populated array value is just a
+// plain Python list, never a StructValue, so the EXISTING
+// isinstance(field_val, StructValue) recursion in
+// validate.py::_find_uninitialized already correctly treats an
+// unassigned array field as UNINIT, same as any other field type.
+
+define Enemy
+	damage_min_max = i32 : 2
+	hitpoints = u32
+
+Enemy Incomplete
+	hitpoints = 100
+
+// Expected: compiles (no hard error), but export-blocking.
+//   Incomplete: status "incomplete", missing field 'damage_min_max'
+//   (never assigned).

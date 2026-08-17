@@ -1,0 +1,37 @@
+// Fixture: arrays_bracket_index_errors_error
+// Rule under test: arrays design -- three separate, real bracket-indexing
+// failure modes, each isolated on its own instance: an out-of-bounds
+// index (check: array_index_out_of_range), reading/writing an index
+// before the array itself has been initialized as a whole (check:
+// uninitialized_read -- arrays are always either UNINIT as a whole or
+// fully populated as a whole, never partially, since the design rejected
+// the bare/modify-only form for arrays), and bracket indexing on a
+// multi-dimensional array (check: array_multidim_index_unsupported --
+// scoped to one-dimensional arrays only in this pass, since the design's
+// own examples never specify what field[N] should mean for a 2D+ array).
+
+define Enemy
+	damage_min_max = i32 : 2
+
+define Grid
+	cells = i32 : 2 : 3
+
+Enemy OutOfBounds
+	damage_min_max = 10, 30
+	damage_min_max[5] = 999
+
+Enemy NeverInitialized
+	damage_min_max[0] + 5
+
+Grid MultiDimIndexed
+	cells = { 10, 30, 5 }, { 20, 50, 8 }
+	cells[0] = 999
+
+// Expected: real, hard compile-time errors (phase 6), one per instance.
+//   OutOfBounds (check: array_index_out_of_range): index 5 out of bounds,
+//   'damage_min_max' has 2 elements, valid indices 0..1.
+//   NeverInitialized (check: uninitialized_read): 'damage_min_max' indexed
+//   before being initialized.
+//   MultiDimIndexed (check: array_multidim_index_unsupported): bracket
+//   indexing only supported for one-dimensional arrays; 'cells' has 2
+//   dimensions.

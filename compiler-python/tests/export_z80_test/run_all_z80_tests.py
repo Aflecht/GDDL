@@ -41,6 +41,7 @@ SJASMPLUS_CASES = [
     ("test_z80_soa_harness", "test_z80_soa_run.py"),
     ("test_z80_string_field_harness", "test_z80_string_field_run.py"),
     ("test_z80_composition_u16_harness", "test_z80_composition_u16_run.py"),
+    ("test_z80_arrays_harness", "test_z80_arrays_run.py"),
 ]
 
 # (harness stem, -o output stem, check script) -- z88dk-z80asm dialect,
@@ -54,6 +55,8 @@ Z88DK_CASES = [
      "test_z80_string_field_z88dk_run.py"),
     ("test_z80_composition_u16_harness_z88dk", "test_z80_composition_u16_harness_z88dk_out",
      "test_z80_composition_u16_z88dk_run.py"),
+    ("test_z80_arrays_harness_z88dk", "test_z80_arrays_harness_z88dk_out",
+     "test_z80_arrays_z88dk_run.py"),
 ]
 
 
@@ -102,7 +105,7 @@ def main():
         assemble_z88dk(stem, out_stem)
         run_check(script)
 
-    print("\nALL Z80 REAL-TOOLCHAIN CHECKS PASSED (both dialects, 8/8).")
+    print("\nALL Z80 REAL-TOOLCHAIN CHECKS PASSED (both dialects, 10/10).")
 
 
 if __name__ == "__main__":

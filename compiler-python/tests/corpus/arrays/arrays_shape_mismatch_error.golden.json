@@ -1,0 +1,28 @@
+{
+  "fixture": "arrays_shape_mismatch_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "WrongCount": {
+        "status": "error",
+        "phase": 6,
+        "check": "array_shape_mismatch",
+        "line": 17,
+        "message": "line 17: 'damage_min_max': expected 2 element(s) at this nesting level, got 3 ('10, 20, 30')"
+      },
+      "MissingBraces": {
+        "status": "error",
+        "phase": 6,
+        "check": "array_shape_mismatch",
+        "line": 20,
+        "message": "line 20: 'cells': expected 2 element(s) at this nesting level, got 6 ('10, 30, 5, 20, 50, 8')"
+      }
+    }
+  }
+}

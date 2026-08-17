@@ -1,0 +1,18 @@
+// Real vbcc/vamos compile-and-run validation for the arrays feature on the
+// 68000 export target (C89 via vbcc) -- stage 4's "real compiled/run
+// output" requirement. See corpus/arrays/ for the phase 1-8 golden-locked
+// coverage; this fixture covers the export-side half those fixtures can't
+// capture.
+
+define Enemy
+	damage_min_max = i32 : 2
+	grid = i32 : 2 : 3
+	names = string 16 : 4
+
+Enemy BaseGoblin
+	damage_min_max = 10, 30
+	grid = { 1, 2, 3 }, { 4, 5, 6 }
+	names = "Alice", "Bob", "Carol, Jr.", "Dave"
+
+Enemy StrongerGoblin = BaseGoblin
+	damage_min_max[1] + 50

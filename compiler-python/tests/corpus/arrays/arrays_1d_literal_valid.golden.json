@@ -1,0 +1,36 @@
+{
+  "fixture": "arrays_1d_literal_valid.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-08-17",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {
+      "Goblin": {
+        "status": "ok",
+        "resolved": {
+          "damage_min_max": [
+            10,
+            30
+          ]
+        },
+        "phase": null,
+        "check": null
+      },
+      "GoblinBraced": {
+        "status": "ok",
+        "resolved": {
+          "damage_min_max": [
+            10,
+            30
+          ]
+        },
+        "phase": null,
+        "check": null
+      }
+    }
+  }
+}

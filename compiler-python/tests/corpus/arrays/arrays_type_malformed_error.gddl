@@ -1,0 +1,15 @@
+// Fixture: arrays_type_malformed_error
+// Rule under test: arrays design -- 'ElementType : dim1 : dim2 : ...'
+// syntax validation at registration: a non-integer dimension and a
+// zero-valued dimension are both malformed (check: array_type_malformed),
+// distinct from array_element_type_unsupported (a well-formed shape with
+// a disallowed element type) above. Define-only fixture.
+
+define Outer
+	non_integer_dim = i32 : x
+	zero_dim = i32 : 0
+
+// Expected: real, hard compile-time errors (phase 4, check:
+// array_type_malformed), one per field, two total.
+//   'non_integer_dim': 'i32 : x' -- 'x' isn't a positive integer.
+//   'zero_dim': 'i32 : 0' -- 0 is not a positive integer.

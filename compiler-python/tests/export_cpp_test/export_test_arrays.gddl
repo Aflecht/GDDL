@@ -1,0 +1,19 @@
+// Real MSVC compile/link/run validation for the arrays feature on the C++
+// export target -- stage 4's "real compiled/run output" requirement, the
+// same role export_test_flags.gddl plays for the flags feature. See
+// corpus/arrays/ (golden-locked there under normal discipline, phases 1-8
+// only) for the full design rationale; this file covers the export-side
+// half those fixtures can't capture on their own.
+
+define Enemy
+	damage_min_max = i32 : 2
+	grid = i32 : 2 : 3
+	names = string 16 : 4
+
+Enemy BaseGoblin
+	damage_min_max = 10, 30
+	grid = { 1, 2, 3 }, { 4, 5, 6 }
+	names = "Alice", "Bob", "Carol, Jr.", "Dave"
+
+Enemy StrongerGoblin = BaseGoblin
+	damage_min_max[1] + 50
