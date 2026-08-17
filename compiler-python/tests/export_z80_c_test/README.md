@@ -6,11 +6,19 @@ visually.
 
 ## Toolchain
 
-`zsdcc` is NOT stock SDCC. Build from `https://github.com/z88dk/sdcc.git`,
-branch **`zsdcc`** (SourceForge, the upstream home, is egress-blocked;
-`master` on that mirror is unmodified SDCC). The built binary identifies
-itself as `ZSDCC IS A MODIFICATION OF SDCC FOR Z88DK`. See HANDOFF.md for
-the full dependency list and the `MAKEINFO=true` workaround.
+`zsdcc` is NOT stock SDCC. On this Windows machine, no source build is
+needed: the official `z88dk` binary distribution already bundles a
+working `z88dk-zsdcc.exe` under `compiler-python/tools/z88dk/z88dk/bin/`
+(the unprefixed `zsdcc.exe` next to it is a broken 0-byte stub, ignore
+it). The binary identifies itself as `ZSDCC IS A MODIFICATION OF SDCC
+FOR Z88DK`.
+
+If a source build is ever needed instead (e.g. on Linux, where this was
+originally done in an earlier, now-defunct cloud-sandbox session): build
+from `https://github.com/z88dk/sdcc.git`, branch **`zsdcc`** (SourceForge,
+the upstream home, is egress-blocked; `master` on that mirror is
+unmodified SDCC). See HANDOFF.md for the full dependency list and the
+`MAKEINFO=true` workaround.
 
 **`zcc` must be invoked with `-compiler=sdcc`.** `sccz80` is `zcc`'s
 silent default and is explicitly unsupported (§16.1) — its inline
@@ -30,6 +38,13 @@ outside it falls through to a ~500+ T-state runtime multiply.
   fails with `Multiple definition of _Creature_Instances /
   _Creature_Registry / _Creature_Find` — confirming §16.2.1's split is
   load-bearing rather than stylistic.
+- **Array-typed fields** (§21) compiled and linked under `zcc +embedded
+  -compiler=sdcc -clib=sdcc_ix`, with the resulting binary's data
+  section inspected directly and matched byte-for-byte against the
+  expected const instance data. See HANDOFF.md's known-gaps section
+  ("Also resolved: Arrays on z88dk-C mode...") for the full account,
+  including why `-clib=sdcc_ix` is needed instead of the target's
+  default CLIB.
 
 Note SDCC compiles only one source file per invocation (`warning 120`);
 compile each TU to `.rel` with `-c`, then link.
