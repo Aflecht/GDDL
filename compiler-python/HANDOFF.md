@@ -79,18 +79,15 @@ listed here; those are settled, not pending.
 2. **Z80's `--z88dk-output=c` mode doesn't support `--layout=soa`**
    -- marked "remains unimplemented" in SPEC.md section 13's
    layout-compatibility table.
-3. **Arrays on z88dk-C mode are implemented but never
-   toolchain-verified** -- `zsdcc` isn't installed on this Windows
-   machine. See this file's "Arrays work, stage 3" entry.
-4. **Arrays under `--layout=soa` on 6502 and both Z80 assembly
+3. **Arrays under `--layout=soa` on 6502 and both Z80 assembly
    dialects** -- deliberately scoped out of arrays' stage 3, not
    ruled out permanently. See "Arrays work, stage 3" entry.
-5. **`string N` fields under `--layout=soa` on 6502/Z80** -- a
-   pre-existing gap, same root cause arrays' own SoA gap (#4) mirrors:
+4. **`string N` fields under `--layout=soa` on 6502/Z80** -- a
+   pre-existing gap, same root cause arrays' own SoA gap (#3) mirrors:
    a non-power-of-two element width needs a real multiply neither
    target's multiply-avoidance discipline (SPEC.md section 16) has a
    renderer for yet.
-6. **Struct/identifier/flags-typed array elements** -- explicitly
+5. **Struct/identifier/flags-typed array elements** -- explicitly
    deferred to "a later pass" in the arrays design itself; current
    scope is scalar and `string N` elements only. See SPEC.md section
    21.1.
@@ -107,6 +104,24 @@ width-declared, zero-reference `ActionAttack` domain produces nothing
 without the flag, its full companion enum or constant table with it
 on). SPEC.md sections 8.5, 14.7, and the cross-reference in section 4
 were all corrected to describe this as implemented, not planned.
+
+**Also resolved:** "Arrays on z88dk-C mode are implemented but never
+toolchain-verified." `zsdcc` turned out to already be bundled with the
+`z88dk` install under `compiler-python/tools/z88dk/z88dk/bin/` (as
+`z88dk-zsdcc.exe`; the unprefixed `zsdcc.exe` next to it is a broken
+0-byte stub, ignore it) -- no source build needed. Verified with a real
+`zcc +embedded -compiler=sdcc -clib=sdcc_ix` compile+link of the
+existing array fixture (`array_6502_test.gddl`, u8 elements): GDDL's
+generated `gddl_z80_export.c` compiled and linked cleanly, and the
+resulting binary's `CODE.bin` section contains the exact expected byte
+sequence for the const instance data -- `0A 1E` (`damage_min_max =
+{10,30}`), `01 02 03 04 05 06` (`grid = {{1,2,3},{4,5,6}}`), and the
+two 8-byte null-padded string buffers for `names = {"Al","Bo"}` --
+confirming both compile-time and data-layout correctness. Note for
+future runs: the `embedded` target's *default* CLIB pulls in a console
+driver and fails to link with `undefined symbol: fputc_cons_native`
+even when the program never calls `printf`; `-clib=sdcc_ix` (the
+SDCC-paired, `-nostdlib` variant) avoids that requirement entirely.
 
 ## Core language recap
 
@@ -4359,12 +4374,14 @@ target-by-target export reference.
 `GDDL_Session_Handover.md` section 5's own original plan: parser
 (stage 1), registry/resolution (stage 2), export across all five
 targets (stage 3), permanent corpus/regression fixtures (stage 4),
-documentation (stage 5, this entry). Two honestly-recorded, open gaps
-remain from stage 3, neither blocking: z88dk C mode's array support is
-implemented but not toolchain-verified (`zsdcc` isn't installed on
-this machine); SoA layout doesn't support array-typed fields on 6502
-or Z80 yet (matching those targets' own pre-existing `string N` SoA
-gap, not a new one arrays introduced). Both are noted in SPEC.md
-section 21.4 and this file's own stage-3 entry, not silently dropped.
+documentation (stage 5, this entry). One honestly-recorded, open gap
+remains from stage 3, not blocking: SoA layout doesn't support
+array-typed fields on 6502 or Z80 yet (matching those targets' own
+pre-existing `string N` SoA gap, not a new one arrays introduced),
+noted in SPEC.md section 21.4 and this file's own stage-3 entry, not
+silently dropped. z88dk C mode's array support was later
+toolchain-verified with a real `zsdcc` compile+link (see this file's
+"Known gaps" section above) -- `zsdcc` turned out to already be
+bundled with the `z88dk` install, no source build needed.
 
 Zero em-dashes (checked directly, this project's own hard rule).
