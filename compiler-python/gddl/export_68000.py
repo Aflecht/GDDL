@@ -633,7 +633,7 @@ def _cli():
     print(f"wrote {header_name} and {c_name}")
 
     if args.emit_ids_manifest:
-        manifest_path = write_ids_manifest(resolver.reg, args.output)
+        manifest_path = write_ids_manifest(resolver.reg, args.output, resolver=resolver)
         print(f"wrote {manifest_path}")
 
 

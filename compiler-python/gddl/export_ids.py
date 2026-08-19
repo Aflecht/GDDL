@@ -31,21 +31,57 @@ Flags domain members carry no description text at all: flags syntax
 entries, which require `key = "description"`. Only `key` and `bit`
 are written for flags members; inventing a fake description would
 violate this project's own "nothing is implicit" principle (§2).
+
+**`instances` (§20.3.1)**: same idea as `domains`, but for named
+data-record instances instead of identifier/flags domain members --
+lets a script resolve `Type::instance_name` (§6.8's `Type::Name`
+qualified-name convention) to the same stable ID
+(`reg.get_instance_id`) the C++/bindings-manifest exporters already
+compute, for a define this compile unit may not even export to a
+struct-bearing target at all. Reuses `_topo_sort_defines`/
+`export_instances_for_type` from export_cpp.py verbatim -- the exact
+same "one source of truth" reasoning the module docstring already
+gives for not reinventing domain-listing a second time (and the same
+functions export_bindings.py's own `types[].instances` already reuses
+for .gddlbindings.json, so a name's stable ID is computed by the same
+code path in both manifests, never two).
+
+Building the `instances` section requires `resolver` (instance
+resolution is a per-compile-unit runtime result, not something `reg`
+holds by itself), so it's opt-in via the `resolver` parameter: omitted
+(`None`, the default) skips it entirely, preserving the domains-only
+shape wherever a caller has no resolver at hand -- specifically
+export_bindings.py's own `build_ids_manifest(reg)` call, which already
+carries its own per-type instances list nested under `types[]`, and
+would otherwise end up with the exact same instance data serialized
+twice, in two different shapes, in one `.gddlbindings.json` file.
+Every CLI call site below does have a resolver in scope already
+(instance resolution already happened before the manifest flag is
+even checked), so every real `--emit-ids-manifest` invocation passes
+it and gets the `instances` section.
 """
 
 import json
 
+from .export_cpp import _topo_sort_defines, export_instances_for_type
 from .registry import Registry
 
 
-def build_ids_manifest(reg: Registry) -> dict:
+def build_ids_manifest(reg: Registry, resolver=None) -> dict:
     """Returns the manifest as a plain dict, ready for json.dump. Every
     identifier and flags domain the compile unit declared, unconditionally
     -- see module docstring for why this doesn't follow --emit-all-domains.
     Duplicate/invalid entries (never registered, phase 4) are silently
     skipped -- the same "first wins, invalid entries just don't make it
     into the table" precedent Registry's own internal tables already
-    follow."""
+    follow.
+
+    `resolver`: optional. When given, also builds the `instances`
+    section (every `define`, unconditionally, each with every one of
+    its non-delete resolved instances and that instance's stable ID --
+    see module docstring). When omitted, the returned dict has no
+    `instances` key at all, matching this function's original,
+    domains-only shape."""
     domains = []
 
     for name, block in reg.identifiers.items():
@@ -79,14 +115,29 @@ def build_ids_manifest(reg: Registry) -> dict:
             "members": members,
         })
 
-    return {"domains": domains}
+    manifest = {"domains": domains}
+
+    if resolver is not None:
+        instances = []
+        for type_name in _topo_sort_defines(reg):
+            members = [
+                {"name": name, "stable_id": reg.get_instance_id(type_name, name)}
+                for name, _value in export_instances_for_type(type_name, reg, resolver)
+            ]
+            instances.append({"name": type_name, "members": members})
+        manifest["instances"] = instances
+
+    return manifest
 
 
-def write_ids_manifest(reg: Registry, output_stem: str) -> str:
+def write_ids_manifest(reg: Registry, output_stem: str, resolver=None) -> str:
     """Writes {output_stem}.gddlids.json. Returns the path written, for
     the caller's own confirmation message (matching how every other
-    exporter CLI reports what it wrote)."""
-    manifest = build_ids_manifest(reg)
+    exporter CLI reports what it wrote).
+
+    `resolver`: optional, forwarded to build_ids_manifest -- see that
+    function's docstring."""
+    manifest = build_ids_manifest(reg, resolver)
     path = f"{output_stem}.gddlids.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)

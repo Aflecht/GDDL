@@ -4,7 +4,7 @@
 """
 Validation suite for --emit-ids-manifest (SPEC.md section 20).
 
-Four genuinely separate checks:
+Six genuinely separate checks:
 
   1. build_ids_manifest() content, called directly against a real
      resolved Registry: every field in both domain kinds (identifier:
@@ -28,6 +28,21 @@ Four genuinely separate checks:
      (stdout-default output) rejects the combination with a clear
      error and nonzero exit, rather than silently picking a stem name
      nobody asked for.
+  5. The `instances` section (added for gscript's Type::instance_name
+     resolution): omitting `resolver` from build_ids_manifest() leaves
+     the returned dict exactly as before (no `instances` key at all) --
+     the shape export_bindings.py's own build_ids_manifest(reg) call
+     still relies on, since it embeds this dict verbatim into
+     .gddlbindings.json and already carries its own per-type instances
+     list under `types[]`.
+  6. The `instances` section's actual content, resolver passed: every
+     `define` (here just Entity, unconditionally -- same "every type,
+     not just referenced ones" rule domains already follow), every
+     resolved non-delete instance's name and stable_id, cross-checked
+     against an independent reg.get_instance_id() call -- the same
+     function export_bindings.py's own types[].instances already uses,
+     confirming both manifests compute a name's stable ID via the one
+     shared code path, never two.
 
 Run directly: python3 test_ids_manifest.py
 """
@@ -136,6 +151,13 @@ def test_real_cli_opt_in():
     assert names == {"ActionAttack", "ComponentFlags"}, names
     print("  --emit-ids-manifest: file written, real CLI, real content")
 
+    instances_by_type = {t["name"]: t for t in data["instances"]}
+    assert set(instances_by_type) == {"Entity"}, instances_by_type.keys()
+    hero_members = {m["name"]: m["stable_id"] for m in instances_by_type["Entity"]["members"]}
+    assert set(hero_members) == {"Hero"}, hero_members
+    assert isinstance(hero_members["Hero"], str) and len(hero_members["Hero"]) == 16, hero_members
+    print("  instances section: present via real CLI, Entity/Hero with a 16-hex-digit stable_id")
+
     result2 = subprocess.run(
         [sys.executable, "-m", "gddl.export_cpp", FIXTURE, "-o", stem_without],
         capture_output=True, text=True, cwd=_COMPILER_ROOT)
@@ -166,11 +188,44 @@ def test_requires_output_guard():
     print("Check 4 PASSED.\n")
 
 
+def test_instances_omitted_without_resolver():
+    print("=== Check 5: instances section omitted when resolver isn't given ===")
+    resolver = _resolve_fixture()
+    manifest = build_ids_manifest(resolver.reg)  # no resolver= at all
+    assert "instances" not in manifest, manifest.keys()
+    print("  build_ids_manifest(reg) with no resolver: no 'instances' key at all -- "
+          "the shape export_bindings.py's own embed still relies on")
+    print("Check 5 PASSED.\n")
+
+
+def test_instances_section_content():
+    print("=== Check 6: instances section content, resolver passed ===")
+    resolver = _resolve_fixture()
+    manifest = build_ids_manifest(resolver.reg, resolver=resolver)
+
+    by_type = {t["name"]: t for t in manifest["instances"]}
+    assert set(by_type) == {"Entity"}, by_type.keys()  # every define, unconditionally
+
+    members = {m["name"]: m["stable_id"] for m in by_type["Entity"]["members"]}
+    assert set(members) == {"Hero"}, members
+
+    # Independently recomputed, not just trusting build_ids_manifest's own
+    # use of the same underlying registry table -- the same function
+    # export_bindings.py's types[].instances already calls.
+    expected = resolver.reg.get_instance_id("Entity", "Hero")
+    assert members["Hero"] == expected, (members["Hero"], expected)
+    assert isinstance(members["Hero"], str) and len(members["Hero"]) == 16, members
+    print("  Entity/Hero: stable_id matches an independent reg.get_instance_id() call")
+    print("Check 6 PASSED.\n")
+
+
 def main():
     test_manifest_content()
     test_domain_inclusion_independent_of_emit_all_domains()
     test_real_cli_opt_in()
     test_requires_output_guard()
+    test_instances_omitted_without_resolver()
+    test_instances_section_content()
     print("ALL CHECKS PASSED.")
 
 

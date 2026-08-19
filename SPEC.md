@@ -876,7 +876,7 @@ Boolean, opt-in, off by default, C++ exporter only -- no other export target has
 - **`domains`** is reused verbatim from `.gddlids.json`'s own content (§20.3) -- both describe "every domain this compile unit declared," the same scope the C++ header's own enum/namespace emission already uses unconditionally (§14, every domain in `reg.identifiers`/`reg.flags` gets emitted regardless of whether any field references it). One domain-listing implementation, not two that could quietly drift apart, the same "one hash function" discipline §17.4 argues for.
 - **`types`** covers every `define` in the compile unit (C++ export has no per-request type subset at all -- everything is always exported), dependency order. Each type's `fields` list is the DECLARED field list, never flattened through composition (§13.1's flattening is a target-specific export concern for the assembly/binary targets; a real C++ struct keeps composition as real nested structs, and a binding tool generating `instance->stats.hp`-style getter thunks needs exactly that shape, not a flattened `stats_hp` path). A `struct`-kind field names another entry in this same `types` list rather than inlining its fields again, mirroring how the generated C++ struct itself refers to the nested type by name.
 - **Field `kind`** is one of `scalar`, `string`, `identifier`, `flags`, `struct`, `array` -- the same classification `Registry.field_category()` already uses internally, exposed as a JSON-friendly vocabulary instead of raw GDDL type-token text. An `identifier`-kind field additionally carries `indexed` (`@Domain` vs. plain `Domain`, §8.3) -- tracked per FIELD, not per domain, since the same domain can be referenced both ways by different fields in the same compile unit. An `array`-kind field carries `dims` and a recursive `element` descriptor (current arrays scope, §21.1, only allows scalar/string N elements, so `element` never actually nests further today).
-- **`instances`** lists every fully-resolved, non-delete instance (the identical filter the C++ exporter itself applies, §6.6) with its precomputed stable ID (§6.8), so a delete-marked template instance never appears here any more than it appears in the generated `.cpp`.
+- **`instances`** lists every fully-resolved, non-delete instance (the identical filter the C++ exporter itself applies, §6.6) with its precomputed stable ID (§6.8), so a delete-marked template instance never appears here any more than it appears in the generated `.cpp`. `.gddlids.json`'s own `instances` section (§20.3.1) computes the exact same stable IDs via the exact same `reg.get_instance_id` call -- a script compiler that only ever reads `.gddlids.json` (never this manifest, never a C++ build at all) still resolves `Type::instance_name` identically; it just has no field layout to generate a getter thunk against.
 
 ### 14.7 Indexed Mode (§8.3) in C++
 
@@ -1181,11 +1181,11 @@ An `--exclude` pattern, for skipping specific paths inside a recursive glob (a `
 
 ### 20.1 Purpose and Scope
 
-§9's modding model lets a mod declare entirely new identifiers, and §17 lets a mod ship its own compiled data file, but neither says anything about a **script**, compiled independently by its own author, referencing an identifier or flags-domain member that some *other*, independently-compiled mod (or the base game itself) declared. The script's author has that other mod's `Domain.key` text, the same way any GDDL source would, but not necessarily its `.gddl` source to compile against, and no central registry exists to look it up in (§9.1's whole design point is that none is needed for GDDL's own compile step). Something still has to turn that text into the same logical ID or bit position the original compile unit resolved it to, before a script referencing it can be compiled into anything a VM can execute.
+§9's modding model lets a mod declare entirely new identifiers, and §17 lets a mod ship its own compiled data file, but neither says anything about a **script**, compiled independently by its own author, referencing an identifier or flags-domain member -- or a named data-record instance -- that some *other*, independently-compiled mod (or the base game itself) declared. The script's author has that other mod's `Domain.key` text or `Type::instance_name` text, the same way any GDDL source would, but not necessarily its `.gddl` source to compile against, and no central registry exists to look it up in (§9.1's whole design point is that none is needed for GDDL's own compile step). Something still has to turn that text into the same logical ID, bit position, or stable ID the original compile unit resolved it to, before a script referencing it can be compiled into anything a VM can execute.
 
-This section specifies that missing piece: an opt-in export producing a small, self-contained JSON file listing every identifier and flags domain a compile unit declared, meant to be read by a separate, project-specific script compiler at *its own* build time, never by the shipping game at runtime (a running game already has everything it needs baked into its own compiled dispatch tables; see §20.4).
+This section specifies that missing piece: an opt-in export producing a small, self-contained JSON file listing every identifier and flags domain a compile unit declared, plus every named instance's stable ID, meant to be read by a separate, project-specific script compiler at *its own* build time, never by the shipping game at runtime (a running game already has everything it needs baked into its own compiled dispatch tables; see §20.4).
 
-**This is not an extension of §14.6.** §14.6's metadata manifest describes a compiled C++ binary's full schema: every `define`'s fields, every instance's name and stable ID, so an in-process scripting VM can generate binding glue that dereferences real memory in the same address space. This section's manifest is narrower and serves a different consumer entirely: identifier and flags domains only, no struct layout, no instance data, nothing about C++ or any single export target, available identically across all five exporters, meant to be read by a standalone tool that may run on a different machine than the one that ever built anything, resolving text to numbers, never touching a game's memory at all.
+**This is not an extension of §14.6.** §14.6's metadata manifest describes a compiled C++ binary's full schema: every `define`'s fields (real struct layout, for generating getter thunks that dereference actual memory), every instance's name and stable ID, so an in-process scripting VM can generate binding glue in the same address space. This section's manifest is narrower and serves a different consumer entirely: identifier/flags domain members and instance name-to-stable-ID resolution only, **no field or struct layout at all**, nothing about C++ or any single export target, available identically across all five exporters, meant to be read by a standalone tool that may run on a different machine than the one that ever built anything, resolving text to numbers, never touching a game's memory at all. A script compiled against only this manifest can reference `Type::instance_name` and embed the right stable ID in its bytecode, but has no way to read or write that instance's fields -- that capability is exactly what §14.6's manifest (and a C++ build sharing the VM's address space) exists to add.
 
 ### 20.2 The `--emit-ids-manifest` Flag
 
@@ -1195,7 +1195,7 @@ For an exporter whose `-o`/`--output` is optional and defaults to stdout (6502, 
 
 ### 20.3 Content
 
-Every identifier and flags domain the compile unit declared, **unconditionally**, independent of `--emit-all-domains`, which only controls target-language code generation for referenced domains (a code-size concern specific to each export target). A domain a script needs to reference may never be used by any `define` field at all; the manifest exists specifically to expose it anyway.
+Every identifier and flags domain the compile unit declared, **unconditionally**, independent of `--emit-all-domains`, which only controls target-language code generation for referenced domains (a code-size concern specific to each export target). A domain a script needs to reference may never be used by any `define` field at all; the manifest exists specifically to expose it anyway. Every `define`'s named instances are exposed the same unconditional way, under `instances` (§20.3.1).
 
 ```json
 {
@@ -1212,6 +1212,13 @@ Every identifier and flags domain the compile unit declared, **unconditionally**
         { "key": "is_movable", "bit": 2 }
       ]
     }
+  ],
+  "instances": [
+    { "name": "CreatureType",
+      "members": [
+        { "name": "Human_Fighter", "stable_id": "246fb5e1bf51ef67" }
+      ]
+    }
   ]
 }
 ```
@@ -1221,6 +1228,14 @@ Every identifier and flags domain the compile unit declared, **unconditionally**
 - **Flags domain members**: `key` and `bit` (the claimed bit position, 0-based, matching §8's `bN` positions). `bit` is absent for the zero/none sentinel (`= 0`), which claims no bit. **No `description` field at all**: flags syntax (unlike identifier entries) never carries a descriptive string for any member, so none is fabricated here.
 - **Flags domains additionally carry `width`** (`u8`/`u16`/`u32`/`u64`). A consumer combining or masking bit values needs to know the storage size it's working within.
 - **`logical_id` is a 16-hex-digit string, never a raw JSON number.** A full 64-bit value silently loses precision under any JSON parser that treats numbers as IEEE-754 doubles (JavaScript being the common case); a string sidesteps this regardless of what ever reads the file. `bit` stays a plain integer; it only ever ranges 0-63, nowhere near that danger zone.
+
+### 20.3.1 The `instances` Section
+
+Same idea as `domains`, but for named data-record instances: a script referencing `Type::instance_name` (§6.8's `Type::Name` qualified-name convention) resolves it against this section the same way `Domain.key` resolves against `domains`, to the instance's stable ID (§6.8, `FNV1a64("Type::instance_name")`) rather than an identifier's logical ID.
+
+One block per `define` in the compile unit, **unconditionally** -- the same "every declared thing, not just referenced ones" rule `domains` already follows, so a define this compile unit never exports to a struct-bearing target (or one with zero instances at all) still gets a block, with an empty `members` list if it has no instances. Each block's `members` list is every fully-resolved, non-delete instance of that exact type (§6.6 delete instances excluded, same as §14.6's `types[].instances`); `stable_id` is the same 16-hex-digit string convention as `logical_id` above, for the same IEEE-754-precision reason.
+
+**This is the same stable ID §14.6's `types[].instances` already computes, via the same `reg.get_instance_id` call** -- one source of truth, not two independent computations of the same value (§17.4's discipline again). A script compiler that only has this manifest (never a C++ header) can still resolve `Type::instance_name` to the exact ID a C++ build's `{Type}_Registry::Find(uint64_t)` would look up.
 
 ### 20.4 The Shipping Game Never Reads This File
 

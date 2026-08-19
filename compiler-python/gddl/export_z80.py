@@ -589,7 +589,7 @@ def _cli():
             with open(stem + suffix, "w", encoding="utf-8") as f:
                 f.write(text)
         if args.emit_ids_manifest:
-            manifest_path = write_ids_manifest(resolver.reg, stem)
+            manifest_path = write_ids_manifest(resolver.reg, stem, resolver=resolver)
             print(f"wrote {manifest_path}")
         return
 
@@ -600,7 +600,7 @@ def _cli():
         print(out)
 
     if args.emit_ids_manifest:
-        manifest_path = write_ids_manifest(resolver.reg, args.output)
+        manifest_path = write_ids_manifest(resolver.reg, args.output, resolver=resolver)
         print(f"wrote {manifest_path}")
 
 

@@ -160,6 +160,40 @@ at `export_bindings_test/test_bindings_manifest.py`, 5 checks
 (content/every field kind, delete-template exclusion, domain-content
 reuse, real-CLI opt-in, the SoA rejection).
 
+**Also resolved:** `.gddlids.json` (`--emit-ids-manifest`, SPEC.md
+§20) never exposed named data-record instance stable IDs, only
+identifier/flags domain members -- so a script compiler with only this
+manifest (never a C++ build, never `.gddlbindings.json`) had no way to
+resolve `Type::instance_name` (§6.8) at all. Requested by the
+downstream scripting-language ("gscript") session, which had already
+traced the exact reuse path before asking: `reg.get_instance_id` and
+`export_bindings.py`'s own `types[].instances` shape. Added a new
+`instances` section to `build_ids_manifest`/`write_ids_manifest`, one
+block per `define` (unconditionally, same "every declared thing" rule
+`domains` already follows), each with every non-delete resolved
+instance's `name`/`stable_id` -- reusing `_topo_sort_defines` and
+`export_instances_for_type` from `export_cpp.py` verbatim, the same
+two functions `export_bindings.py` already reuses, so a name's stable
+ID is computed by the one shared code path in both manifests, never
+two. Gated behind a new optional `resolver` parameter (all five CLI
+call sites pass it; `export_bindings.py`'s own internal
+`build_ids_manifest(reg)` call deliberately omits it, since it already
+carries its own per-type instances list under `types[]` and would
+otherwise serialize the same data twice, in two different shapes, in
+one `.gddlbindings.json`) -- confirmed the omit-path leaves the
+returned dict byte-identical to its pre-change shape. Verified via a
+real CLI regeneration against the bindings-manifest fixture: the new
+section's stable IDs matched the previously-captured
+`.gddlbindings.json` values exactly (`246fb5e1bf51ef67` for
+`Human_Fighter`, etc.), and the delete-marked `TemplateOnly` instance
+stayed correctly excluded. Two new checks added to
+`export_ids_test/test_ids_manifest.py` (instances omitted without a
+resolver; instances content cross-checked against an independent
+`reg.get_instance_id` call), plus the existing real-CLI check extended
+to assert the new section's presence and shape. SPEC.md §20 updated:
+new §20.3.1, §20.1's scope description widened to cover instance
+references, §14.6.2's own `instances` bullet cross-referenced.
+
 ## Core language recap
 
 - **Identifiers** (`identifier X ... key = "description"`) are types

@@ -547,7 +547,7 @@ def _cli():
         print(asm)
 
     if args.emit_ids_manifest:
-        manifest_path = write_ids_manifest(resolver.reg, args.output)
+        manifest_path = write_ids_manifest(resolver.reg, args.output, resolver=resolver)
         print(f"wrote {manifest_path}")
 
 
