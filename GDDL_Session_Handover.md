@@ -1,6 +1,8 @@
 # GDDL Project: Session Handover
 
-This document exists because the previous session's context window filled up. It is meant to let a brand-new Claude session pick up this project with zero prior memory and continue exactly where things left off, without re-deriving anything already settled. Read this whole document before doing anything else.
+This document exists because development is moving from a hosted conversational session into a local Claude Code session. It is meant to let a brand-new Claude instance pick up this project with zero prior memory and continue exactly where things left off, without re-deriving anything already settled. Read this whole document before doing anything else.
+
+**Environment note**: this document was originally written for a hosted chat session with no direct git push access (all work delivered as tarballs for the person to apply and push themselves). Running locally in Claude Code may change that, you may have direct filesystem and git access to the person's actual local clone. Don't assume either way; confirm with the person how they want commits and pushes handled in this new setup before doing anything that touches git history.
 
 ## 1. What GDDL is, and what your role is
 
@@ -17,7 +19,7 @@ You are functioning as the project's design authority and, in practice throughou
 - **Full regression after every change**: `compiler-python/tests/export_golden.py` (72-fixture corpus) at minimum, plus whichever hand-written test suites touch the area you changed (`multi_file_test/`, `export_68000_test/`, `export_binary_test/`, `export_cpp_test/`, `export_emit_all_domains_test/`).
 - **Watch for stale committed fixtures.** Several past changes (comment additions, column alignment) altered the actual bytes of committed test `.h`/`.cpp` files that predate the change. Always check whether a change affects existing committed generated files, and regenerate + structurally re-verify them if so, don't just trust the corpus regression alone; some fixtures are hand-maintained outside it.
 - **`HANDOFF.md`** (at `compiler-python/HANDOFF.md`) is the project's own dev journal. Every real piece of work gets an entry: what was found, what was fixed, how it was validated. Read its tail when you start, write a new entry before you finish.
-- Deliver work as a tarball via `present_files`, or as individual files for doc-only changes. Keep a running personal tracking repo (any scratch git repo under `/mnt/user-data/outputs/`) if useful for your own bookkeeping across turns, it's optional and not something the user consumes directly, the real record of "what's actually shipped" is always the live GitHub repo.
+- **This convention was written for the old hosted-chat environment and may not apply as-is locally**: deliver work as a tarball via `present_files`, or as individual files for doc-only changes, and keep a running personal tracking repo (any scratch git repo under `/mnt/user-data/outputs/`) for your own bookkeeping across turns, optional, not something the person consumes directly. In Claude Code you likely have direct filesystem and git access instead, confirm with the person which model they actually want before assuming either one. Either way, the real record of "what's actually shipped" is always the live GitHub repo, not any local scratch copy.
 - If you find something wrong while doing something else (stale docs, a real bug, a broken test assertion), say so plainly and fix it, don't just note it and move on silently.
 
 ## 3. Current state of the live repository: confirmed shipped
@@ -36,7 +38,7 @@ Everything below is live on both `main` and `dev` (they were merged and confirme
 
 ## 4. In progress right now: `flags`, bit literals, and bitwise operators
 
-This is the **live, active task**. It was designed through a long, careful back-and-forth with the person, working from an uploaded reference file (`Entity.gddl`, full content reproduced in section 5 below). Every decision below is settled and should not be re-litigated; if you find yourself wanting to ask the person something covered here, check this document again first.
+This is the **live, active task**. It was designed through a long, careful back-and-forth with the person, working from an uploaded reference file (`Entity.gddl`, full content reproduced in section 7 below). Every decision below is settled and should not be re-litigated; if you find yourself wanting to ask the person something covered here, check this document again first.
 
 ### 4.1 The `flags` construct, fully specified
 
@@ -131,7 +133,32 @@ The `(?!\w)` negative lookahead after `b\d+` is load-bearing: without it, an ide
 - **Stage 5, validation.** New permanent corpus fixtures: valid auto-assignment, explicit `bN` mixed with auto-assignment, a duplicate-bit-claim error, the width-overflow error, arithmetic-rejected-on-flags, bitwise-rejected-elsewhere, and a real combined value actually read back correctly from real compiled/run output. Same standard as every other feature in this project: real toolchain execution where applicable, not just "should work."
 - **Stage 6, docs.** Hold off deciding where this content lives (folded into `language-basics.md`, or its own guide the way `templates-guide.md` got one) until there's a real draft to look at; don't decide that on paper before the material exists.
 
-## 5. Arrays: fully designed, but explicitly deferred until `flags` is done
+## 5. New, unstarted: incoming feature request from gscript (external, another AI's project)
+
+This arrived after the `flags` design work above and has **not been investigated, evaluated, or prioritized against `flags`/arrays yet**. It's a real, technically precise request from another AI developing gscript, a scripting layer built on top of GDDL (lives in `Game/Script`, a separate project/codebase from GDDL itself, consuming GDDL's generated C++ output). Relayed here close to verbatim since it cites specific line numbers and function signatures worth preserving exactly, not paraphrasing.
+
+**The request, as received:**
+
+> Feature request: runtime membership registry for identifier domains (like data-record types already have)
+>
+> Context: gscript (the scripting layer built on top of GDDL, in `Game/Script`) is adding load-time validation for mods that extend or override values in a GDDL identifier domain (e.g., a mod adding a new member to an enum-like domain such as `EnemyAIType`, and another mod's script binding a handler to it). To validate this safely at runtime, across mods that may or may not know about each other at compile time, gscript's `Mod_Loader` needs to be able to ask, at runtime, "is this raw `uint64_t` actually a valid, currently-known member of domain X?"
+>
+> The problem: `export_cpp.py` currently generates two different kinds of output (per its own header comment, lines 23-25):
+>
+> - Identifier domains → a bare `enum class DomainName : uint64_t { ... }` only (see the `# ---- 1. identifier domains -> enum class ----` block, around line 832).
+> - Data-record types (structs) → the enum/struct plus a companion `TypeName_Registry` namespace with `Table`, `Find(uint64_t)`, and `Find(string_view)` (visible in the generated output today, e.g. `Entity_Registry::Find(uint64_t)` in a shipped `Entities.h`).
+>
+> So a struct-typed record can be looked up by ID at runtime, but an identifier domain's own members cannot, a C++ `enum class` has no runtime reflection, and nothing else is generated to compensate. This means there's currently no way for any C++ code (not just gscript) to check "does this ID actually belong to this domain" without it having been known and named at compile time.
+>
+> What we'd need: identifier domains should get the same kind of companion registry data-record types already get, a `DomainName_Registry` namespace (or however you'd want to name/shape it) with at least `Find(uint64_t) -> bool` (or returning the member's name/description) and ideally `Find(string_view) -> bool` too, generated alongside the existing `enum class`, populated from the domain's own known members at GDDL-compile time. Doesn't need anything more elaborate than what data-record types already get, just the same pattern applied to the identifier-domain code path in `export_cpp.py` that currently skips it.
+>
+> Is this feasible, and is there a reason identifier domains were deliberately left out of the registry-generation path when data-record types got it?
+
+**What's already been confirmed, and what hasn't:** the header comment and code-location references in the request (`export_cpp.py` lines 23-25, the identifier-domain block around line 832, the existing `TypeName_Registry` pattern for data-record types) were spot-checked as real and accurately cited, this is someone who has genuinely read the actual source, not a speculative request. **The actual technical question, whether there's a deliberate reason identifier domains were left out of the registry pattern, has not yet been investigated.** That's real, honest, unresolved work, don't assume either answer. Check `SPEC.md` and `HANDOFF.md` for any prior discussion of this before concluding it either way, and check whether skipping it was ever discussed at all versus simply not having come up until now.
+
+**Not yet prioritized against the `flags`/arrays work in sections 4 and 6.** All three are now real, pending items. Bring this to the person's attention and let them decide sequencing rather than assuming this jumps the queue just because it arrived more recently, or assuming it waits just because it arrived later.
+
+## 6. Arrays: fully designed, but explicitly deferred until `flags` is done
 
 Do not start this until `flags` (all six stages above) is complete and shipped. The person explicitly set this build order: `flags` first because it's smaller and proves the "new construct, five export targets" pipeline before the bigger, riskier array feature gets built on top of it.
 
@@ -151,9 +178,9 @@ Full settled spec, so it's ready when the time comes:
 - **Element access and modification use direct bracket indexing**, confirmed as the chosen syntax over a nested-block modify-only form: `damage_min_max[1] = 200`. This extends naturally to op-statements too, `damage_min_max[1] + 50` following the same "current value at that index is the implicit leading operand" rule every other op-statement already has. (A struct-style nested-block alternative was presented and explicitly rejected in favor of this direct form.)
 - Export shape: match how C++ itself lays out nested `std::array` (row-major, contiguous), applied **uniformly across every export target**, not just C++, since that's also simply how real C arrays already lay out on every one of these targets. Confirmed directly ("match this how C++ does this").
 
-## 6. The reference file (`Entity.gddl`), verbatim
+## 7. The reference file (`Entity.gddl`), verbatim
 
-This was uploaded by the person as the concrete reference for the `flags`/`bN` design (arrays were designed separately, in conversation, with no file reference; the syntax in section 5 above is the complete and only spec for arrays). Reproduced here in full since a new session won't have file-upload access to the original.
+This was uploaded by the person as the concrete reference for the `flags`/`bN` design (arrays were designed separately, in conversation, with no file reference; the syntax in section 6 above is the complete and only spec for arrays). Reproduced here in full since a new session won't have file-upload access to the original.
 
 ```gddl
 // Invoked when you pickup this item
@@ -313,10 +340,10 @@ Entity EntityBase delete
 	attack_type		= ItemAttackType.none
 ```
 
-## 7. First actions for the new session
+## 8. First actions for the new session
 
 1. Read this entire document.
 2. Clone `dev` fresh, confirm the state described in section 3 actually matches reality (spot-check a few things: the `--verbose-errors` flag exists on all five exporters, the five docs exist, the column-alignment output looks right). Don't just trust this document, verify it, exactly as this project's own conventions require.
 3. Read the tail of `compiler-python/HANDOFF.md` for the most recent real entries, to build additional confidence about exactly where things stand.
-4. Pick up at section 4.4's "next concrete steps": apply the tested tokenizer regex, verify it for real (not just the standalone test), then continue through the rest of stage 1 and onward.
-5. Keep working in the same style this whole conversation established: real verification before real claims, full regression after every change, tarball delivery, fresh-clone confirmation after every push, no em-dashes, clear and direct communication about what was found and fixed along the way.
+4. There are now three pending items: `flags` (section 4, in progress, pick up at 4.4's "next concrete steps"), arrays (section 6, fully designed, not started, waits for `flags` to finish), and the gscript registry request (section 5, not investigated at all yet). Don't assume priority order between the `flags`/arrays sequence and the gscript request, ask the person which they want worked on first.
+5. Whichever comes first, keep working in the same style this whole conversation established: real verification before real claims, full regression after every change, no em-dashes, clear and direct communication about what was found and fixed along the way. Confirm with the person early how git operations should actually work in this new local environment before assuming either the old tarball-delivery model or direct local commits.
