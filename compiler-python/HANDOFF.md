@@ -4647,3 +4647,60 @@ toolchains required before any of it is called done, matching this
 project's standing discipline.
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+## Pools work, stage 3a: C++ export (both single-header and split mode)
+
+First target of stage 3 (see stage 1's entry for the full settled
+design). User asked for this to proceed "in steps" rather than all five
+targets in one pass, so stage 3 is being split into its own per-target
+sub-entries -- this one covers C++ only, both output modes.
+
+**`export_cpp.py`**: new `emit_pools(lines, reg, layout)` (single-header
+mode, `generate_header`) and `emit_pools_split(header_lines, cpp_lines,
+reg, layout)` (split mode, `generate_split`), both called right after
+the SS17.5 schema table and before the closing `} // namespace GDDL`,
+gated on `if reg.pools:` so a compile with no pools produces byte-
+identical output to before this work (no unconditional blank line or
+empty block ever appears).
+
+Reuses `_flatten_leaves` (the exact same leaf-enumeration helper named
+instances' own SoA export already uses) for SoA pool columns, and
+`_cpp_field_type` for the per-leaf/per-field C++ type -- no new type-
+mapping logic anywhere, pools ride entirely on infrastructure this
+exporter already had. AoS/aos-linear: `inline {Type} {PoolName}[N];`,
+a plain top-level array. SoA: `namespace {PoolName}_SoA { inline
+{FieldType} {leaf_path}[N]; ... }`, named after the POOL not the type
+(SS22.2 -- two differently-named pools of the same type must not
+collide). Split mode mirrors this with `extern` declarations in the
+header and the one real (still non-const) definition in the .cpp,
+matching the exact "avoid per-TU duplication" reasoning every other
+split-mode definition in this file already follows -- `inline` was
+correct for single-header mode specifically because it's genuinely
+merged across every including TU, but split mode's whole point is
+exactly one real definition, so `extern`/definition is the right split-
+mode shape here too, not `inline` copied over unchanged.
+
+**Never `constexpr`, in either mode** -- confirmed this compiles and
+behaves correctly under real, deliberate write-then-read-back usage
+(see verification below), not just "the compiler accepted it."
+
+**Verified, not assumed, against a real MSVC compile+run (this
+project's own established toolchain, `cl.exe` via `vcvars64.bat`) for
+every combination**: single-header AoS, single-header aos-linear,
+single-header SoA, split-mode AoS (two real, separately-compiled
+translation units, linked), split-mode SoA (same). Every test writes
+real values into every pool slot after confirming the zero-initial
+state (C++'s own static-zero-init guarantee, SS22.4's documented
+asymmetry, not something this exporter had to do anything for), reads
+them back, and asserts -- for SoA specifically, including a `string N`
+leaf's flat `N*count` byte layout, written and read back at its exact
+per-slot byte offset. All five compiled clean under `/W4 /WX` (warnings
+as errors) and ran correctly. Full regression re-run clean after:
+`export_golden.py` (89 fixtures, zero diff), `pytest tests` (22
+passing), and the full real-toolchain `export_cpp_test` suite (19/19,
+including the pre-existing split-mode tests, confirming this change
+didn't disturb anything already there).
+
+**Not yet done, next**: stage 3b, 6502 export.
+
+Zero em-dashes (checked directly, this project's own hard rule).

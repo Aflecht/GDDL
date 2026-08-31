@@ -661,6 +661,84 @@ def emit_soa_type(lines, type_name, reg, resolver, is_last_type):
         lines.append("")
 
 
+def emit_pools(lines, reg, layout):
+    """SS22.4: pools -- reserved, uninitialized instance storage, never
+    `inline constexpr` (the entire point is the game writing into it at
+    runtime). Emitted in source declaration order (`reg.pools` is an
+    insertion-ordered dict, matching every other construct's own
+    declaration-order convention in this exporter -- never alphabetized).
+
+    AoS/aos-linear: one plain top-level array per pool, named after the
+    pool itself. SoA: one namespace per pool (named after the POOL, not
+    the type -- two differently-named pools of the same type must not
+    collide), reusing the exact same `_flatten_leaves` leaf enumeration
+    named instances' own SoA export already uses, so a pool's storage
+    shape matches a named instance's SoA shape field-for-field -- the
+    same flattened leaf layout, just uninitialized and sized by the
+    pool's own count instead of a resolved instance count.
+
+    No registry/Find() of any kind -- pools are not identity-bearing
+    (SS22.2), there is nothing to look up."""
+    pool_items = list(reg.pools.items())
+    for i, (pool_name, node) in enumerate(pool_items):
+        is_last = (i == len(pool_items) - 1)
+        type_name = node.type_name
+        count = node.count
+        if layout == "soa":
+            leaves = _flatten_leaves(type_name, reg)
+            lines.append(f"namespace {pool_name}_SoA")
+            lines.append("{")
+            for path, type_tokens in leaves:
+                n = _string_n(type_tokens)
+                if n is not None:
+                    lines.append(f"    inline char {path}[{n * count}];")
+                else:
+                    cpp_type = _cpp_field_type(type_tokens, reg)
+                    lines.append(f"    inline {cpp_type} {path}[{count}];")
+            lines.append("}")
+        else:
+            lines.append(f"inline {type_name} {pool_name}[{count}];")
+        if not is_last:
+            lines.append("")
+
+
+def emit_pools_split(header_lines, cpp_lines, reg, layout):
+    """SS22.4, split-mode counterpart to emit_pools -- extern
+    declarations in the header, the one real (still uninitialized)
+    definition in the .cpp, the same "avoid per-TU duplication" reason
+    every other split-mode definition here already follows. Only the
+    extern-vs-inline mechanism differs from single-header mode; pool
+    storage is never const in either mode."""
+    pool_items = list(reg.pools.items())
+    for i, (pool_name, node) in enumerate(pool_items):
+        is_last = (i == len(pool_items) - 1)
+        type_name = node.type_name
+        count = node.count
+        if layout == "soa":
+            leaves = _flatten_leaves(type_name, reg)
+            header_lines.append(f"namespace {pool_name}_SoA")
+            header_lines.append("{")
+            cpp_lines.append(f"namespace {pool_name}_SoA")
+            cpp_lines.append("{")
+            for path, type_tokens in leaves:
+                n = _string_n(type_tokens)
+                if n is not None:
+                    header_lines.append(f"    extern char {path}[{n * count}];")
+                    cpp_lines.append(f"    char {path}[{n * count}];")
+                else:
+                    cpp_type = _cpp_field_type(type_tokens, reg)
+                    header_lines.append(f"    extern {cpp_type} {path}[{count}];")
+                    cpp_lines.append(f"    {cpp_type} {path}[{count}];")
+            header_lines.append("}")
+            cpp_lines.append("}")
+        else:
+            header_lines.append(f"extern {type_name} {pool_name}[{count}];")
+            cpp_lines.append(f"{type_name} {pool_name}[{count}];")
+        if not is_last:
+            header_lines.append("")
+            cpp_lines.append("")
+
+
 def _topo_sort_defines(reg, roots=None):
     """Dependency order: nested types before whatever composes them.
     Simple DFS-based topological sort over 'define X has a field of
@@ -1028,6 +1106,16 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
     lines.append("")
     lines.extend(render_schema_table(reg))
     lines.append("")
+
+    # SS22.4: pools, always after the schema table (defines/instances
+    # for whatever a pool references must already exist by this point;
+    # a pool never contributes to the schema table itself -- it holds no
+    # resolved values for compute_schema_hash/compute_record_size to
+    # walk). Only emitted, and only preceded by a blank line, if at
+    # least one pool was actually declared.
+    if reg.pools:
+        emit_pools(lines, reg, layout)
+        lines.append("")
 
     lines.append("} // namespace GDDL")
     lines.append("")  # followed by #endif, not a closer
@@ -1674,6 +1762,12 @@ def generate_split(reg, resolver, guard_name="GDDL_GENERATED_H",
     header_lines.append("")
     header_lines.extend(render_schema_table(reg))
     header_lines.append("")
+
+    # SS22.4: pools, same placement/gating as generate_header's own.
+    if reg.pools:
+        emit_pools_split(header_lines, cpp_lines, reg, layout)
+        header_lines.append("")
+        cpp_lines.append("")
 
     header_lines.append("} // namespace GDDL")
     header_lines.append("")

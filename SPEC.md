@@ -1345,7 +1345,7 @@ An out-of-bounds index (`array_index_out_of_range`) and bracket indexing on a fi
 
 ## 22. Pools: Reserved, Uninitialized Instance Storage
 
-**Status: declaration and registry semantics implemented and verified; export (this section's own §22.4) not yet implemented -- do not treat §22.4 as shipped until a later revision of this section says so.**
+**Status: declaration and registry semantics implemented and verified. Export: C++ implemented and verified (both single-header and split mode); 6502, Z80, 68000, and standalone binary not yet implemented -- do not treat those targets as shipped until a later revision of this section says so.**
 
 Everything in §§1-21 assumes every exported field has a fully-resolved, compile-time-known value (§7). A `pool` is the deliberate exception: a fixed-size block of instances with no field values at all, reserved at compile time and filled in by the game itself at runtime -- an entity pool, in the ordinary game-development sense.
 
@@ -1375,13 +1375,14 @@ A pool has no logical ID, no instance stable ID (§6.8), and no companion `{Name
 
 A pool never enters phase 6 (resolve) or phase 8 (the completeness check, §7) -- there is nothing to resolve or check, by construction, not a carve-out bolted onto those phases after the fact. Registration (phase 4) validates exactly two things, both hard compile errors: `TypeName` must name a real `define` (`pool_unknown_type`), and the count must be nonzero (`pool_zero_count`). Source order between a `pool` declaration and its own `TypeName`'s `define` block is unconstrained, same as everywhere else in this language -- a pool may be declared before the `define` it references.
 
-### 22.4 Export (not yet implemented)
-
-Planned, not yet built or verified against any target -- recorded here as the settled design target, not as shipped behavior:
+### 22.4 Export
 
 - AoS/SoA layout (§13) applies to a pool exactly like it applies to named instances -- §13.6's "layout is never source-level syntax" stays intact; a pool declaration carries no layout opinion of its own.
-- Genuinely uninitialized, not zero-filled, and deliberately asymmetric across targets: 6502/Z80/68000 assembly and the standalone binary format (§17) reserve real, unwritten space (BSS-style `.res`/`ds` directives on the assembly targets; pure directory/metadata with no instance bytes at all for the binary format) -- both free of file/tape/disk cost, which is the actual motivating win for a size-constrained target. **C++ is the one exception, not by choice**: a namespace-scope POD array with no initializer is zero-initialized by the C++ standard itself, unconditionally, so C++ pool storage will read as all-zero in practice while every other target's content is genuinely unspecified.
-- C++ pool storage is non-const (`inline Entity EntityPool[40];`, never `inline constexpr`) -- unlike named instances, the entire point is the game writing into it at runtime. SoA export names its per-field arrays after the pool's own name, not the type's, since two differently-named pools of the same type must not collide.
+- Genuinely uninitialized, not zero-filled, and deliberately asymmetric across targets: 6502/Z80/68000 assembly and the standalone binary format (§17) reserve real, unwritten space (BSS-style `.res`/`ds` directives on the assembly targets; pure directory/metadata with no instance bytes at all for the binary format) -- both free of file/tape/disk cost, which is the actual motivating win for a size-constrained target. **C++ is the one exception, not by choice**: a namespace-scope POD array with no initializer is zero-initialized by the C++ standard itself, unconditionally, so C++ pool storage reads as all-zero in practice while every other target's content is genuinely unspecified.
+
+**C++ (implemented and verified, both single-header and split mode):** pool storage is non-const in both modes (`inline Entity EntityPool[40];` in single-header mode; `extern Entity EntityPool[40];` in the header plus the one real definition in the .cpp for split mode) -- never `inline constexpr` the way named instances are, since the entire point is the game writing into it at runtime. SoA export names its per-field arrays after the pool's own name, not the type's (`{PoolName}_SoA`), since two differently-named pools of the same type must not collide -- reusing the identical leaf-flattening (§13.1) a named instance's own SoA export already uses, so a pool's storage shape matches a named instance's SoA shape field-for-field. No registry/`Find()` in either layout or mode (§22.2). Confirmed via real `cl.exe` compiles (`/W4 /WX`) that genuinely write into and read back every pool slot, across AoS, aos-linear, and SoA, single-header and split.
+
+**6502, Z80, 68000, standalone binary: not yet implemented.**
 
 ---
 
