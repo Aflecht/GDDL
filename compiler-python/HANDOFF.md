@@ -4704,3 +4704,44 @@ didn't disturb anything already there).
 **Not yet done, next**: stage 3b, 6502 export.
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+## Real toolchain re-verified after an environment gap; one real, pre-existing bug found and fixed along the way
+
+Before starting stage 3b, the local `compiler-python/tools/` binaries
+(ACME, 64tass, KickAssembler's jar, SjASMPlus, z88dk, vbcc -- all
+gitignored, per-machine installs) turned out to be missing entirely
+from this environment, despite prior HANDOFF.md entries describing them
+as "installed and verified on this Windows machine." Reinstalled fresh
+(official sources: ACME's own SourceForge release, 64tass's own
+SourceForge release, SjASMPlus and z88dk's own GitHub releases, vbcc's
+official phoenix.owl.de archive with its m68k-amigaos target extracted
+via 7-Zip since GnuWin32's `lha.exe` choked on the real `.lha` payload,
+an Adoptium Temurin JRE for the already-locally-present KickAss.jar),
+landing at the exact same default paths `run_all_6502_tests.py`/
+`run_all_z80_tests.py`/`run_all_68000_tests.py` already expected -- no
+test-runner path changes needed for any of the other five dialects.
+
+**One real, pre-existing bug caught immediately by actually running the
+suite against a freshly-installed jar, not something this session
+introduced**: `run_all_6502_tests.py`'s `assemble_kickass()` never
+passed `-symbolfile` to KickAssembler, so no `.sym` file was ever
+written -- every KickAssembler check script in this directory reads
+that file to resolve label addresses, so all four KickAssembler cases
+failed with a plain `FileNotFoundError`, immediately, the moment a real
+jar was actually available to run against. Confirmed directly (not
+guessed): the exact same command without `-symbolfile` assembles clean
+with no `.sym` output; adding it produces `Writing Symbol file:
+test_6502_harness_ka.sym` and the file appears. Fixed with the flag
+added and a comment explaining why, so this doesn't silently regress
+again the next time these tools go missing and get reinstalled.
+
+**Full regression re-verified end to end, all three targets' own
+real-toolchain suites, after the fix**: 6502 (`run_all_6502_tests.py`,
+12/12, all three dialects), Z80 (`run_all_z80_tests.py`, 10/10, both
+dialects), 68000 (`run_all_68000_tests.py`, 6/6, including a real
+`vc.exe` compile + `vamos` execution) -- all clean, confirming the
+fresh toolchain install behaves identically to whatever produced the
+previously-committed expected output, not just "a tool ran without
+crashing."
+
+Zero em-dashes (checked directly, this project's own hard rule).

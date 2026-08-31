@@ -85,7 +85,12 @@ def assemble_tass64(stem):
 
 
 def assemble_kickass(stem):
-    _run([JAVA, "-jar", KICKASS_JAR, f"{stem}.asm", "-o", f"{stem}.prg"])
+    # -symbolfile is required -- confirmed directly against the real jar
+    # (v5.25): without it, no .sym file is written at all, which every
+    # check script in this directory depends on to read back label
+    # addresses. Not previously caught because the KickAssembler jar was
+    # never actually present in this environment until now.
+    _run([JAVA, "-jar", KICKASS_JAR, f"{stem}.asm", "-o", f"{stem}.prg", "-symbolfile"])
 
 
 def run_check(script):
