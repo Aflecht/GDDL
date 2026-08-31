@@ -1345,7 +1345,7 @@ An out-of-bounds index (`array_index_out_of_range`) and bracket indexing on a fi
 
 ## 22. Pools: Reserved, Uninitialized Instance Storage
 
-**Status: declaration and registry semantics implemented and verified. Export: C++ implemented and verified (both single-header and split mode); 6502, Z80, 68000, and standalone binary not yet implemented -- do not treat those targets as shipped until a later revision of this section says so.**
+**Status: declaration and registry semantics implemented and verified. Export: C++ implemented and verified (both single-header and split mode); 6502 implemented and verified for SoA layout only (AoS deferred, see 22.4); Z80, 68000, and standalone binary not yet implemented -- do not treat those targets as shipped until a later revision of this section says so.**
 
 Everything in §§1-21 assumes every exported field has a fully-resolved, compile-time-known value (§7). A `pool` is the deliberate exception: a fixed-size block of instances with no field values at all, reserved at compile time and filled in by the game itself at runtime -- an entity pool, in the ordinary game-development sense.
 
@@ -1382,7 +1382,13 @@ A pool never enters phase 6 (resolve) or phase 8 (the completeness check, §7) -
 
 **C++ (implemented and verified, both single-header and split mode):** pool storage is non-const in both modes (`inline Entity EntityPool[40];` in single-header mode; `extern Entity EntityPool[40];` in the header plus the one real definition in the .cpp for split mode) -- never `inline constexpr` the way named instances are, since the entire point is the game writing into it at runtime. SoA export names its per-field arrays after the pool's own name, not the type's (`{PoolName}_SoA`), since two differently-named pools of the same type must not collide -- reusing the identical leaf-flattening (§13.1) a named instance's own SoA export already uses, so a pool's storage shape matches a named instance's SoA shape field-for-field. No registry/`Find()` in either layout or mode (§22.2). Confirmed via real `cl.exe` compiles (`/W4 /WX`) that genuinely write into and read back every pool slot, across AoS, aos-linear, and SoA, single-header and split.
 
-**6502, Z80, 68000, standalone binary: not yet implemented.**
+**6502 (implemented and verified, SoA layout only, all three dialects -- ACME, 64tass, KickAssembler):** pool storage is real RAM, addressed by a new required-when-pools-exist `--pool-base` parameter (a 16-bit address, no default -- same "the exporter must never silently claim an address" discipline `--zp-base`, SS10.2, already established, just over the full address space rather than zero page). Every pool leaf field becomes a **plain symbolic constant** (`Label = $addr` in ACME/64tass, `.label Label = $addr` in KickAssembler) computed from `--pool-base` by simple arithmetic -- confirmed directly against all three real assemblers that this costs **zero output bytes**, unlike a PC-advancing directive (`* = * + N`), which was also tested directly and confirmed to still emit N real zero-bytes under a flat binary output format. This constant-only approach is what makes pool reservation genuinely free of file/tape/disk cost on this target, matching this section's own stated design goal.
+
+Fields wider than a byte get the same Lo/Hi split convention named instances' own SoA columns already use (SS10.2) -- `EntityPool_tag_Lo`/`EntityPool_tag_Hi`, each a `count`-byte region -- so game code written against a named instance's SoA field indexes a pool's field identically (`LDA EntityPool_tag_Lo,X`). A `string N` or array-typed leaf is always one contiguous `count * total_bytes` region, never split (splitting a string's low/high byte has no meaning). Verified end to end against all three real assemblers/emulators: assembled clean, confirmed zero added output bytes, and a real py65-executed write into one pool slot's field (via indexed absolute addressing) read back correctly with every other slot confirmed untouched.
+
+**AoS pool export on 6502 is explicitly not implemented, and raises a clear error naming why** (not silently wrong): 6502's AoS mode is always a pointer list (SS13.7 -- no linear-AoS alternative exists on this target), which needs its own precomputed index-to-address pointer table to avoid an arbitrary index*record_size multiply at runtime. That table design (analogous to the existing AoS registry's own Lo/Hi pointer table) is real, separate, unbuilt work, not a corner cut silently.
+
+**Z80, 68000, standalone binary: not yet implemented.**
 
 ---
 

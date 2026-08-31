@@ -662,7 +662,7 @@ def emit_soa_type(lines, type_name, reg, resolver, is_last_type):
 
 
 def emit_pools(lines, reg, layout):
-    """SS22.4: pools -- reserved, uninitialized instance storage, never
+    """§22.4: pools -- reserved, uninitialized instance storage, never
     `inline constexpr` (the entire point is the game writing into it at
     runtime). Emitted in source declaration order (`reg.pools` is an
     insertion-ordered dict, matching every other construct's own
@@ -678,7 +678,7 @@ def emit_pools(lines, reg, layout):
     pool's own count instead of a resolved instance count.
 
     No registry/Find() of any kind -- pools are not identity-bearing
-    (SS22.2), there is nothing to look up."""
+    (§22.2), there is nothing to look up."""
     pool_items = list(reg.pools.items())
     for i, (pool_name, node) in enumerate(pool_items):
         is_last = (i == len(pool_items) - 1)
@@ -703,7 +703,7 @@ def emit_pools(lines, reg, layout):
 
 
 def emit_pools_split(header_lines, cpp_lines, reg, layout):
-    """SS22.4, split-mode counterpart to emit_pools -- extern
+    """§22.4, split-mode counterpart to emit_pools -- extern
     declarations in the header, the one real (still uninitialized)
     definition in the .cpp, the same "avoid per-TU duplication" reason
     every other split-mode definition here already follows. Only the
@@ -1107,7 +1107,7 @@ def generate_header(reg, resolver, guard_name="GDDL_GENERATED_H", layout="aos",
     lines.extend(render_schema_table(reg))
     lines.append("")
 
-    # SS22.4: pools, always after the schema table (defines/instances
+    # §22.4: pools, always after the schema table (defines/instances
     # for whatever a pool references must already exist by this point;
     # a pool never contributes to the schema table itself -- it holds no
     # resolved values for compute_schema_hash/compute_record_size to
@@ -1763,7 +1763,7 @@ def generate_split(reg, resolver, guard_name="GDDL_GENERATED_H",
     header_lines.extend(render_schema_table(reg))
     header_lines.append("")
 
-    # SS22.4: pools, same placement/gating as generate_header's own.
+    # §22.4: pools, same placement/gating as generate_header's own.
     if reg.pools:
         emit_pools_split(header_lines, cpp_lines, reg, layout)
         header_lines.append("")

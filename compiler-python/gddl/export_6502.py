@@ -98,6 +98,44 @@ class TypeInfo:
 
 
 @dataclass
+class PoolInfo:
+    """§22: one `pool TypeName PoolName : N` declaration's shared IR.
+    `leaves` is the exact same (path, type_tokens) shape TypeInfo.leaves
+    already uses (§13.1 flattening, via _flatten_leaves) -- a pool's
+    storage shape must match a named instance's own leaf layout
+    field-for-field to ever be usable as the same kind of data."""
+    name: str
+    type_name: str
+    count: int
+    leaves: List[Tuple[str, str]]
+
+
+@dataclass
+class PoolFieldRegion:
+    """One leaf field's reserved address region within a pool -- either
+    one `count`-byte-wide region (byte-width fields, or a `string N`/
+    array field's own total byte span), or two parallel `count`-byte
+    regions for anything wider than a byte (§10.2's existing Lo/Hi
+    split convention, extended to reservation: real values never
+    exist to split here, but keeping the SAME two-array shape named
+    instances' own SoA columns already use means game code written
+    against one works unchanged against the other -- `LDA Field_Lo,X`
+    reaches a pool's data exactly the way it reaches a named instance's
+    SoA column)."""
+    lo_addr: int
+    hi_addr: Optional[int]  # None for byte-width (and string/array) fields -- no split needed
+
+
+@dataclass
+class PoolAllocation:
+    """§22.4 6502 export: pool_name -> {leaf_path: PoolFieldRegion},
+    built by allocate_pool_space. SoA layout only, this pass (AoS pool
+    export needs its own pointer-table design, not yet built -- see
+    allocate_pool_space's own docstring)."""
+    fields: dict  # pool_name -> dict[leaf_path, PoolFieldRegion]
+
+
+@dataclass
 class ZeroPageAllocation:
     """§10.2: deterministic, non-overlapping 2-byte zero-page blocks,
     one per consumer -- a registry pointer (AoS types only, §13.4: SoA
@@ -441,7 +479,164 @@ def gather_ir(reg, resolver, type_names, zp_base,
     return domains, types
 
 
-def render(domains, types, dialect: str = "acme", layout: str = "aos", zp_base=None) -> str:
+_POOL_SCALAR_WIDTH_BYTES = {"u8": 1, "i8": 1, "u16": 2, "i16": 2}
+_POOL_DOMAIN_WIDTH_BYTES = {"u8": 1, "u16": 2, "u32": 4, "u64": None}  # matches _WIDTH_TO_DIRECTIVE's own u64 gap
+
+
+def gather_pool_info(reg, ordered_type_names) -> List[PoolInfo]:
+    """§22: every declared pool whose own TypeName is among the types
+    actually being exported this run (--type selection) -- a pool needs
+    its type's leaf layout to mean anything, and there is no separate
+    --pool selection flag; asking to export a type already pulls in
+    whatever pools exist for it, the same way named instances need no
+    separate opt-in beyond --type. Declaration order preserved (reg.pools
+    is an insertion-ordered dict), matching every other construct's own
+    ordering convention on this target."""
+    return [
+        PoolInfo(name=name, type_name=node.type_name, count=node.count,
+                 leaves=_flatten_leaves(node.type_name, reg))
+        for name, node in reg.pools.items()
+        if node.type_name in ordered_type_names
+    ]
+
+
+def _leaf_total_bytes(type_tokens: str, domain_widths: dict):
+    """Total byte span of ONE leaf value, and whether it's eligible for
+    the Lo/Hi split convention (§10.2) -- returns (total_bytes,
+    splittable). Only a plain 2-byte scalar/identifier-typed leaf is
+    splittable; a `string N` or array-typed leaf is always one
+    contiguous byte-run per slot (§13.2/§21 -- "low byte of a
+    string" has no meaning). `domain_widths` is domain_name -> width
+    string, covering identifier AND flags domains uniformly (the same
+    combined dict every dialect renderer already builds from `domains:
+    List[DomainInfo]`, §10.2's own "flags domains share the exact same
+    DomainInfo shape" design) -- deliberately not `reg` itself, so this
+    function only ever touches the shared IR, never reaches back into
+    the registry the way no other renderer-adjacent code on this target
+    does either. Domain-width validation itself already happened in
+    check_6502_domain_widths (called from gather_ir, over the same
+    _flatten_leaves output a pool's own type produces) -- this function
+    trusts that already ran and just reads the now-guaranteed-present
+    width."""
+    t = type_tokens.strip()
+    n = _string_n(t)
+    if n is not None:
+        return n, False
+    array_info = _try_parse_array_type(t)
+    if array_info is not None:
+        elem_bytes, _ = _leaf_total_bytes(array_info.element_type, domain_widths)
+        total_elements = 1
+        for d in array_info.dims:
+            total_elements *= d
+        return elem_bytes * total_elements, False
+    domain = t[1:].strip() if t.startswith("@") else t
+    if domain in domain_widths:
+        width = domain_widths[domain]
+        nbytes = _POOL_DOMAIN_WIDTH_BYTES.get(width)
+        if nbytes is None:
+            raise Export6502Error(
+                f"6502 pool export doesn't support {width}-wide domains yet")
+        return nbytes, nbytes == 2
+    if t in _POOL_SCALAR_WIDTH_BYTES:
+        nbytes = _POOL_SCALAR_WIDTH_BYTES[t]
+        return nbytes, nbytes == 2
+    raise Export6502Error(f"6502 pool export doesn't support field type {type_tokens!r} yet")
+
+
+def _validate_pool_base(pool_base):
+    """§22.4: required only when at least one pool is actually being
+    exported (checked at the call site, not here) -- same 'no silent
+    claim' discipline --zp-base already established (§10.2), but over
+    the full 16-bit address space (real RAM addressing), not zero page."""
+    if pool_base is None:
+        raise Export6502Error(
+            "--pool-base is required when exporting a pool (§22.4) -- "
+            "pool storage is real RAM the exporter must never silently "
+            "claim an address for. Supply an explicit base address "
+            "(e.g. --pool-base=0xa000) naming RAM your project has "
+            "actually reserved for this.")
+    if not (0 <= pool_base <= 0xFFFF):
+        raise Export6502Error(
+            f"--pool-base must be a valid 16-bit address (0-65535 / "
+            f"$0000-$ffff), got {pool_base}")
+
+
+def allocate_pool_space(pool_base, pools: List[PoolInfo], layout: str,
+                         domains: List[DomainInfo]) -> PoolAllocation:
+    """§22.4: assigns every pool leaf field its own non-overlapping
+    address region, as plain symbolic constants (`Label = $addr`) -- NOT
+    PC-tracked emitted bytes. Confirmed directly against the real ACME
+    binary: a `* = * + N` PC advance under --format plain still costs N
+    real zero-bytes in the output file (ACME can't represent a gap in a
+    flat binary), but a plain `Label = expression` constant assignment
+    costs nothing at all -- the exact same reason --zp-base's own
+    registry/dispatch pointers (§10.2) are already emitted as bare
+    constants, never as reserved-and-emitted bytes. This is what makes
+    pool reservation genuinely free of file/tape/disk cost on this
+    target, matching §22.4's own stated design goal.
+
+    SoA layout only, this pass -- 6502's AoS mode is ALWAYS a pointer
+    list (§13.7: no linear-AoS alternative exists on this target,
+    unlike C++), so an AoS pool would need its own precomputed Lo/Hi
+    pointer table (one entry per slot, matching the existing AoS
+    registry's own shape) to avoid an arbitrary index*record_size
+    multiply at runtime -- a real, separate design not yet built.
+    Raises clearly rather than emitting something silently wrong if
+    layout='aos' and at least one pool exists.
+
+    Field ordering, and therefore address assignment, follows
+    PoolInfo.leaves' own order (§13.1 flattening order) within each
+    pool, and reg.pools' own declaration order across pools -- the same
+    'declaration order, never alphabetized' discipline every other
+    allocator on this target already follows."""
+    if not pools:
+        # Nothing to allocate -- --pool-base stays unrequired for a
+        # compile with no pools, same "only required when actually
+        # needed" precedent --emit-ids-manifest's -o requirement
+        # already established elsewhere in this project.
+        return PoolAllocation(fields={})
+    if layout != "soa":
+        raise Export6502Error(
+            "6502 AoS pool export is not implemented yet (§22.4) -- AoS "
+            "on this target is always a pointer list (§13.7), which "
+            "would need its own precomputed index->address table design "
+            "for anonymous, non-identity-bearing pool slots; use "
+            "--layout soa for pools on 6502 for now.")
+    _validate_pool_base(pool_base)
+    domain_widths = {d.name: d.width for d in domains}
+    addr = pool_base
+    fields = {}
+    for pool in pools:
+        field_regions = {}
+        for path, type_tokens in pool.leaves:
+            total_bytes, splittable = _leaf_total_bytes(type_tokens, domain_widths)
+            if splittable:
+                lo = addr
+                addr += pool.count
+                hi = addr
+                addr += pool.count
+                field_regions[path] = PoolFieldRegion(lo_addr=lo, hi_addr=hi)
+            else:
+                lo = addr
+                addr += total_bytes * pool.count
+                field_regions[path] = PoolFieldRegion(lo_addr=lo, hi_addr=None)
+        fields[pool.name] = field_regions
+
+    if addr - 1 > 0xFFFF:
+        needed = addr - pool_base
+        available = 0x10000 - pool_base
+        raise Export6502Error(
+            f"pool allocation starting at ${pool_base:04x} needs {needed} "
+            f"bytes total, which would reach up to ${addr - 1:04x} -- only "
+            f"{available} bytes are available from ${pool_base:04x} before "
+            "the 16-bit address space runs out. Pick a lower --pool-base "
+            "or export fewer/smaller pools in this run.")
+
+    return PoolAllocation(fields=fields)
+
+
+def render(domains, types, dialect: str = "acme", layout: str = "aos", zp_base=None,
+           pools=None, pool_base=None) -> str:
     """Single dispatch point across every 6502 renderer -- selects by
     name, never re-deriving anything the shared IR already computed.
     Mirrors export_cpp.py's own layout/single-header dispatch pattern.
@@ -451,17 +646,33 @@ def render(domains, types, dialect: str = "acme", layout: str = "aos", zp_base=N
     §10.2: zp_base is required, no default -- allocate_zero_page raises
     if missing/invalid. Allocation happens here (not in gather_ir)
     because it depends on layout, which is a render-time axis, known
-    only once a specific dialect+layout combination is requested."""
+    only once a specific dialect+layout combination is requested.
+
+    §22.4: `pools`/`pool_base` are additive, both default to None/empty
+    so every pre-existing caller (this function's own signature grew,
+    not changed) keeps working unchanged with zero pools. allocate_pool_
+    space is a no-op (empty PoolAllocation, no --pool-base requirement)
+    when `pools` is empty, same "only required when actually needed"
+    precedent --zp-base's own sibling parameter does NOT follow (zp_base
+    is unconditionally required) -- deliberately different here, since
+    unlike zero-page (already load-bearing for every domain's dispatch
+    machinery), most compiles have no pools at all and forcing an unused
+    --pool-base on every one of them would violate this project's own
+    aversion to demanding input nothing downstream needs."""
     zp_alloc = allocate_zero_page(zp_base, domains, types, layout)
+    pool_alloc = allocate_pool_space(pool_base, pools or [], layout, domains)
     if dialect == "acme":
         from .export_6502_acme import render_acme
-        return render_acme(domains, types, zp_alloc, layout=layout)
+        return render_acme(domains, types, zp_alloc, layout=layout,
+                            pools=pools, pool_alloc=pool_alloc)
     if dialect == "kickassembler":
         from .export_6502_kickassembler import render_kickassembler
-        return render_kickassembler(domains, types, zp_alloc, layout=layout)
+        return render_kickassembler(domains, types, zp_alloc, layout=layout,
+                                     pools=pools, pool_alloc=pool_alloc)
     if dialect == "64tass":
         from .export_6502_64tass import render_64tass
-        return render_64tass(domains, types, zp_alloc, layout=layout)
+        return render_64tass(domains, types, zp_alloc, layout=layout,
+                              pools=pools, pool_alloc=pool_alloc)
     raise ValueError(
         f"unknown dialect {dialect!r} -- must be one of 'acme', "
         "'kickassembler', '64tass'")
@@ -504,6 +715,9 @@ def _cli():
                      help="aos (default) or soa data layout")
     ap.add_argument("--zp-base", required=True,
                      help="zero-page base address, required (e.g. 0x02)")
+    ap.add_argument("--pool-base", default=None,
+                     help="RAM base address for pool storage (§22.4), required only "
+                          "if the exported types have any pools (e.g. 0xa000)")
     ap.add_argument("--emit-all-domains", action="store_true",
                      help="emit every domain's constants, even unreferenced ones (default: off)")
     ap.add_argument("--emit-ids-manifest", action="store_true",
@@ -520,6 +734,7 @@ def _cli():
                  "output stem to name the manifest after when writing to stdout")
 
     zp_base = _parse_zp_base(args.zp_base)
+    pool_base = _parse_zp_base(args.pool_base) if args.pool_base is not None else None
 
     try:
         paths = resolve_inputs(args.source)
@@ -538,7 +753,10 @@ def _cli():
         sys.exit(1)
     domains, types = gather_ir(resolver.reg, resolver, args.types, zp_base,
                                 emit_all_domains=args.emit_all_domains)
-    asm = render(domains, types, dialect=args.dialect, layout=args.layout, zp_base=zp_base)
+    ordered_type_names = [t.name for t in types]
+    pools = gather_pool_info(resolver.reg, ordered_type_names)
+    asm = render(domains, types, dialect=args.dialect, layout=args.layout, zp_base=zp_base,
+                 pools=pools, pool_base=pool_base)
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:

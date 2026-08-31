@@ -4705,6 +4705,121 @@ didn't disturb anything already there).
 
 Zero em-dashes (checked directly, this project's own hard rule).
 
+## Pools work, stage 3b: 6502 export (SoA only, all three dialects)
+
+Second target of stage 3 (see the C++ entry above for stage 3a). SoA
+layout only this pass, AoS deferred with a real, named reason -- see
+below. All three dialects (ACME, 64tass, KickAssembler) done together
+since they share one new shared-IR mechanism.
+
+**Real, load-bearing discovery made before writing any renderer code**:
+tested directly against the real ACME binary whether a PC-advancing
+directive (`* = * + N`) gives free (unwritten) reservation the way this
+feature's whole C64 motivation assumes. It does NOT -- confirmed
+directly: under `--format plain`, `* = * + N` still costs N real
+zero-bytes in the output file, since a flat binary format can't
+represent a gap. What DOES cost zero bytes, confirmed the same way: a
+plain `Label = expression` constant assignment -- exactly the same
+mechanism `--zp-base`'s own registry/dispatch pointers (§10.2) already
+use for a different reason (zero-page addressing). This is the design
+this stage is built on: pool fields are NEVER emitted as data
+directives, always as bare address constants computed from a new
+required-when-pools-exist `--pool-base` parameter.
+
+**`export_6502.py`**: new `PoolInfo`/`PoolFieldRegion`/`PoolAllocation`
+dataclasses. `gather_pool_info(reg, ordered_type_names)` -- every
+declared pool whose own `TypeName` is among the types actually being
+exported this run (no separate `--pool` selection flag; asking for a
+type already pulls in whatever pools reference it, matching how named
+instances need no separate opt-in beyond `--type`). `_leaf_total_bytes`
+-- byte span of one leaf value plus whether it's Lo/Hi-splittable,
+taking a `domain_widths` dict (built from the already-gathered `domains:
+List[DomainInfo]`) rather than `reg` directly, keeping this function
+touching only the shared IR like every other renderer-adjacent function
+on this target already does. `allocate_pool_space(pool_base, pools,
+layout, domains)` -- the actual address assignment, raising a clear,
+named error for AoS+pools (see below) and for a missing/invalid
+`--pool-base`, but a genuine no-op (no requirement at all) when no
+pools exist, deliberately NOT matching `--zp-base`'s unconditional
+requirement (most compiles have no pools, and this project has a
+standing aversion to demanding unused input).
+
+**A real capability difference from named-instance SoA export on this
+target, found while implementing, not assumed going in**: this
+target's existing SoA support rejects `string N` and array-typed leaf
+fields (both explicitly, with dedicated error messages, in all three
+renderers) -- but that rejection is entirely about VALUE emission (how
+to lay out N-byte string content, or flattened array elements, across
+multiple real instances). A pool has no values at all, only reserved
+address space, so neither limitation actually applies to it -- pool
+fields of any leaf type (scalar, identifier/@identifier, `string N`,
+array) all get correct reservation with zero extra logic needed. This
+is a deliberate, documented capability pools have that named instances
+currently don't on this target, not scope creep -- SPEC.md §22.4 states
+it plainly.
+
+**AoS pool export is explicitly NOT implemented this pass, and raises
+clearly rather than emitting something wrong**: 6502's AoS mode is
+ALWAYS a pointer list (§13.7 -- no linear-AoS alternative exists here,
+unlike C++), so an AoS pool would need its own precomputed index-to-
+address pointer table (mirroring the existing AoS registry's own Lo/Hi
+split) to avoid an arbitrary index*record_size multiply at runtime --
+real, separate, unbuilt design, named honestly in the error message
+and in SPEC.md, not silently skipped.
+
+**Three dialect renderers** (`render_pools_acme`/`render_pools_64tass`/
+`render_pools_kickassembler`, in each dialect's own module): identical
+shape across all three -- one constant per leaf field region (`Label =
+$addr` in ACME/64tass, `.label Label = $addr` in KickAssembler,
+matching each dialect's own existing constant-declaration convention),
+Lo/Hi split for anything wider than a byte, one contiguous region for
+`string N`/array leaves. `render()`'s own dispatch signature grew two
+new optional parameters (`pools=None`, `pool_base=None`) -- additive,
+every pre-existing caller keeps working unchanged with zero pools.
+
+**Verified, not assumed, against all three real toolchains**: a
+5-slot `Entity` pool (u16 field, `string 8` field, an identifier-typed
+field, another u16 field) assembled clean under ACME, 64tass, and
+KickAssembler, all three producing byte-identical 19-byte output (the
+domain dispatch table's own real content -- the pool itself confirmed
+to add nothing). A real functional test via `py65`: hand-assembled
+6502 code (`LDX #slot`, `STA Field_Lo,X` / `STA Field_Hi,X`) wrote a
+real value into one pool slot's field and read it back correctly,
+with every other slot's memory confirmed still zero (py65's own
+untouched-memory default) -- proving indexed access into a pool's
+reserved region behaves identically to indexed access into a named
+instance's own SoA column, not just that the labels resolve. Error
+paths verified directly too: AoS+pools rejection, missing `--pool-base`
+with pools present, no requirement at all with zero pools, and
+out-of-range `--pool-base`.
+
+**One real, pre-existing typo caught and fixed across this stage's own
+new code before committing**: several new docstrings/comments/error
+messages in `export_cpp.py` (this feature's own stage 3a, already
+committed), `export_6502.py`, and `export_6502_acme.py` used the plain
+two-letter "SS" as a section-reference prefix instead of the real "§"
+character every other file in this project already uses consistently
+-- caught by grepping for it directly, not assumed clean. Fixed with a
+targeted regex substitution across exactly those three files (`export_
+6502_64tass.py`/`export_6502_kickassembler.py` were already correct).
+Confirmed zero functional impact (pure comment/string text) by
+re-running the full regression suite and the real-toolchain pool
+verification above after the fix, both clean.
+
+**Full regression re-run clean after**: `export_golden.py` (89
+fixtures, zero diff), `pytest tests` (22 passing), the pre-existing
+`run_all_6502_tests.py` suite (12/12, confirming this stage disturbed
+nothing already there), and `run_all_cpp_tests.py` (19/19, confirming
+the "SS"-typo fix touching `export_cpp.py` broke nothing).
+
+SPEC.md §22.4 updated: 6502 marked implemented and verified for SoA,
+AoS explicitly named as not-yet-implemented with its own real reason,
+Z80/68000/binary still not yet implemented.
+
+**Not yet done, next**: stage 3c, Z80 export.
+
+Zero em-dashes (checked directly, this project's own hard rule).
+
 ## Real toolchain re-verified after an environment gap; one real, pre-existing bug found and fixed along the way
 
 Before starting stage 3b, the local `compiler-python/tools/` binaries
