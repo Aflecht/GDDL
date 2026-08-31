@@ -83,7 +83,7 @@ def check_independent_readback(reg, data, manifest):
     """Check 1: every field value, read via the independent reader,
     matches the fixture's known resolved values exactly."""
     print("=== Check 1: independent read-back ===")
-    _version, entries = reader.read_header_and_type_table(data)
+    _version, entries, _cursor, _pool_count = reader.read_header_and_type_table(data)
     by_name = {e.name: e for e in entries}
 
     assert set(by_name) == {"Item", "Object"}, f"unexpected type set: {set(by_name)}"
@@ -185,7 +185,7 @@ def check_manifest_truthfulness(data, manifest):
     """Check 2: every offset/size the manifest claims is followed and
     confirmed to locate real data -- not assumed correct."""
     print("=== Check 2: manifest truthfulness ===")
-    _version, entries = reader.read_header_and_type_table(data)
+    _version, entries, _cursor, _pool_count = reader.read_header_and_type_table(data)
     by_name = {e.name: e for e in entries}
 
     for t in manifest["types"]:
@@ -328,7 +328,7 @@ def check_array_readback(build_dir):
     with open(out_stem + ".gddlmeta.json") as f:
         manifest = json.load(f)
 
-    _version, entries = reader.read_header_and_type_table(data)
+    _version, entries, _cursor, _pool_count = reader.read_header_and_type_table(data)
     entry = next(e for e in entries if e.name == "Enemy")
     manifest_type = next(t for t in manifest["types"] if t["name"] == "Enemy")
     fields = field_offsets_by_name(manifest_type)

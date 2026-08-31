@@ -5031,6 +5031,112 @@ builds it.
 
 Zero em-dashes (checked directly, this project's own hard rule).
 
+## Pools work, stage 3e: standalone binary export -- stage 3 (export) now complete on all five targets
+
+Fifth and final target of stage 3. This target is architecturally
+different from every other one: the compiled artifact IS the runtime
+data (§17's own framing -- "readable by third-party software... at
+runtime"), never source compiled elsewhere. That made this target the
+one place §22.4's "genuinely uninitialized, free of cost" design goal
+could be honored most literally: no compiler, no assembler, no linker
+in the loop at all -- the FORMAT ITSELF documents that a pool's records
+are never written anywhere in the file, and the runtime loader reading
+it is responsible for allocating its own storage the moment it reads a
+pool table entry.
+
+**A real, deliberate breaking format change, not a silent extension**:
+`FORMAT_VERSION` bumped 1 -> 2. The global header gained a `pool_count`
+(u32) field; a new POOL TABLE section (name, type_name, schema_hash,
+record_size, record_count -- no offset field, matching the "nothing
+written for pool records" design) was added, positioned right after the
+existing per-type table. A stale format_version=1 reader has no
+`pool_count` field to read at all and must fail cleanly at the version
+check rather than misparse the file -- the exact same discipline
+gscript's own bytecode format version bumps already established for
+its sibling project, applied here for the first time to THIS format.
+
+**`export_binary.py`**: new `PoolBinaryInfo` (no `.records`/
+`.lookup_entries` -- a pool carries no values at all) and
+`gather_pool_binary_ir`. `schema_hash`/`record_size` for a pool are
+computed via the EXACT SAME functions (`compute_schema_hash`/
+`compute_record_size`) a real type-table entry's own are computed with
+-- never a second, independently-written computation -- so a pool and
+a same-shaped type entry appearing in one file are directly comparable
+without a reader re-deriving anything, confirmed directly by byte-
+comparing the two in a real generated file. `write_binary` gained
+`pools_ir=`, writes the new header shape and pool table section, and
+returns `pool_table_entries` alongside its existing offset info.
+`write_manifest` gained a parallel `pools` array in `.gddlmeta.json`
+(name, type, schema_hash, record_size, count, full field list),
+matching `types`' own shape.
+
+**A real, necessary companion update, not optional cleanup**:
+`tests/export_binary_test/independent_reader.py` -- this project's own
+from-scratch, deliberately-not-importing-the-writer second
+implementation of the format reader (the whole point of its existence
+is catching a writer bug a self-referential reader couldn't) -- had to
+be updated in lockstep: `read_header_and_type_table` now requires
+format_version 2 and returns the cursor position the new
+`read_pool_table` continues from, which is itself a genuinely
+independent parse of the new section, not a call into any writer-side
+code. Three existing call sites in `test_binary_export.py` updated for
+the grown return tuple.
+
+**Verified, not assumed**: every pre-existing binary-export check
+(`test_binary_export.py`'s 4 checks: independent read-back, lookup
+tables, manifest truthfulness, schema-change discrimination) re-run
+clean against the new format_version=2 output with zero pools present,
+confirming the header/section-ordering change didn't disturb anything
+already there. A new scratch check with a real pool alongside a real
+named instance of the same type: the independent reader correctly
+parses `format_version=2`/`pool_count=1`, the pool table entry's name/
+type_name/count are exactly right, its `schema_hash`/`record_size`
+byte-match the real `Entity` type-table entry's own (not just
+"close"), the real instance's records and lookup table still parse
+correctly immediately after the new pool table section (proving the
+pool table didn't corrupt downstream offset math), and the total file
+size matches hand-computed byte accounting exactly (127 bytes: 13-byte
+header + 44-byte type-table entry + 36-byte pool-table entry + 22-byte
+record + 12-byte lookup entry). The `.gddlmeta.json` manifest's new
+`pools` array checked directly too.
+
+**One real, pre-existing, unrelated gap noticed while re-running this
+target's suite, not caused by this stage**: `test_schema_table_cpp.py`
+needs a real `g++` binary specifically (not MSVC, which every other
+C++ verification in this project already uses) and none exists in this
+environment -- the exact same class of gap as the 6502/Z80/68000
+toolchains that needed reinstalling earlier this session, just not yet
+addressed for this one file. Not fixed here (this stage never touches
+that test's own subject matter, §17.5's C++ schema table, and
+confirmed via direct grep that it has zero dependency on anything this
+stage changed) -- recorded plainly rather than silently worked around
+or left unmentioned.
+
+**Full regression re-run clean after**: `export_golden.py` (89
+fixtures, zero diff -- confirming the golden corpus checks resolved
+values, not target-specific binary serialization, so it was never at
+risk from this format change), `pytest tests` (22 passing),
+`test_binary_export.py` (all 4 checks, standalone script).
+
+SPEC.md updated in two places: §22.4's binary paragraph (implemented,
+verified, format_version bump explained) and a new bullet in §17.3
+itself (this format's own general spec section) pointing at §22.4 and
+`export_binary.py`'s own docstring as the authoritative byte-level
+definition, per this section's own already-established convention that
+the code docstring, not SPEC.md prose, is where the exact layout lives.
+
+**This completes stage 3 (export) in full, across all five targets** --
+C++ (both modes), 6502 (SoA), Z80 (SoA, both assembly dialects),
+68000 (both layouts, full field support), and now standalone binary.
+Remaining, real, honestly-tracked gaps, none of them silently dropped:
+6502/Z80 AoS pool export (needs a new pointer-table design on 6502,
+and either the same or this target's existing shift-add routine on
+Z80), Z80's z88dk C mode pool export (real, separate, unbuilt design).
+Stage 4 (permanent corpus/regression fixtures) and stage 5 (docs) are
+still ahead, matching flags/arrays' own five-stage precedent.
+
+Zero em-dashes (checked directly, this project's own hard rule).
+
 ## Real toolchain re-verified after an environment gap; one real, pre-existing bug found and fixed along the way
 
 Before starting stage 3b, the local `compiler-python/tools/` binaries

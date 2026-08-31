@@ -40,17 +40,34 @@ class TypeTableEntry:
         self.lookup_table_count = lookup_table_count
 
 
+class PoolTableEntry:
+    """§22.4, new in format_version 2 -- see PoolTableEntry's own field
+    meanings in export_binary.py's binary-format docstring ('POOL
+    TABLE'). No offset fields: a pool has no records anywhere in the
+    file, deliberately."""
+    def __init__(self, name, type_name, schema_hash, record_size, record_count):
+        self.name = name
+        self.type_name = type_name
+        self.schema_hash = schema_hash
+        self.record_size = record_size
+        self.record_count = record_count
+
+
 def read_header_and_type_table(data: bytes):
-    """Parses the global header and per-type table. Returns (format_version,
-    [TypeTableEntry, ...])."""
+    """Parses the global header and per-type table. Returns
+    (format_version, [TypeTableEntry, ...], cursor) -- `cursor` is the
+    byte offset immediately after the last type-table entry (or the
+    header itself, if type_count is 0), i.e. exactly where the pool
+    table (§22.4, format_version 2) begins; read_pool_table continues
+    from there."""
     if data[0:4] != b"GDBD":
         raise BinaryReadError(f"bad magic: {data[0:4]!r}, expected b'GDBD'")
-    format_version, type_count = struct.unpack_from("<BI", data, 4)
-    if format_version != 1:
+    format_version, type_count, pool_count = struct.unpack_from("<BII", data, 4)
+    if format_version != 2:
         raise BinaryReadError(f"unsupported format_version {format_version}")
 
     entries = []
-    cursor = 9  # 4 (magic) + 1 (version) + 4 (type_count)
+    cursor = 13  # 4 (magic) + 1 (version) + 4 (type_count) + 4 (pool_count)
     for _ in range(type_count):
         (name_len,) = struct.unpack_from("<H", data, cursor)
         cursor += 2
@@ -63,7 +80,30 @@ def read_header_and_type_table(data: bytes):
         entries.append(TypeTableEntry(
             name, schema_hash, record_size, record_count,
             record_array_offset, lookup_table_offset, lookup_table_count))
-    return format_version, entries
+    return format_version, entries, cursor, pool_count
+
+
+def read_pool_table(data: bytes, cursor: int, pool_count: int):
+    """§22.4: parses the pool table, starting at `cursor` (the offset
+    read_header_and_type_table's own return value already points at).
+    Returns [PoolTableEntry, ...]. A from-scratch parse, same
+    independence reasoning as every other function in this file --
+    NOT calling into export_binary.py's own writer-side code at all."""
+    entries = []
+    for _ in range(pool_count):
+        (pool_name_len,) = struct.unpack_from("<H", data, cursor)
+        cursor += 2
+        pool_name = data[cursor:cursor + pool_name_len].decode("utf-8")
+        cursor += pool_name_len
+        (type_name_len,) = struct.unpack_from("<H", data, cursor)
+        cursor += 2
+        type_name = data[cursor:cursor + type_name_len].decode("utf-8")
+        cursor += type_name_len
+        schema_hash, record_size, record_count = struct.unpack_from("<QII", data, cursor)
+        cursor += 8 + 4 + 4
+        entries.append(PoolTableEntry(
+            pool_name, type_name, schema_hash, record_size, record_count))
+    return entries
 
 
 def read_records_raw(data: bytes, entry: TypeTableEntry):
