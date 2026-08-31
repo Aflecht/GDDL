@@ -5137,6 +5137,52 @@ still ahead, matching flags/arrays' own five-stage precedent.
 
 Zero em-dashes (checked directly, this project's own hard rule).
 
+## Pools work, stage 5: docs (language-basics.md), requested directly by the user
+
+Stage 4 (permanent corpus/regression fixtures) is still open -- the
+user specifically asked for GitHub-facing documentation first,
+prompted by a question about whether the C++ target had pool support
+(it did, from stage 3a). Docs done now, out of the usual flags/arrays
+stage order, at the user's own request.
+
+**`docs/language-basics.md`'s new "Pools: reserved, uninitialized
+storage" section**, appended after the existing Arrays section
+(matching how Arrays itself was appended after Flags, and Flags after
+Identifier domains -- each new construct's docs land after whatever
+came immediately before it). Every `.gddl` snippet actually run
+through the real compiler before being written down, generated output
+copy-pasted verbatim, never hand-typed -- the same standard this
+project has held for every doc page since the beginning. Covers: the
+declaration syntax and why you'd reach for it (an entity pool, a fixed
+table of active projectiles -- anything the game itself manages the
+contents of); the no-body rule with its real parse error; the two
+registration-time checks (unknown type, zero count) with their real
+error text; not being identity-bearing (no `Registry`/`Find()`, plain
+index addressing); no field-type restriction (any type valid in an
+ordinary instance is valid in a pool); and the non-const `inline`
+storage, contrasted directly against a named instance's `inline
+constexpr`. Deliberately AoS-only and C++-only, matching Flags/Arrays'
+own established scope for this page ("language semantics, not a
+target-by-target export reference" -- that's SPEC.md's job).
+
+**SPEC.md §19's design-summary table also gained a Pools row**,
+matching the precedent Arrays' own stage 5 entry already set for that
+table ("extending that table rather than leaving it to go stale").
+
+Full regression re-run clean (docs-only change, no code touched):
+`export_golden.py` (89 fixtures, zero diff), `pytest tests` (22
+passing).
+
+**Not yet done, next**: stage 4, permanent corpus/regression fixtures
+(valid declaration across field kinds, the no-body/unknown-type/zero-
+count errors as locked fixtures, and per-target real-toolchain
+fixtures for at least one working combination per target -- matching
+flags/arrays' own stage 4 precedent). Both docs and fixtures are
+independent of each other; doing docs first here doesn't block or
+change what stage 4 still needs to cover.
+
+Zero em-dashes (checked directly, this project's own hard rule).
+
 ## Real toolchain re-verified after an environment gap; one real, pre-existing bug found and fixed along the way
 
 Before starting stage 3b, the local `compiler-python/tools/` binaries

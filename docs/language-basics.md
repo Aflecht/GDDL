@@ -378,3 +378,53 @@ Grid Level1
 ```
 Level1: ERROR - line 6: 'cells[0]': bracket indexing is only supported for one-dimensional arrays in this pass -- 'cells' has 2 dimensions; assign the full array with a literal instead
 ```
+
+## Pools: reserved, uninitialized storage
+
+Everything up to this point describes fully-resolved, compile-time data, every field has a real value before it ever reaches your game. A `pool` is the opposite: a fixed-size block of instances with no values at all, reserved at compile time and filled in by your game at runtime. Think an entity pool, a fixed-size table of active projectiles, anything your own game code manages the contents of rather than GDDL.
+
+```gddl
+define Enemy
+	hp = i32
+	damage_min_max = i32 : 2
+
+pool Enemy ActiveEnemies : 8
+```
+
+```cpp
+struct Enemy
+{
+    int32_t                hp;
+    std::array<int32_t, 2> damage_min_max;
+};
+
+inline Enemy ActiveEnemies[8];
+```
+
+`pool TypeName PoolName : N` is a top-level declaration on its own, with no indented body underneath it, there's nothing to initialize:
+
+```gddl
+define Enemy
+	hp = i32
+
+pool Enemy ActiveEnemies : 8
+	hp = 5
+```
+
+```
+line 4: 'pool Enemy ActiveEnemies : 8' cannot have an indented body -- pool slots are always uninitialized, filled in by the game at runtime, never by the compiler
+```
+
+`TypeName` has to be a real `define`, and `N` has to be a positive count, both checked the moment the pool is registered:
+
+```
+line 4: pool 'ActiveGhosts' references type 'Ghost', but no such define exists
+```
+
+```
+line 4: pool 'ActiveEnemies' declares a count of 0 -- a pool must reserve at least one slot
+```
+
+A pool has no name-based or ID-based lookup of any kind, no `Registry`, no `Find()`, unlike a `define`'s own named instances. There's no identity to look up, your game addresses a slot by plain index, `0` through `N - 1`, and owns whatever bookkeeping (which slots are actually in use, say) it needs on top of that. Any field type is fine inside the pooled `define`, struct-typed, identifier-typed, `string N`, arrays, the same as an ordinary instance, since a pool never computes or checks a value, only reserves shape-sized space.
+
+Unlike a named instance's storage, which is `const`, a pool's storage is always mutable, `inline Enemy ActiveEnemies[8];` here, never `inline constexpr`. The entire point is your own code writing into it while the game runs.

@@ -1175,6 +1175,7 @@ An `--exclude` pattern, for skipping specific paths inside a recursive glob (a `
 | Determinism | Identical source + settings -> identical output, always. |
 | Identifiers manifest | `--emit-ids-manifest`, all five exporters. Every identifier/flags domain, unconditionally. For a separately-compiled script compiler resolving `Domain.key` across independently-compiled mods, not section 14.6's in-process VM binding-glue manifest. |
 | Arrays | `ElementType : dim1 : dim2 : ...`. Outermost value brace always optional, every level inward required. Scalar/string elements only this pass. Bracket-indexed element access/modification (assign and op-statement), one-dimensional only this pass. Row-major, contiguous, no padding, uniformly across all five export targets. |
+| Pools | `pool TypeName PoolName : N`, no body, no field values. Reserved, uninitialized instance storage the game fills in at runtime. Not identity-bearing (no logical/stable ID, no `Registry`/`Find()`), addressed by plain index. Never enters resolution or the completeness check. Implemented and verified on all five export targets; 6502/Z80 AoS and Z80 z88dk C mode remain real, tracked gaps. |
 
 ---
 
