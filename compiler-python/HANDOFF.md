@@ -4957,6 +4957,80 @@ already cover this target's stated motivating use case.
 
 Zero em-dashes (checked directly, this project's own hard rule).
 
+## Pools work, stage 3d: 68000 export (both layouts, full field-type support)
+
+Fourth target of stage 3, and the simplest of the four so far -- this
+target closes cleanly in one pass, no scope narrowing needed in
+either direction.
+
+**Why this target needed neither an address allocator nor a field-type
+restriction, unlike 6502/Z80**: 68000 is a real C compiler target
+(vbcc), so a plain `extern`/global C array is genuinely free storage --
+a real linker places it, the same reason C++ pools (export_cpp.py)
+never needed a `--pool-base` equivalent either. And 68000 has a real
+MULU/MULS instruction, so `index * stride` is cheap regardless of
+whether `stride` is a power of two -- the exact indexing-cost concern
+that forced 6502/Z80 to reject `string N`/array-typed pool fields under
+SoA simply doesn't exist here (the same reasoning already established
+for Z80's own z88dk C mode). Both layouts (AoS and SoA) got full pool
+support in one pass as a direct consequence, not a scope choice.
+
+**`export_68000.py`**: new `PoolInfo` (no `PoolFieldRegion`/
+`PoolAllocation` needed at all -- there's no address bookkeeping to
+do), `gather_pool_info`, and `_render_pools_68000` (both layouts in
+one function, since neither needed field-type gating). AoS: `extern
+{Type} {PoolName}[N];` header / `{Type} {PoolName}[N];` .c -- never
+`const`, the game writes into it at runtime. SoA: one array per
+flattened leaf field, reusing the exact same per-field-kind rendering
+(`string N` -> `char[N][Width]`, array-typed -> the same nested-
+declarator helper named instances' own SoA arrays already use)
+`render_c89_split`'s existing SoA branch already established for named
+instances -- no new type-mapping logic anywhere.
+
+**A real, pre-existing gap found along the way, unrelated to pools, not
+fixed (out of this feature's own scope) but recorded here rather than
+silently worked around**: `render_c89_split` always emits `{Type}
+{Type}_Instances[N] = { ... };` unconditionally, even when a type has
+zero named instances (N=0, empty initializer `{}`). Real vbcc rejects
+this outright (`error 360: empty initializer`) the moment a fixture
+has a pool but no named instances of that same type -- confirmed
+directly, not assumed, by hitting it while building this stage's own
+first test fixture. Worked around here by giving the test fixture at
+least one named instance (a legitimate, common case, not a special
+accommodation for pools), since fixing the zero-instance-array gap
+itself is a separate, pre-existing correctness issue this feature
+didn't introduce and shouldn't fold into its own commit.
+
+**Verified, not assumed, against real `vbcc`/`vamos`**: a 5-slot
+`Entity` pool (a nested `Stats` struct with a `u32` and a `string 8`
+field, an identifier-typed field, a `u16` field, and a `u8 : 2 : 2`
+array field) compiled and ran clean under real `vc +aos68k` + real
+`vamos`, for both AoS and SoA, writing into and reading back every
+field kind in every pool slot -- including the string field
+(`strcpy`/`strcmp`) and the 2D array field, neither of which 6502/Z80
+pools can support at all. Zero-initial-state confirmed before any
+write, matching C's own static-storage zero-init guarantee (same as
+C++, no GDDL-side work needed for it).
+
+**Full regression re-run clean after**: `export_golden.py` (89
+fixtures, zero diff), `pytest tests` (22 passing), the pre-existing
+`run_all_68000_tests.py` suite (6/6, confirming this stage disturbed
+nothing already there).
+
+SPEC.md §22.4 updated: 68000 marked implemented and verified for both
+layouts and every field type, with the real reason (real linker, real
+hardware multiply) stated plainly rather than just asserted.
+
+**Not yet done, next**: stage 3e (final target), standalone binary
+export (§17). Given that format's own file is the actual output
+artifact (not source compiled elsewhere), pool "export" there likely
+means directory/metadata describing reserved space rather than any
+instance bytes at all -- matching SPEC.md §22.4's own original design
+note for this target, still unverified until this stage actually
+builds it.
+
+Zero em-dashes (checked directly, this project's own hard rule).
+
 ## Real toolchain re-verified after an environment gap; one real, pre-existing bug found and fixed along the way
 
 Before starting stage 3b, the local `compiler-python/tools/` binaries

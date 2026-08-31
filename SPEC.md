@@ -1345,7 +1345,7 @@ An out-of-bounds index (`array_index_out_of_range`) and bracket indexing on a fi
 
 ## 22. Pools: Reserved, Uninitialized Instance Storage
 
-**Status: declaration and registry semantics implemented and verified. Export: C++ implemented and verified (both single-header and split mode); 6502 implemented and verified for SoA layout only (AoS deferred, see 22.4); Z80 implemented and verified for SoA layout only on both assembly dialects (z88dk C mode and AoS deferred, see 22.4); 68000 and standalone binary not yet implemented -- do not treat those targets as shipped until a later revision of this section says so.**
+**Status: declaration and registry semantics implemented and verified. Export: C++ implemented and verified (both single-header and split mode); 6502 implemented and verified for SoA layout only (AoS deferred, see 22.4); Z80 implemented and verified for SoA layout only on both assembly dialects (z88dk C mode and AoS deferred, see 22.4); 68000 implemented and verified for BOTH layouts, full field-type support; standalone binary not yet implemented -- do not treat that target as shipped until a later revision of this section says so.**
 
 Everything in §§1-21 assumes every exported field has a fully-resolved, compile-time-known value (§7). A `pool` is the deliberate exception: a fixed-size block of instances with no field values at all, reserved at compile time and filled in by the game itself at runtime -- an entity pool, in the ordinary game-development sense.
 
@@ -1392,7 +1392,9 @@ Fields wider than a byte get the same Lo/Hi split convention named instances' ow
 
 **z88dk C mode and AoS pool export on Z80 are explicitly not implemented**, both raising clear errors naming why rather than silently doing something wrong. AoS: same reasoning as 6502 (needs its own index-to-address design), though this target's existing general shift-add multiply routine (already used for AoS `--z80-pointer-table=off` record-size indexing) makes it more tractable here in principle -- deferred anyway, for scope consistency with the 6502 pass. C mode: real, separate, unbuilt design (global, non-static, uninitialized C array declarations) -- notably, C mode's own existing `string N`/array-typed-field SoA restriction for named instances does NOT apply to it (zsdcc strength-reduces any constant stride), so once built, C-mode pools may support field types the two assembly dialects' pools cannot.
 
-**68000, standalone binary: not yet implemented.**
+**68000 (implemented and verified, both AoS and SoA, every field type):** unlike 6502/Z80, this target needs no address allocation of any kind (a real linker places `extern`/global storage the exact same way C++ pools already work, §14.3's own reasoning) and no `string N`/array-typed-field restriction under SoA (a real MULU/MULS instruction makes `index * stride` cheap regardless of stride, the same reasoning already established for Z80's z88dk C mode). Pool storage is a plain global array in the `.c` file, `extern`-declared in the header, never `const`: `EntityPool[N]` for AoS, one `PoolName_leafpath[N]` array per flattened leaf field for SoA (including `char[N][StringWidth]` for `string N` leaves and the same nested-array declarator arrays/array-typed leaves already get, matching named instances' own SoA shape exactly). Verified with a real `vc +aos68k` compile and real `vamos` execution for both layouts, writing into and reading back every field kind including a `string N` field and a 2D array field.
+
+**Standalone binary: not yet implemented.**
 
 ---
 

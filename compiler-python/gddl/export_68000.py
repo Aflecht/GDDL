@@ -115,6 +115,33 @@ class TypeInfo:
     instance_values: List[object]     # StructValue per instance, same order
 
 
+@dataclass
+class PoolInfo:
+    """§22: one `pool TypeName PoolName : N` declaration's shared IR.
+    Unlike 6502/Z80, this target needs NO address allocation at all --
+    a real C compiler and linker place `extern`/global storage, the
+    exact same reason C++ pools (export_cpp.py) never needed a
+    --pool-base equivalent either. `leaves` (SoA use only) is the same
+    (path, type_tokens) shape TypeInfo's own field list flattens into,
+    via _flatten_leaves."""
+    name: str
+    type_name: str
+    count: int
+    leaves: List[Tuple[str, str]]
+
+
+def gather_pool_info(reg, ordered_type_names) -> List[PoolInfo]:
+    """§22: every declared pool whose own TypeName is among the types
+    actually being exported this run (--type selection) -- same
+    reasoning as export_6502.py/export_z80.py's identical functions."""
+    return [
+        PoolInfo(name=name, type_name=node.type_name, count=node.count,
+                 leaves=_flatten_leaves(node.type_name, reg))
+        for name, node in reg.pools.items()
+        if node.type_name in ordered_type_names
+    ]
+
+
 def _leaf_domain_name(type_tokens: str, reg):
     """The identifier domain a field refers to, regardless of whether
     source wrote 'Domain' or '@Domain' -- indistinguishable on this
@@ -387,14 +414,60 @@ def _c_value_literal(value, type_tokens: str, reg) -> str:
         f"{type_tokens!r} yet")
 
 
+def _render_pools_68000(header: list, c: list, pools: List[PoolInfo], reg,
+                         layout: str, domain_widths: dict):
+    """§22.4: 68000 pool export -- both layouts, unlike 6502/Z80. This
+    target needs no address allocation (a real linker places `extern`
+    storage) and no string N/array-typed-field rejection under SoA
+    (a real MULU/MULS instruction makes index*stride cheap regardless
+    of stride, the same reasoning z88dk C mode already established for
+    Z80's own C output path) -- so pools here are exactly as capable as
+    named instances, no scope-narrowing needed in either direction.
+    Never `const` in either layout, unlike named instances -- the
+    entire point is the game writing into it at runtime."""
+    for pool in pools:
+        if layout == "aos":
+            header.append(f"/* --- pool: {pool.name} ({pool.type_name} x {pool.count}, "
+                           "AoS reservation, uninitialized -- §22.4) --- */")
+            header.append(f"extern {pool.type_name} {pool.name}[{pool.count}];")
+            header.append("")
+            c.append(f"/* --- pool: {pool.name} --- */")
+            c.append(f"{pool.type_name} {pool.name}[{pool.count}];")
+            c.append("")
+        else:
+            header.append(f"/* --- pool: {pool.name} ({pool.type_name} x {pool.count}, "
+                           "SoA reservation, uninitialized -- §22.4) --- */")
+            c.append(f"/* --- pool: {pool.name} (SoA reservation) --- */")
+            for path, type_tokens in pool.leaves:
+                label = f"{pool.name}_{path}"
+                str_n = _string_n(type_tokens)
+                if str_n is not None:
+                    header.append(f"extern char {label}[{pool.count}][{str_n}];")
+                    c.append(f"char {label}[{pool.count}][{str_n}];")
+                    continue
+                array_info = _try_parse_array_type(type_tokens.strip())
+                if array_info is not None:
+                    elem_c_type, elem_suffix = _c_array_declaration_parts(
+                        array_info, reg, domain_widths)
+                    header.append(f"extern {elem_c_type} {label}[{pool.count}]{elem_suffix};")
+                    c.append(f"{elem_c_type} {label}[{pool.count}]{elem_suffix};")
+                    continue
+                c_type = _c_field_type(type_tokens, reg, domain_widths)
+                header.append(f"extern {c_type} {label}[{pool.count}];")
+                c.append(f"{c_type} {label}[{pool.count}];")
+            header.append("")
+            c.append("")
+
+
 def render_c89_split(domains: List[DomainInfo], types: List[TypeInfo], reg,
                       layout: str = "aos", header_filename: str = "generated.h",
-                      guard_name: str = "GDDL_GENERATED_68000_H"):
+                      guard_name: str = "GDDL_GENERATED_68000_H", pools: List[PoolInfo] = None):
     """§15.2 (corrected): always produces (header_text, c_text) -- never
     a single file. §13.6: layout is a single explicit per-run flag, no
     target-based default, mirroring C++ and 6502 exactly."""
     if layout not in ("aos", "soa"):
         raise ValueError(f"layout must be 'aos' or 'soa', got {layout!r}")
+    pools = pools or []
 
     domain_widths = {d.name: d.width for d in domains}
 
@@ -561,6 +634,9 @@ def render_c89_split(domains: List[DomainInfo], types: List[TypeInfo], reg,
             c.append("}")
             c.append("")
 
+    if pools:
+        _render_pools_68000(header, c, pools, reg, layout, domain_widths)
+
     header.append(f"#endif /* {guard_name} */")
     header.append("")
 
@@ -620,12 +696,15 @@ def _cli():
 
     domains, types = gather_ir(resolver.reg, resolver, args.types,
                                 emit_all_domains=args.emit_all_domains)
+    ordered_type_names = [t.name for t in types]
+    pools = gather_pool_info(resolver.reg, ordered_type_names)
 
     header_name = f"{args.output}.h"
     c_name = f"{args.output}.c"
     header, c = render_c89_split(domains, types, resolver.reg,
                                   layout=args.layout,
-                                  header_filename=os.path.basename(header_name))
+                                  header_filename=os.path.basename(header_name),
+                                  pools=pools)
     with open(header_name, "w", encoding="utf-8") as f:
         f.write(header)
     with open(c_name, "w", encoding="utf-8") as f:
