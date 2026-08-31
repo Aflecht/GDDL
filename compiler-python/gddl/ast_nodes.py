@@ -89,6 +89,23 @@ class InstanceDecl(Node):
     body: List[Node] = field(default_factory=list)
 
 
+@dataclass
+class PoolDecl(Node):
+    """`pool TypeName PoolName : N` (§22) -- reserves N uninitialized
+    slots of TypeName, exported per whichever AoS/SoA layout is active
+    at export time (§13.6 -- pools carry no layout opinion of their own,
+    same as everything else in the source). Never enters phase 6
+    resolution or the phase 8 completeness check: there are no field
+    values here to resolve or check, by design -- a pool is raw,
+    game-managed storage, not compile-time-computed data. Not identity-
+    bearing either: no logical/stable ID, no companion registry/Find(),
+    since pool slots are addressed by plain index (0..N-1), never looked
+    up by name or hash."""
+    type_name: str
+    pool_name: str
+    count: int
+
+
 # ---- statements (inside instance bodies / nested struct fields) ----
 
 @dataclass

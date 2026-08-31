@@ -10,7 +10,7 @@ import re
 from typing import List, Tuple, Optional
 from .ast_nodes import (
     Node, Program, IdentifierBlock, IdentifierEntry, FlagsBlock, FlagsEntry,
-    DefineBlock, FieldDef, InstanceDecl, AssignStmt, OpStmt, BareFieldStmt, RawStmt,
+    DefineBlock, FieldDef, InstanceDecl, PoolDecl, AssignStmt, OpStmt, BareFieldStmt, RawStmt,
 )
 from .errors import CompileWarning
 
@@ -18,6 +18,7 @@ OPERATORS = ("+", "-", "*", "/", "|", "&", "^")
 
 _FLAGS_WIDTHS = ("u8", "u16", "u32", "u64")
 _BIT_LITERAL_RE = re.compile(r"^b(\d+)$")
+_POOL_COUNT_RE = re.compile(r"^\d+$")
 
 
 def _is_quote_escaped(s: str, i: int) -> bool:
@@ -416,6 +417,8 @@ class Parser:
             return self._parse_flags_block(i, block_indent)
         if tokens[0] == "define":
             return self._parse_define_block(i, block_indent)
+        if tokens[0] == "pool":
+            return self._parse_pool_decl(i, block_indent)
 
         return self._parse_instance_decl(i, block_indent)
 
@@ -636,6 +639,42 @@ class Parser:
         self._enter_scope()
         i2, body = self._parse_statement_block(i, block_indent)
         node.body = body
+        return node, i2
+
+    def _parse_pool_decl(self, i: int, block_indent: str) -> Tuple[Node, int]:
+        """`pool TypeName PoolName : N` (§22) -- a fixed-size reservation
+        of N uninitialized TypeName slots, never a field-by-field
+        instance. Deliberately parsed as a single fixed shape (like
+        flags' 'flags Name WidthType' width check above) rather than
+        deferred to registry the way array dimensions are: this is the
+        whole top-level statement's own grammar, not raw text sitting
+        inside some other field's type_tokens.
+
+        No body follows -- there is nothing to initialize, so any
+        indented content directly under this line is a parse error, not
+        silently accepted or silently dropped."""
+        rec = self.recs[i]
+        tokens = rec.content.split()
+        if len(tokens) != 5 or tokens[3] != ":":
+            raise GDDLParseError(
+                "expected 'pool TypeName PoolName : N' (a fixed-size pool "
+                f"of N uninitialized instances), got: {rec.content!r}", rec.lineno)
+        type_name, pool_name, count_text = tokens[1], tokens[2], tokens[4]
+        if not _POOL_COUNT_RE.match(count_text):
+            raise GDDLParseError(
+                f"pool count must be a plain non-negative integer literal, "
+                f"got {count_text!r}", rec.lineno)
+        count = int(count_text)
+        node = PoolDecl(line=rec.lineno, type_name=type_name, pool_name=pool_name, count=count)
+        i += 1
+        self._enter_scope()
+        i2, body = self._parse_statement_block(i, block_indent)
+        if body:
+            raise GDDLParseError(
+                f"'pool {type_name} {pool_name} : {count}' cannot have an "
+                "indented body -- pool slots are always uninitialized, "
+                "filled in by the game at runtime, never by the compiler",
+                rec.lineno)
         return node, i2
 
     def _parse_statement_block(self, i: int, parent_indent: str) -> Tuple[int, List[Node]]:

@@ -4456,3 +4456,118 @@ toolchain-verified with a real `zsdcc` compile+link (see this file's
 bundled with the `z88dk` install, no source build needed.
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+## Pools work, stage 1: parsing `pool TypeName PoolName : N`
+
+New feature, requested directly by the user while working on the C64
+game: a way to reserve a fixed-size block of UNINITIALIZED instances of
+an existing `define`, laid out per whichever AoS/SoA export flag is
+active, for the game itself to populate/manage at runtime (an entity
+pool, in the ordinary game-dev sense) -- genuinely new territory for
+GDDL, since everything before this assumed every exported field has a
+fully-resolved, compile-time-known value (SS7's completeness check).
+Designed collaboratively before any code was written, same discipline
+as flags/arrays: syntax, zero-init-vs-uninitialized semantics, and
+target scope were all explicit decisions, not assumptions. Staged the
+same five-part way flags and arrays both were (parser, registry/
+resolution, export across all five targets, corpus fixtures, docs).
+This entry is stage 1 only.
+
+**Settled design, recorded here since SPEC.md's own new section isn't
+written yet (lands with stage 2, once registry-level semantics exist to
+document alongside the grammar):**
+- Syntax: `pool TypeName PoolName : N` -- a new top-level construct, no
+  body (there are no field values to initialize, so an indented block
+  under this line is a parse error, not silently accepted).
+- No restriction on `TypeName`'s own field composition -- struct/
+  identifier/flags/array/string/scalar fields are all fine, since a pool
+  never computes or checks any value, only reserves shape-sized space.
+- Deliberately NOT identity-bearing: no logical/stable ID, no
+  `{Name}_Registry`/`Find()` -- pool slots are addressed by plain index
+  (0..N-1) by the game itself, never looked up by name or hash the way
+  named instances are. Only needs an ordinary "name not already taken"
+  check at registration, not the hash-collision table identifiers/
+  instances share (SS4.1.1's Collision Detection).
+- Never enters phase 6 (resolve) or phase 8 (completeness check) at all
+  -- there is nothing to resolve or check, by construction, not a
+  carve-out bolted onto those phases after the fact.
+- AoS/SoA layout applies to a pool exactly like it applies to named
+  instances today -- SS13.6's "layout is never source-level syntax"
+  principle stays intact; a pool declaration carries no layout opinion
+  of its own, deliberately, so it doesn't punch a hole in that
+  principle.
+- Genuinely uninitialized, not zero-filled -- confirmed directly with
+  the user this is deliberate and target-asymmetric: 6502/Z80/68000
+  assembly and the standalone binary format can reserve real, unwritten
+  space (BSS-style `.res`/`ds` directives on the assembly targets, pure
+  directory/metadata with no instance bytes at all for the binary
+  format -- both genuinely free of cost, which is the actual point for
+  a C64 build where disk/tape space matters). C++ is the one exception,
+  not by choice: a namespace-scope POD array with no initializer is
+  zero-initialized by the C++ standard itself, unconditionally -- there
+  is no way to keep a plain, directly-indexable `Entity Pool[40]` while
+  also avoiding that. Confirmed acceptable to the user as-is; SPEC.md's
+  new section (stage 2 or later, once export shape is real) will state
+  this asymmetry plainly rather than let it read as an inconsistency
+  nobody noticed.
+- Mutability: pool storage must be non-const (`inline Entity
+  EntityPool[40];`, no `constexpr`), unlike named instances' `inline
+  constexpr` -- the entire point is the game writing into it at
+  runtime. SoA export names its per-field arrays after the POOL's own
+  name, not the type's (`EntityPool_SoA`-shaped, not `Entity_SoA`-
+  shaped), since two differently-named pools of the same type must not
+  collide.
+- All five export targets are in scope for the first pass (the user's
+  own choice, not the smaller "6502 first" precedent flags/arrays each
+  used) -- stage 3 will need real verification against each target's
+  own toolchain the same way every prior feature has, not "should work"
+  reasoning.
+
+**Implementation, this stage:**
+- `ast_nodes.py`: new `PoolDecl` (`type_name`, `pool_name`, `count`),
+  positioned next to `InstanceDecl` -- structurally similar (a
+  top-level construct naming an existing type) but semantically
+  distinct enough (no body at all, ever) that it's its own node, not a
+  variant of `InstanceDecl` with an empty body allowed. This mirrors the
+  precedent already set for `flags` vs. `identifier`: a real semantic
+  difference gets a distinct node, not a shared one with a mode flag.
+- `parser.py`: `_parse_one` gained a `tokens[0] == "pool"` dispatch
+  branch (alongside `identifier`/`flags`/`define`, before the
+  instance-decl fallback), routing to new `_parse_pool_decl`. Parses the
+  whole `pool TypeName PoolName : N` shape as one fixed grammar in this
+  one place -- deliberately NOT deferred to registry.py the way array
+  dimensions are (`ElementType : dim1 : dim2` inside a field's raw
+  `type_tokens`, interpreted only at registry time, SS21.1): that
+  precedent applies to text sitting inside another construct's payload,
+  but this IS the top-level statement's own grammar, the same reasoning
+  `flags`' width token already gets checked immediately in
+  `_parse_flags_block` rather than deferred. New `_POOL_COUNT_RE`
+  (`^\d+$`) validates the count is a plain non-negative integer literal
+  at parse time; `TypeName`/`PoolName` themselves are captured raw and
+  left for registry to validate (matching `_parse_instance_decl`'s own
+  precedent -- it doesn't regex-validate `type_name`/`instance_name`
+  either, that's a registration-time concern once a symbol table
+  exists to check against).
+- Body rejection reuses the existing `_parse_statement_block` call
+  (so indentation is still consumed correctly, not left dangling) and
+  raises a clear, dedicated error naming exactly why a body can never
+  appear here, rather than reusing OpStmt's generic "unexpected
+  indented block" wording -- the reason is different (nothing to
+  initialize, not "this statement shape doesn't nest") and worth saying
+  plainly.
+
+**Verified, not assumed:** a scratch script (happy path plus three error
+shapes -- non-integer count, missing colon, missing count -- plus body
+rejection) confirmed directly against the real parser, not reasoned
+about. Full regression suite (`export_golden.py`, 89 fixtures) re-run
+clean, zero content differences against the previously committed
+`golden_output.json` -- confirming this stage changed no existing
+behavior anywhere, purely additive grammar recognition.
+
+**Not yet done, next**: stage 2 (registry -- validating `TypeName`
+actually names a known `define`, the pool name isn't already taken by
+anything else in the compile unit, the count is nonzero; SPEC.md's own
+new section gets written here, once there's real registry-level
+semantics to document alongside the grammar, not just a parser shape).
+
+Zero em-dashes (checked directly, this project's own hard rule).
