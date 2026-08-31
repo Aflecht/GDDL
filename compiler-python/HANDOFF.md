@@ -4870,6 +4870,93 @@ re-run clean: `export_golden.py` (89, zero diff), `pytest tests` (22),
 
 Zero em-dashes (checked directly, this project's own hard rule).
 
+## Pools work, stage 3c: Z80 export (SoA only, both assembly dialects)
+
+Third target of stage 3. Both assembly output paths (SjASMPlus,
+z88dk-z80asm) done together, same as 6502's three dialects; z88dk C
+mode explicitly deferred as its own future sub-step (see below).
+
+**Designed correctly from the start this time**: this target's own
+`string N`/array-typed-field SoA rejection (already explicit in this
+module: "the field's width isn't guaranteed a power of two, so
+indexing it would need a real multiply, not the cheap shift") made the
+real reason unmistakable while designing this stage, closing the loop
+on the mistake caught and fixed on 6502 immediately before this (see
+that correction entry above). `_pool_leaf_width_bytes` rejects both
+field kinds from the start, with the real access-cost reason in the
+error text, not an afterthought correction.
+
+**`export_z80.py`**: new `PoolInfo`/`PoolFieldRegion`/`PoolAllocation`
+(mirroring export_6502.py's shapes, this target's own module per its
+established "duplicate rather than cross-import" convention) --
+`PoolFieldRegion` is simpler than 6502's: a SINGLE address plus a
+width, never Lo/Hi split, since this target's richer register set
+already gives named-instance SoA u16 columns one contiguous array
+(`add hl,hl` to index), and pool reservation follows that same shape.
+`gather_pool_info`, `_validate_pool_base`/`allocate_pool_space` (new
+`--pool-base` parameter, required only when pools exist -- this
+target has no zero-page-equivalent scratch concept at all per its own
+module docstring, but pool DATA still needs a real address somewhere,
+an orthogonal need untouched by that simplification). `render()`'s
+dispatch signature grew `pools=None, pool_base=None`, threaded to all
+three toolchain paths (the third, z88dk C mode, accepts but rejects
+non-empty pools with a clear "not implemented yet" error rather than
+silently ignoring them or crashing on an unexpected kwarg).
+
+**Two renderers** (`render_pools_sjasmplus`/`render_pools_z88dk_asm`):
+identical shape -- both dialects share `equ` syntax on this target
+(confirmed independently against each real binary, not assumed
+identical just because SjASMPlus's was already confirmed). One
+constant per leaf field, `Label equ $addr`.
+
+**A real toolchain-testing snag worth recording**: `z88dk-z80asm`'s own
+`-m` map-file output only lists real address LABELS, not `equ`-defined
+constants -- confirmed directly (`EntityPool_tag` never appeared in
+the `.map` output even though the assembler resolved every reference
+to it correctly wherever used). Verification for this dialect
+therefore parses the pool's own generated `equ` lines directly out of
+the `.asm` text this exporter produced, rather than depending on the
+toolchain's own symbol dump -- which is arguably more direct anyway,
+since that `.asm` text is the actual thing being verified.
+
+**Verified, not assumed, against both real toolchains plus a real Z80
+CPU emulator** (the `z80` PyPI package, mirroring `py65`'s role for
+6502): a 5-slot `Entity` pool (u16 field, identifier-typed field,
+another u16 field) assembled clean under both SjASMPlus and
+z88dk-z80asm, both producing byte-identical 19-byte output (the
+domain dispatch table's own real content -- confirming the pool added
+nothing, same finding as 6502). A real functional test: hand-assembled
+Z80 machine code (`ld hl, Field_base` / `add hl, de` / `ld (hl), n`)
+wrote a real value into one pool slot's field and read it back
+correctly via the real `z80.Z80Machine()` emulator, with every other
+slot's memory confirmed still zero. All four error paths verified
+directly: AoS+pools rejection, missing `--pool-base` with pools
+present, no requirement with zero pools, and the z88dk-C-mode
+not-implemented rejection.
+
+**Full regression re-run clean after**: `export_golden.py` (89
+fixtures, zero diff), `pytest tests` (22 passing), the pre-existing
+`run_all_z80_tests.py` suite (10/10, confirming this stage disturbed
+nothing already there).
+
+SPEC.md §22.4 updated: Z80 marked implemented and verified for SoA on
+both assembly dialects, z88dk C mode and AoS both explicitly named as
+not-yet-implemented with their own real reasons (AoS: needs its own
+index-to-address design, though this target's existing general
+shift-add multiply routine makes it more tractable here than on 6502
+in principle; C mode: real, separate, unbuilt design, and notably
+would NOT inherit the two assembly dialects' string/array-field
+restriction once built, since zsdcc's own strength-reduction already
+lifts that restriction for named instances too on this output path).
+
+**Not yet done, next**: stage 3d, 68000 export. z88dk C mode's own
+pool support remains a real, tracked gap on this target, not folded
+into a future stage automatically -- worth deciding explicitly whether
+it's still wanted before building it, given the two assembly dialects
+already cover this target's stated motivating use case.
+
+Zero em-dashes (checked directly, this project's own hard rule).
+
 ## Real toolchain re-verified after an environment gap; one real, pre-existing bug found and fixed along the way
 
 Before starting stage 3b, the local `compiler-python/tools/` binaries

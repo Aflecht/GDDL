@@ -1345,7 +1345,7 @@ An out-of-bounds index (`array_index_out_of_range`) and bracket indexing on a fi
 
 ## 22. Pools: Reserved, Uninitialized Instance Storage
 
-**Status: declaration and registry semantics implemented and verified. Export: C++ implemented and verified (both single-header and split mode); 6502 implemented and verified for SoA layout only (AoS deferred, see 22.4); Z80, 68000, and standalone binary not yet implemented -- do not treat those targets as shipped until a later revision of this section says so.**
+**Status: declaration and registry semantics implemented and verified. Export: C++ implemented and verified (both single-header and split mode); 6502 implemented and verified for SoA layout only (AoS deferred, see 22.4); Z80 implemented and verified for SoA layout only on both assembly dialects (z88dk C mode and AoS deferred, see 22.4); 68000 and standalone binary not yet implemented -- do not treat those targets as shipped until a later revision of this section says so.**
 
 Everything in §§1-21 assumes every exported field has a fully-resolved, compile-time-known value (§7). A `pool` is the deliberate exception: a fixed-size block of instances with no field values at all, reserved at compile time and filled in by the game itself at runtime -- an entity pool, in the ordinary game-development sense.
 
@@ -1388,7 +1388,11 @@ Fields wider than a byte get the same Lo/Hi split convention named instances' ow
 
 **AoS pool export on 6502 is explicitly not implemented, and raises a clear error naming why** (not silently wrong): 6502's AoS mode is always a pointer list (SS13.7 -- no linear-AoS alternative exists on this target), which needs its own precomputed index-to-address pointer table to avoid an arbitrary index*record_size multiply at runtime. That table design (analogous to the existing AoS registry's own Lo/Hi pointer table) is real, separate, unbuilt work, not a corner cut silently.
 
-**Z80, 68000, standalone binary: not yet implemented.**
+**Z80 (implemented and verified, SoA layout only, both assembly dialects -- SjASMPlus and z88dk-z80asm):** same "plain constant, never a data directive" mechanism as 6502 (`Label equ $addr`, confirmed directly against both real assemblers to cost zero output bytes), addressed by the identical `--pool-base` parameter (a 16-bit address, required only when pools exist). Unlike 6502, **no Lo/Hi split** -- this target's richer register set already lets a u16 SoA field live as one contiguous `2*count`-byte region (a cheap `add hl,hl` reaches any slot), matching how named-instance SoA columns already work here (this section's own "Table shape, Z80-only" reasoning). `string N` and array-typed leaf fields are rejected for the same reason as 6502 (indexing a non-power-of-two stride would need a real multiply) -- this was designed correctly from the start on this target, after the identical mistake was first made and caught on 6502 (recorded in `compiler-python/HANDOFF.md`'s own correction entry). Verified against both real assemblers plus a real Z80 CPU emulation (the `z80` PyPI package): assembled clean, byte-identical output confirming zero bytes added by the pool, and a real emulated write into one pool slot's field read back correctly with every other slot confirmed untouched.
+
+**z88dk C mode and AoS pool export on Z80 are explicitly not implemented**, both raising clear errors naming why rather than silently doing something wrong. AoS: same reasoning as 6502 (needs its own index-to-address design), though this target's existing general shift-add multiply routine (already used for AoS `--z80-pointer-table=off` record-size indexing) makes it more tractable here in principle -- deferred anyway, for scope consistency with the 6502 pass. C mode: real, separate, unbuilt design (global, non-static, uninitialized C array declarations) -- notably, C mode's own existing `string N`/array-typed-field SoA restriction for named instances does NOT apply to it (zsdcc strength-reduces any constant stride), so once built, C-mode pools may support field types the two assembly dialects' pools cannot.
+
+**68000, standalone binary: not yet implemented.**
 
 ---
 

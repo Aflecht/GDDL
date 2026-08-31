@@ -144,7 +144,7 @@ def _c_field_name(path: str) -> str:
 
 
 def render_z88dk_c(domains: list, types: list, pointer_table: bool = True,
-                   reg=None, layout: str = "aos") -> dict:
+                   reg=None, layout: str = "aos", pools: list = None, pool_alloc=None) -> dict:
     """Returns {".h": text, ".c": text} -- always two files (§16.2.1).
     Never a single combined file: that is test-harness convenience only,
     and emitting it as a normal mode would invite the duplicate-symbol
@@ -167,6 +167,20 @@ def render_z88dk_c(domains: list, types: list, pointer_table: bool = True,
         raise ValueError("z88dk C mode needs the registry (`reg=`) for type sizing")
     if layout not in ("aos", "soa"):
         raise ValueError(f"layout must be 'aos' or 'soa', got {layout!r}")
+    if pools:
+        # §22.4: not yet implemented for this output path -- deferred as
+        # its own sub-step, not silently dropped. Both Z80 assembly
+        # dialects (export_z80_sjasmplus.py/export_z80_z88dk_asm.py)
+        # already support pools; C mode needs its own design (global,
+        # non-static, uninitialized C array declarations -- likely
+        # simpler than the asm paths, since zsdcc's own strength-
+        # reduction already lifts this mode's string N/array-typed-field
+        # restriction for named instances too, per this function's own
+        # docstring above).
+        raise ValueError(
+            "z88dk C mode pool export is not implemented yet (§22.4) -- "
+            "use --z80-toolchain=sjasmplus or --z80-toolchain=z88dk "
+            "--z88dk-output=asm for pools on Z80 for now.")
 
     header = _render_header(domains, types, pointer_table, reg, layout)
     csrc = _render_c(domains, types, pointer_table, reg, layout)

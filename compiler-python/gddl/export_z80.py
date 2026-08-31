@@ -110,6 +110,39 @@ class TypeInfo:
     instances: List[InstanceInfo]
 
 
+@dataclass
+class PoolInfo:
+    """§22: one `pool TypeName PoolName : N` declaration's shared IR --
+    mirrors export_6502.py's PoolInfo (same shape, this target's own
+    module per this file's own established "duplicate rather than
+    cross-import" convention)."""
+    name: str
+    type_name: str
+    count: int
+    leaves: List[Tuple[str, str]]
+
+
+@dataclass
+class PoolFieldRegion:
+    """One leaf field's reserved address region within a pool -- a
+    SINGLE `count`-byte-wide (or 2*count-byte-wide, for a u16 field)
+    region, never Lo/Hi split -- unlike 6502, this target has real
+    16-bit register pairs, so a u16 SoA field array is already one
+    contiguous array on this target (see this module's own docstring,
+    'Table shape, Z80-only... indexed by index * 2, one cheap add
+    hl,hl'), and pool reservation follows that exact same shape."""
+    addr: int
+    width_bytes: int  # 1 or 2 -- how many bytes ONE slot occupies in this region
+
+
+@dataclass
+class PoolAllocation:
+    """§22.4 Z80 export: pool_name -> {leaf_path: PoolFieldRegion},
+    built by allocate_pool_space. SoA layout only, this pass -- see
+    that function's own docstring for why AoS is deferred here too."""
+    fields: dict  # pool_name -> dict[leaf_path, PoolFieldRegion]
+
+
 def _leaf_domain_name(type_tokens: str, reg):
     """The identifier domain a leaf field refers to, regardless of
     whether source wrote 'Domain' or '@Domain' -- on Z80, exactly as
@@ -308,6 +341,143 @@ def gather_ir(reg, resolver, type_names, emit_all_domains: bool = False):
     return domains, types
 
 
+def gather_pool_info(reg, ordered_type_names) -> List[PoolInfo]:
+    """§22: every declared pool whose own TypeName is among the types
+    actually being exported this run (--type selection) -- same
+    reasoning as export_6502.py's identical function: a pool needs its
+    type's leaf layout to mean anything, and there's no separate --pool
+    selection flag."""
+    return [
+        PoolInfo(name=name, type_name=node.type_name, count=node.count,
+                 leaves=_flatten_leaves(node.type_name, reg))
+        for name, node in reg.pools.items()
+        if node.type_name in ordered_type_names
+    ]
+
+
+_POOL_SCALAR_WIDTH_BYTES = {"u8": 1, "i8": 1, "u16": 2, "i16": 2}
+_POOL_DOMAIN_WIDTH_BYTES = {"u8": 1, "u16": 2, "u32": 4, "u64": None}
+
+
+def _pool_leaf_width_bytes(type_tokens: str, domain_widths: dict) -> int:
+    """Byte width of ONE leaf value for pool reservation -- §22.4.
+
+    `string N` and array-typed leaves are REJECTED, not sized -- the
+    identical reason (and identical mistake first made, then corrected,
+    on the 6502 target -- see HANDOFF.md's own correction entry) applies
+    here just as directly, in fact more explicitly, since THIS module's
+    own docstring already states it plainly for named instances: 'string
+    N fields are not yet supported in --layout=soa... the field's width
+    isn't guaranteed a power of two, so indexing it would need a real
+    multiply, not the cheap shift every scalar SoA field uses.' A pool's
+    reserved string/array field would need the exact same `base + i *
+    stride` indexing at runtime a named instance's would, so it gets the
+    exact same rejection, for the exact same reason -- this was designed
+    correctly from the start on THIS target specifically because the
+    6502 mistake was caught and fixed first."""
+    t = type_tokens.strip()
+    if _string_n(t) is not None:
+        raise ExportZ80Error(
+            f"Z80 pool export doesn't support string N leaf fields under "
+            f"--layout soa yet (field type {type_tokens!r}) -- matching "
+            "this target's existing named-instance SoA limitation: a "
+            "string field's width isn't guaranteed a power of two, so "
+            "indexing pool slot i's string would need a real multiply, "
+            "not the cheap shift every scalar SoA field uses.")
+    if _try_parse_array_type(t) is not None:
+        raise ExportZ80Error(
+            f"Z80 pool export doesn't support array-typed leaf fields "
+            f"under --layout soa yet (field type {type_tokens!r}) -- same "
+            "reason as string N fields just above: indexing pool slot "
+            "i's array would need a real multiply for a non-power-of-two "
+            "element stride.")
+    domain = t[1:].strip() if t.startswith("@") else t
+    if domain in domain_widths:
+        width = domain_widths[domain]
+        nbytes = _POOL_DOMAIN_WIDTH_BYTES.get(width)
+        if nbytes is None:
+            raise ExportZ80Error(f"Z80 pool export doesn't support {width}-wide domains yet")
+        return nbytes
+    if t in _POOL_SCALAR_WIDTH_BYTES:
+        return _POOL_SCALAR_WIDTH_BYTES[t]
+    raise ExportZ80Error(f"Z80 pool export doesn't support field type {type_tokens!r} yet")
+
+
+def _validate_pool_base(pool_base):
+    """§22.4: required only when at least one pool is actually being
+    exported (checked at the call site) -- same 'no silent claim'
+    discipline as export_6502.py's --zp-base/--pool-base, over the full
+    16-bit address space (this target has no zero-page-equivalent
+    scratch concept at all, per this module's own docstring, but pool
+    DATA still needs a real memory address somewhere -- an orthogonal
+    need, unaffected by that simplification)."""
+    if pool_base is None:
+        raise ExportZ80Error(
+            "--pool-base is required when exporting a pool (§22.4) -- "
+            "pool storage is real RAM the exporter must never silently "
+            "claim an address for. Supply an explicit base address "
+            "(e.g. --pool-base=0xa000) naming RAM your project has "
+            "actually reserved for this.")
+    if not (0 <= pool_base <= 0xFFFF):
+        raise ExportZ80Error(
+            f"--pool-base must be a valid 16-bit address (0-65535 / "
+            f"$0000-$ffff), got {pool_base}")
+
+
+def allocate_pool_space(pool_base, pools: List[PoolInfo], layout: str,
+                         domains: List[DomainInfo]) -> PoolAllocation:
+    """§22.4: assigns every pool leaf field its own non-overlapping
+    address region, as plain symbolic constants (`EQU`, both SjASMPlus
+    and z88dk-asm) -- confirmed directly against real SjASMPlus (v1.24.0)
+    that this costs zero output bytes under --raw output, mirroring the
+    identical finding already confirmed on 6502 (ACME/64tass/
+    KickAssembler all agree: a bare constant assignment costs nothing;
+    a PC-advancing directive still emits real bytes under a flat binary
+    format).
+
+    SoA layout only, this pass -- unlike 6502, this target's existing
+    AoS --z80-pointer-table=off path already has a general shift-add
+    multiply routine (shift_add_multiply, this module) for arbitrary
+    record sizes, so an AoS pool is more tractable here than on 6502 in
+    principle, but wiring it up (precomputing/reusing that sequence for
+    pool-slot indexing specifically, plus deciding how a pointer-table
+    AoS pool would even work with no named instances to point at) is
+    real, separate, unbuilt design -- deferred here too, for scope
+    consistency with the 6502 pass, not because it's equally hard."""
+    if not pools:
+        return PoolAllocation(fields={})
+    if layout != "soa":
+        raise ExportZ80Error(
+            "Z80 AoS pool export is not implemented yet (§22.4) -- use "
+            "--layout soa for pools on this target for now; AoS pool "
+            "indexing (via a pointer table or this target's own "
+            "shift-add multiply routine) is real, separate, unbuilt "
+            "design.")
+    _validate_pool_base(pool_base)
+    domain_widths = {d.name: d.width for d in domains}
+    addr = pool_base
+    fields = {}
+    for pool in pools:
+        field_regions = {}
+        for path, type_tokens in pool.leaves:
+            width_bytes = _pool_leaf_width_bytes(type_tokens, domain_widths)
+            field_regions[path] = PoolFieldRegion(addr=addr, width_bytes=width_bytes)
+            addr += width_bytes * pool.count
+        fields[pool.name] = field_regions
+
+    if addr - 1 > 0xFFFF:
+        needed = addr - pool_base
+        available = 0x10000 - pool_base
+        raise ExportZ80Error(
+            f"pool allocation starting at ${pool_base:04x} needs {needed} "
+            f"bytes total, which would reach up to ${addr - 1:04x} -- only "
+            f"{available} bytes are available from ${pool_base:04x} before "
+            "the 16-bit address space runs out. Pick a lower --pool-base "
+            "or export fewer/smaller pools in this run.")
+
+    return PoolAllocation(fields=fields)
+
+
 def _leaf_size_bytes(type_tokens: str, reg) -> int:
     """Storage width of one flattened leaf, in bytes. Identifier-typed
     leaves size by their DOMAIN's declared width (what's stored is the
@@ -442,7 +612,7 @@ def needs_index_copy(n: int) -> bool:
 
 def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "asm",
            pointer_table: bool = None, find_macro: bool = False, reg=None,
-           layout: str = "aos"):
+           layout: str = "aos", pools=None, pool_base=None):
     """Single dispatch point (§16.3): --z80-toolchain=sjasmplus|z88dk,
     --z88dk-output=asm|c (meaningful only for z88dk; rejected otherwise,
     same "flag combination must make sense together" discipline as
@@ -464,6 +634,7 @@ def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "as
             "same precedent as --zp-base (§10.2). Pass =on to emit a "
             "{Type}_Registry pointer table alongside {Type}_Instances, or "
             "=off for direct index*sizeof addressing.")
+    pool_alloc = allocate_pool_space(pool_base, pools or [], layout, domains)
     if toolchain == "sjasmplus":
         if z88dk_output != "asm":
             raise ValueError(
@@ -471,12 +642,14 @@ def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "as
                 "--z80-toolchain=z88dk (§16.3)")
         from .export_z80_sjasmplus import render_sjasmplus
         return render_sjasmplus(domains, types, pointer_table=pointer_table,
-                                find_macro=find_macro, reg=reg, layout=layout)
+                                find_macro=find_macro, reg=reg, layout=layout,
+                                pools=pools, pool_alloc=pool_alloc)
     if toolchain == "z88dk":
         if z88dk_output == "asm":
             from .export_z80_z88dk_asm import render_z88dk_asm
             return render_z88dk_asm(domains, types, pointer_table=pointer_table,
-                                    find_macro=find_macro, reg=reg, layout=layout)
+                                    find_macro=find_macro, reg=reg, layout=layout,
+                                    pools=pools, pool_alloc=pool_alloc)
         if z88dk_output == "c":
             # §16.3: --z80-find-macro is meaningless for C mode (the
             # compiler makes its own inlining decision) and is a
@@ -494,9 +667,23 @@ def render(domains, types, toolchain: str = "sjasmplus", z88dk_output: str = "as
                     "not the exporter's to make via a MACRO/ENDM block")
             from .export_z80_z88dk_c import render_z88dk_c
             return render_z88dk_c(domains, types, pointer_table=pointer_table, reg=reg,
-                                  layout=layout)
+                                  layout=layout, pools=pools, pool_alloc=pool_alloc)
         raise ValueError(f"unknown z88dk_output {z88dk_output!r} -- must be 'asm' or 'c'")
     raise ValueError(f"unknown toolchain {toolchain!r} -- must be 'sjasmplus' or 'z88dk'")
+
+
+def _parse_pool_base(text):
+    """Accepts '0xa000', '$a000', or plain decimal -- same shape as
+    export_6502.py's _parse_zp_base, this target just never needed a
+    hex-address CLI parameter before pools existed."""
+    if text is None:
+        return None
+    t = text.strip()
+    if t.startswith("0x") or t.startswith("0X"):
+        return int(t, 16)
+    if t.startswith("$"):
+        return int(t[1:], 16)
+    return int(t, 10)
 
 
 def _cli():
@@ -522,6 +709,9 @@ def _cli():
                      help="pointer table (on) or direct addressing (off), required")
     ap.add_argument("--layout", choices=["aos", "soa"], default="aos",
                      help="aos (default) or soa data layout")
+    ap.add_argument("--pool-base", default=None,
+                     help="RAM base address for pool storage (§22.4), required only "
+                          "if the exported types have any pools (e.g. 0xa000)")
     ap.add_argument("--z80-find-macro", choices=["on", "off"], default="off",
                      help="also emit an inline macro variant of Find (default: off)")
     ap.add_argument("--emit-all-domains", action="store_true",
@@ -540,6 +730,7 @@ def _cli():
                  "output stem to name the manifest after when writing to stdout")
 
     pointer_table = args.z80_pointer_table == "on"
+    pool_base = _parse_pool_base(args.pool_base) if args.pool_base is not None else None
 
     # §16.2: the flag is AoS-only. Under --layout=soa there are no
     # instance structs to hold addresses of, so this WARNS and is
@@ -571,10 +762,12 @@ def _cli():
         sys.exit(1)
     domains, types = gather_ir(resolver.reg, resolver, args.types,
                                 emit_all_domains=args.emit_all_domains)
+    ordered_type_names = [t.name for t in types]
+    pools = gather_pool_info(resolver.reg, ordered_type_names)
     out = render(domains, types, toolchain=args.z80_toolchain,
                  z88dk_output=args.z88dk_output, pointer_table=pointer_table,
                  find_macro=args.z80_find_macro == "on", reg=resolver.reg,
-                 layout=args.layout)
+                 layout=args.layout, pools=pools, pool_base=pool_base)
 
     if isinstance(out, dict):
         # C mode: header/.c split (§16.2.1), never a single file for real
