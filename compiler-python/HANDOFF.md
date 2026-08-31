@@ -4820,6 +4820,56 @@ Z80/68000/binary still not yet implemented.
 
 Zero em-dashes (checked directly, this project's own hard rule).
 
+## Correction to the 6502 pool stage: string N/array leaf fields were wrongly allowed
+
+Real mistake in the previous entry's own reasoning, caught while
+designing Z80 pool support (this session, before any Z80 code was
+written) and fixed before it could propagate into a second target.
+Recorded plainly per this project's own standing discipline, not
+quietly folded into the stage-3b entry above as if it had never
+happened.
+
+**What was wrong**: the previous entry claimed pools could support
+`string N` and array-typed leaf fields under 6502 SoA even though
+named instances currently can't on this target, reasoning that the
+named-instance rejection is about VALUE EMISSION (how to lay out
+padded string content across instances) and pools have no values to
+lay out. That reasoning is incorrect. Re-reading WHY the rejection
+actually exists (confirmed directly against both this target's own
+comments and Z80's more explicit version of the identical rejection,
+written this session while designing Z80's own SoA pool support): it
+is about RUNTIME ACCESS COST, not value emission. Whatever game code
+later reads pool slot i's string/array field still needs `base + i *
+stride` for a `stride` not guaranteed a power of two -- a real
+multiply this target has no general shift-add answer for yet in this
+specific position, identically whether the data is a pool's reserved
+space or a named instance's real values. Allowing it for pools would
+have silently produced something that LOOKS like free SoA indexing
+but isn't -- exactly the trap the existing named-instance rejection
+exists to prevent, so pools needed the identical rejection, not an
+exemption.
+
+**Fix**: `export_6502.py::_leaf_total_bytes` now raises for `string N`
+and array-typed leaf fields, naming the real reason (indexing cost,
+not value emission) directly in the error message. `PoolFieldRegion`'s
+own docstring corrected to match. SPEC.md §22.4's 6502 paragraph
+corrected from "a deliberate capability difference" to an explicit
+rejection with the real reason stated.
+
+**Verified, not assumed**: two new scratch checks confirm both
+rejections fire with the corrected reasoning in the error text
+(`string 8` field, and a `u8 : 2 : 3` array field, both under
+`--layout soa`). The three-dialect assemble+functional-py65 test from
+the stage 3b entry above was re-run after removing the `string 8`
+field its own fixture had originally included (which, per this
+correction, is no longer legal pool-field content) -- all three
+dialects still assemble to the identical 19-byte output and the
+functional write/read-back check still passes. Full regression
+re-run clean: `export_golden.py` (89, zero diff), `pytest tests` (22),
+`run_all_6502_tests.py` (12/12).
+
+Zero em-dashes (checked directly, this project's own hard rule).
+
 ## Real toolchain re-verified after an environment gap; one real, pre-existing bug found and fixed along the way
 
 Before starting stage 3b, the local `compiler-python/tools/` binaries

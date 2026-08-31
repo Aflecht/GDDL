@@ -113,17 +113,20 @@ class PoolInfo:
 @dataclass
 class PoolFieldRegion:
     """One leaf field's reserved address region within a pool -- either
-    one `count`-byte-wide region (byte-width fields, or a `string N`/
-    array field's own total byte span), or two parallel `count`-byte
-    regions for anything wider than a byte (§10.2's existing Lo/Hi
-    split convention, extended to reservation: real values never
-    exist to split here, but keeping the SAME two-array shape named
-    instances' own SoA columns already use means game code written
-    against one works unchanged against the other -- `LDA Field_Lo,X`
-    reaches a pool's data exactly the way it reaches a named instance's
-    SoA column)."""
+    one `count`-byte-wide region (a plain byte-width scalar/identifier-
+    typed field), or two parallel `count`-byte regions for a 2-byte
+    field (§10.2's existing Lo/Hi split convention, extended to
+    reservation: real values never exist to split here, but keeping the
+    SAME two-array shape named instances' own SoA columns already use
+    means game code written against one works unchanged against the
+    other -- `LDA Field_Lo,X` reaches a pool's data exactly the way it
+    reaches a named instance's SoA column). `string N` and array-typed
+    fields never reach this type at all -- rejected earlier, in
+    _leaf_total_bytes, matching this target's existing named-instance
+    SoA limitation for the same field kinds (see that function's own
+    docstring for why)."""
     lo_addr: int
-    hi_addr: Optional[int]  # None for byte-width (and string/array) fields -- no split needed
+    hi_addr: Optional[int]  # None for byte-width fields only
 
 
 @dataclass
@@ -503,12 +506,9 @@ def gather_pool_info(reg, ordered_type_names) -> List[PoolInfo]:
 def _leaf_total_bytes(type_tokens: str, domain_widths: dict):
     """Total byte span of ONE leaf value, and whether it's eligible for
     the Lo/Hi split convention (§10.2) -- returns (total_bytes,
-    splittable). Only a plain 2-byte scalar/identifier-typed leaf is
-    splittable; a `string N` or array-typed leaf is always one
-    contiguous byte-run per slot (§13.2/§21 -- "low byte of a
-    string" has no meaning). `domain_widths` is domain_name -> width
-    string, covering identifier AND flags domains uniformly (the same
-    combined dict every dialect renderer already builds from `domains:
+    splittable). `domain_widths` is domain_name -> width string,
+    covering identifier AND flags domains uniformly (the same combined
+    dict every dialect renderer already builds from `domains:
     List[DomainInfo]`, §10.2's own "flags domains share the exact same
     DomainInfo shape" design) -- deliberately not `reg` itself, so this
     function only ever touches the shared IR, never reaches back into
@@ -517,18 +517,47 @@ def _leaf_total_bytes(type_tokens: str, domain_widths: dict):
     check_6502_domain_widths (called from gather_ir, over the same
     _flatten_leaves output a pool's own type produces) -- this function
     trusts that already ran and just reads the now-guaranteed-present
-    width."""
+    width.
+
+    `string N` and array-typed leaves are REJECTED here, not silently
+    sized -- a real correction, caught while implementing Z80's own
+    pool support and re-examining WHY this target's existing named-
+    instance SoA export already rejects both (export_6502_acme.py's own
+    "SoA string field emission is not yet implemented" comment, and
+    Z80's identical, more explicit rejection: "the field's width isn't
+    guaranteed a power of two, so indexing it would need a real
+    multiply"). The first version of this function got this wrong,
+    reasoning that a POOL specifically doesn't need that rejection
+    because it emits no VALUES at all (nothing to lay out). That
+    reasoning missed the actual point: the rejection was never about
+    value emission, it's about RUNTIME ACCESS COST -- whatever game code
+    later reads pool slot i's string/array field still needs `base +
+    i * stride` for a `stride` that isn't guaranteed a power of two,
+    which needs a real multiply neither this target's hardware nor this
+    exporter has a general answer for yet, identically whether the data
+    is a pool's reserved space or a named instance's real values. A
+    pool offering that field anyway would silently produce something
+    that LOOKS like free SoA indexing but isn't, the same trap the
+    existing rejection exists to prevent -- so it's rejected here too,
+    for the identical reason, not a pool-specific exemption."""
     t = type_tokens.strip()
-    n = _string_n(t)
-    if n is not None:
-        return n, False
-    array_info = _try_parse_array_type(t)
-    if array_info is not None:
-        elem_bytes, _ = _leaf_total_bytes(array_info.element_type, domain_widths)
-        total_elements = 1
-        for d in array_info.dims:
-            total_elements *= d
-        return elem_bytes * total_elements, False
+    if _string_n(t) is not None:
+        raise Export6502Error(
+            f"6502 pool export doesn't support string N leaf fields under "
+            f"--layout soa yet (field type {type_tokens!r}) -- matching "
+            "this target's existing named-instance SoA limitation "
+            "(export_6502_acme.py): a string field's width isn't "
+            "guaranteed a power of two, so indexing pool slot i's string "
+            "would need a real multiply this target has no general "
+            "answer for yet, not a cheap shift.")
+    if _try_parse_array_type(t) is not None:
+        raise Export6502Error(
+            f"6502 pool export doesn't support array-typed leaf fields "
+            f"under --layout soa yet (field type {type_tokens!r}) -- same "
+            "reason as string N fields just above: indexing pool slot "
+            "i's array would need a real multiply for a non-power-of-two "
+            "element stride, matching this target's existing named-"
+            "instance SoA limitation for array-typed fields.")
     domain = t[1:].strip() if t.startswith("@") else t
     if domain in domain_widths:
         width = domain_widths[domain]
