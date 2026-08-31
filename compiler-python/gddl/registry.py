@@ -40,7 +40,7 @@ from dataclasses import dataclass
 from typing import List
 
 from .ast_nodes import (
-    Program, IdentifierBlock, FlagsBlock, DefineBlock, InstanceDecl,
+    Program, IdentifierBlock, FlagsBlock, DefineBlock, InstanceDecl, PoolDecl,
     AssignStmt, BareFieldStmt,
 )
 from .errors import CompileError
@@ -131,6 +131,7 @@ class Registry:
         self.flags = {}            # name -> FlagsBlock
         self.defines = {}          # name -> DefineBlock
         self.instances = {}        # name -> InstanceDecl
+        self.pools = {}            # name -> PoolDecl (§22 -- reserved, uninitialized instance storage)
         self.logical_ids = {}      # (domain, key) -> precomputed logical ID
         self.identifier_widths = {}  # domain_name -> width string ('u8'/'u16'/'u32'/'u64'), §8.3
         self.flags_widths = {}     # domain_name -> width string, mandatory for flags (unlike identifier's)
@@ -279,6 +280,30 @@ class Registry:
                     iid, (node.type_name, node.instance_name), qualified_name, node.line)
                 self.instance_ids[(node.type_name, node.instance_name)] = iid
 
+            elif isinstance(node, PoolDecl):
+                # §22: pools are their own namespace for duplicate-name
+                # purposes, same as identifier/flags/define/instance names
+                # each are (this file's own module docstring, "duplicate
+                # detection is WITHIN each namespace only"). NOT checked
+                # against the hash-collision table (self._id_table) --
+                # pools carry no logical/stable ID at all, deliberately
+                # (§22: addressed by plain index, never looked up by name
+                # or hash). Registered regardless of whether TypeName
+                # turns out to be valid (checked below, once self.defines
+                # is guaranteed fully populated) -- same "register anyway,
+                # report the error separately" precedent identifier
+                # width-overflow already established above.
+                if node.pool_name in self.pools:
+                    self.duplicate_errors.append(CompileError(
+                        phase=4,
+                        check="duplicate_name",
+                        line=node.line,
+                        message=f"duplicate pool name '{node.pool_name}' "
+                                "(first declaration wins, this one is ignored)",
+                    ))
+                    continue
+                self.pools[node.pool_name] = node
+
         # Must run after self.instances/self.defines are fully populated,
         # since building dependency edges needs field_category() to know
         # which fields are struct-typed.
@@ -296,6 +321,14 @@ class Registry:
         # "validate once at registration, field_category() itself never
         # raises" precedent as the check just above.
         self.duplicate_errors.extend(self._check_array_field_types())
+
+        # §22: pool TypeName validation. Must run after self.defines is
+        # fully populated (same reason circular-dependency detection and
+        # the two checks just above both wait until after the main loop)
+        # -- a pool declared earlier in source than its own TypeName's
+        # `define` block must still resolve correctly, since GDDL source
+        # order between top-level constructs is otherwise unconstrained.
+        self.duplicate_errors.extend(self._check_pool_types())
 
     def _assign_flags_bits(self, node, entries):
         """Computes each entry's real bit-claim value and populates
@@ -504,6 +537,41 @@ class Registry:
                                 "elements are not yet supported (first-pass scope is "
                                 "scalar and string elements only)",
                     ))
+        return errors
+
+    def _check_pool_types(self):
+        """§22: two static checks over every pool, run once self.defines
+        is guaranteed fully populated (see call site) --
+        - TypeName doesn't name a known define (a real, common typo risk,
+          and unlike an ordinary instance's type_name -- which might
+          still surface a mismatch indirectly through field_category()
+          returning (None, None) somewhere in phase 5/6 -- a pool has NO
+          body at all to walk, so nothing else in this pipeline would
+          ever catch this).
+        - Count is zero. The parser's own _POOL_COUNT_RE already rejects
+          a negative or non-integer count at parse time (it only matches
+          plain digits), so zero is the one remaining malformed case left
+          for registration to catch -- same "malformed and zero-valued
+          dimensions rejected at registration" precedent arrays' own
+          _check_array_field_types-adjacent design already established."""
+        errors = []
+        for pool_name, node in self.pools.items():
+            if node.type_name not in self.defines:
+                errors.append(CompileError(
+                    phase=4,
+                    check="pool_unknown_type",
+                    line=node.line,
+                    message=f"pool '{pool_name}' references type '{node.type_name}', "
+                            "but no such define exists",
+                ))
+            if node.count == 0:
+                errors.append(CompileError(
+                    phase=4,
+                    check="pool_zero_count",
+                    line=node.line,
+                    message=f"pool '{pool_name}' declares a count of 0 -- "
+                            "a pool must reserve at least one slot",
+                ))
         return errors
 
     def _instance_dependencies(self, decl: InstanceDecl):

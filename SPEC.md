@@ -1343,6 +1343,46 @@ An out-of-bounds index (`array_index_out_of_range`) and bracket indexing on a fi
 - **6502 (all three dialects: ACME, KickAssembler, 64tass) and Z80's two assembly dialects (SjASMPlus, z88dk-z80asm)**: assembly data directives have no nesting concept, so an array flattens to a plain, contiguous run of per-element directives, row-major. **AoS only, this pass** -- array-typed fields are not yet supported under `--layout=soa` on either target, rejected with an explicit, immediate error rather than attempting it. This is not a new gap: both targets already had an unimplemented SoA gap for `string N` fields (a non-power-of-two element width would need a real multiply to index, which neither target's multiply-avoidance discipline (§16) has a renderer for yet); array-typed SoA columns hit the identical underlying problem, so they're scoped out the same way, for the same reason.
 - **Standalone binary export (§17)**: total width = element width * total element count, packed identically to every other target's contiguous layout; the schema hash (§17.4) includes the array's own type declaration text verbatim, so a dimension change is a real, detected schema change like any other.
 
+## 22. Pools: Reserved, Uninitialized Instance Storage
+
+**Status: declaration and registry semantics implemented and verified; export (this section's own §22.4) not yet implemented -- do not treat §22.4 as shipped until a later revision of this section says so.**
+
+Everything in §§1-21 assumes every exported field has a fully-resolved, compile-time-known value (§7). A `pool` is the deliberate exception: a fixed-size block of instances with no field values at all, reserved at compile time and filled in by the game itself at runtime -- an entity pool, in the ordinary game-development sense.
+
+### 22.1 Declaration
+
+```
+pool TypeName PoolName : N
+```
+
+`TypeName` must name an existing `define`. `N` is a plain positive integer literal (a count of 0 is a hard compile-time error, `pool_zero_count` -- a pool must reserve at least one slot). A pool declaration has no body: there is nothing to initialize, so any indented content beneath the declaration line is a parse-time error, not silently accepted or silently dropped.
+
+```
+define Entity
+    hitpoints = i32
+    label = string 16
+
+pool Entity EntityPool : 40
+```
+
+No restriction on `TypeName`'s own field composition -- struct, identifier, flags, array, and string fields are all fine, exactly as they are for an ordinary instance. A pool never computes or checks any value, only reserves shape-sized space, so nothing about §21's array scope limits, §8's identifier typing, or any other field-composition rule applies differently here.
+
+### 22.2 Not Identity-Bearing
+
+A pool has no logical ID, no instance stable ID (§6.8), and no companion `{Name}_Registry`/`Find()` the way a named instance's type does (§14.2). Pool slots are addressed by plain index (`0..N-1`) by the game itself, never looked up by name or hash -- there is no "identity" to look up. Consequently a pool's name is checked for duplicates only within its own namespace (against other pool names), the same scoping every other construct's own name space (identifier domains among themselves, `define`s among themselves, instances among themselves) already follows; it is never entered into the shared logical/stable-ID collision table (§4.1's Collision Detection subsection) at all.
+
+### 22.3 Resolution and Validation Scope
+
+A pool never enters phase 6 (resolve) or phase 8 (the completeness check, §7) -- there is nothing to resolve or check, by construction, not a carve-out bolted onto those phases after the fact. Registration (phase 4) validates exactly two things, both hard compile errors: `TypeName` must name a real `define` (`pool_unknown_type`), and the count must be nonzero (`pool_zero_count`). Source order between a `pool` declaration and its own `TypeName`'s `define` block is unconstrained, same as everywhere else in this language -- a pool may be declared before the `define` it references.
+
+### 22.4 Export (not yet implemented)
+
+Planned, not yet built or verified against any target -- recorded here as the settled design target, not as shipped behavior:
+
+- AoS/SoA layout (§13) applies to a pool exactly like it applies to named instances -- §13.6's "layout is never source-level syntax" stays intact; a pool declaration carries no layout opinion of its own.
+- Genuinely uninitialized, not zero-filled, and deliberately asymmetric across targets: 6502/Z80/68000 assembly and the standalone binary format (§17) reserve real, unwritten space (BSS-style `.res`/`ds` directives on the assembly targets; pure directory/metadata with no instance bytes at all for the binary format) -- both free of file/tape/disk cost, which is the actual motivating win for a size-constrained target. **C++ is the one exception, not by choice**: a namespace-scope POD array with no initializer is zero-initialized by the C++ standard itself, unconditionally, so C++ pool storage will read as all-zero in practice while every other target's content is genuinely unspecified.
+- C++ pool storage is non-const (`inline Entity EntityPool[40];`, never `inline constexpr`) -- unlike named instances, the entire point is the game writing into it at runtime. SoA export names its per-field arrays after the pool's own name, not the type's, since two differently-named pools of the same type must not collide.
+
 ---
 
 *This document consolidates the original GDDL specification (v1), the v3 revision, the export/save-format design notes, and design decisions resolved through direct review, superseding prior versions where they conflict — most notably: removal of the speculative version-seed / u8-hybrid save mechanism, formalization of replace-vs-modify-only nested field semantics, the no-merge-semantics rule, the definitions-never-inherit rule, identifier domains as strict field types, the logical-ID/direct-index duality with mode-dependent ordering, and the PC-only scope of modding support.*

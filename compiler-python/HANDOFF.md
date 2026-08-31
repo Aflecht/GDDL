@@ -4571,3 +4571,79 @@ new section gets written here, once there's real registry-level
 semantics to document alongside the grammar, not just a parser shape).
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+## Pools work, stage 2: registry validation
+
+Second of five staged passes (see stage 1 above for the full settled
+design and its own reasoning). This stage: `Registry.pools` (name ->
+`PoolDecl`), duplicate-pool-name detection, and the two real validation
+checks a pool needs that nothing else in the pipeline would ever catch
+for it (see below for why).
+
+**`registry.py`**: `self.pools = {}` added alongside `self.instances`.
+A new `PoolDecl` branch in the main per-node registration loop --
+duplicate-name detection follows the exact same "first wins, append a
+CompileError, continue" pattern every other namespace here already
+uses, and registers the pool regardless of whether `TypeName` turns out
+to be valid (checked separately, below), mirroring the precedent
+identifier width-overflow already established (register first, report
+validation errors as a separate pass). Deliberately NOT run through
+`_check_id_collision`/`self._id_table` -- pools carry no logical/stable
+ID at all (SS22.2), so there is no hash to collide in the first place.
+
+**Why pool type-checking needed its own dedicated pass, unlike an
+ordinary instance's `type_name`**: an instance with an unknown type and
+an empty body can currently slip through phase 5 undetected (phase 5's
+`_check_field_shape` only walks a body's statements -- an empty body has
+none to walk, so a mistyped `type_name` with no field statements
+referencing it produces zero errors anywhere in the existing pipeline;
+a genuine pre-existing gap, confirmed by reading `phase5.py` directly,
+not fixed here since it's outside this feature's own scope). A pool has
+NO body at all, ever, by construction -- so if pools inherited that
+same "nothing to walk" gap, an unknown `TypeName` would silently
+compile clean. New `Registry._check_pool_types()` (mirroring
+`_check_indexed_field_types`/`_check_array_field_types`'s own "run once
+after the main loop, so `self.defines` is guaranteed fully populated
+regardless of declaration order" pattern) closes this directly: `pool_
+unknown_type` if `TypeName` isn't a real `define`, `pool_zero_count` if
+the count is exactly 0 (the parser's own `_POOL_COUNT_RE` already
+rejects negative/non-integer counts at parse time, so zero is the one
+remaining malformed case left for registration).
+
+**Verified, not assumed:** a scratch script confirmed five real cases
+against the actual registry -- happy path; a pool declared BEFORE its
+own type's `define` block in source order (confirmed this resolves
+correctly, proving the post-main-loop placement actually matters, not
+just defensive positioning); an unknown-type reference; a zero count;
+a duplicate pool name. All five produced exactly the expected errors
+(or none, for the two success cases). Full regression re-run clean:
+`export_golden.py` (89 fixtures, zero content differences against the
+committed `golden_output.json`) and the full `pytest tests` suite (22
+tests, all passing) -- the real-toolchain driver suites
+(`export_6502_test`, `export_z80_test`, `export_68000_test`'s CLI
+suite, `multi_file_test`'s Z80 run) aren't collected by a plain `pytest
+tests` invocation and weren't separately run this stage, since nothing
+this stage touches export at all; they'll get real verification once
+stage 3 actually reaches those code paths, matching how flags/arrays'
+own early stages were verified.
+
+**SPEC.md SS22 written this stage** (declaration syntax SS22.1, the
+not-identity-bearing rule SS22.2, resolution/validation scope SS22.3) --
+marked at the very top of the new section as partial: registry
+semantics are real and verified, but SS22.4 (export) is explicitly
+labeled "not yet implemented," not glossed over, since nothing about
+export exists yet to document as fact. One citation error caught and
+fixed before this entry was written: an early draft cited "SS12" for
+the namespace-scoped duplicate-name-checking precedent, which is
+actually the Compiler Pipeline section, not a namespace-scoping rule at
+all -- SPEC.md has no single numbered section stating that rule
+explicitly (it lives only in `registry.py`'s own module docstring), so
+the citation was removed rather than left wrong or invented.
+
+**Not yet done, next**: stage 3 (export, all five targets at once per
+the user's own scope choice -- unlike flags/arrays' smaller "one target
+first" precedent). Real per-target verification against actual
+toolchains required before any of it is called done, matching this
+project's standing discipline.
+
+Zero em-dashes (checked directly, this project's own hard rule).
