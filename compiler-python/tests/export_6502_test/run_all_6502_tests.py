@@ -44,6 +44,7 @@ ACME_CASES = [
     ("test_6502_string_field_harness", "test_6502_string_field_run.py"),
     ("test_6502_composition_u16_harness", "test_6502_composition_u16_run.py"),
     ("test_6502_arrays_harness", "test_6502_arrays_run.py"),
+    ("test_6502_pools_harness", "test_6502_pools_run.py"),
 ]
 
 # (harness stem, check script) -- 64tass dialect: --nostart -o <stem>.bin
@@ -53,6 +54,7 @@ TASS64_CASES = [
     ("test_6502_string_field_harness_tass", "test_6502_string_field_tass_run.py"),
     ("test_6502_composition_u16_harness_tass", "test_6502_composition_u16_tass_run.py"),
     ("test_6502_arrays_harness_tass", "test_6502_arrays_tass_run.py"),
+    ("test_6502_pools_harness_tass", "test_6502_pools_tass_run.py"),
 ]
 
 # (harness stem, check script) -- KickAssembler dialect: java -jar
@@ -63,6 +65,7 @@ KICKASS_CASES = [
     ("test_6502_string_field_harness_ka", "test_6502_string_field_ka_run.py"),
     ("test_6502_composition_u16_harness_ka", "test_6502_composition_u16_ka_run.py"),
     ("test_6502_arrays_harness_ka", "test_6502_arrays_ka_run.py"),
+    ("test_6502_pools_harness_ka", "test_6502_pools_ka_run.py"),
 ]
 
 
@@ -123,7 +126,7 @@ def main():
         assemble_kickass(stem)
         run_check(script)
 
-    print("\nALL 6502 REAL-TOOLCHAIN CHECKS PASSED (all three dialects, 12/12).")
+    print("\nALL 6502 REAL-TOOLCHAIN CHECKS PASSED (all three dialects, 15/15).")
 
 
 if __name__ == "__main__":

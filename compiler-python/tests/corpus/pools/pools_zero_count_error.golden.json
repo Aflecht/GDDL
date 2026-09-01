@@ -1,0 +1,20 @@
+{
+  "fixture": "pools_zero_count_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-09-01",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [
+      {
+        "phase": 4,
+        "check": "pool_zero_count",
+        "line": 14,
+        "message": "line 14: pool 'ActiveEnemies' declares a count of 0 -- a pool must reserve at least one slot"
+      }
+    ],
+    "warnings": [],
+    "instances": {}
+  }
+}

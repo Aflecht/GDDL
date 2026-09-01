@@ -1,0 +1,16 @@
+// Real assemble/execute validation for the pools feature on the 6502
+// export target (all three dialects) -- stage 4's "real compiled/run
+// output" requirement. See corpus/pools/ for the phase 1-8 golden-locked
+// coverage; this fixture covers the export-side half those fixtures
+// can't capture. SoA only (6502 pool AoS is deliberately deferred --
+// needs a new pointer-table design, see HANDOFF.md). u8/u16 scalar
+// fields only, matching this target's own real field-type scope for
+// pools (string N/array-typed leaf fields are rejected -- non-power-of-
+// two stride indexing would need a real multiply, which 6502 has none
+// of, §22.4).
+
+define Enemy
+	hp = u8
+	mp = u16
+
+pool Enemy ActiveEnemies : 4

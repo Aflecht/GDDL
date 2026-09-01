@@ -5223,3 +5223,152 @@ previously-committed expected output, not just "a tool ran without
 crashing."
 
 Zero em-dashes (checked directly, this project's own hard rule).
+
+## Pools work, stage 4: permanent corpus/regression fixtures
+
+Picked up after stage 5 (docs) -- matching flags/arrays' own stage 4
+precedent exactly (see those entries above): this is where the phase
+1-8 golden-locking discipline and per-target real-toolchain
+verification both become permanent, committed regression coverage.
+
+**`tests/corpus/pools/` -- seven new fixtures, phases 1-8 only, no
+export.** Same discipline as `corpus/arrays/`'s own manifest: every
+value in each fixture's "Expected" comment was computed by hand first,
+then confirmed byte-for-byte against `export_golden.py`'s real captured
+output before the `.golden.json` was written, via a small script
+reading the freshly regenerated `golden_output.json` and wrapping each
+new fixture's real `output` block in the standard envelope. All seven
+matched their hand-computed expectations exactly on the first real run.
+Positive baseline (`pools_declaration_valid.gddl`, two side-by-side
+pools mixing scalar/array/string/nested-struct fields, confirming
+`instances == {}` -- section 22.2's "not identity-bearing" claim,
+directly against real output); negative paths for every rejection this
+feature has: no-body (parse error), malformed count (parse error,
+`-1`), malformed grammar (parse error, missing `:`), unknown type
+(phase 4, `pool_unknown_type`), zero count (phase 4, `pool_zero_count`),
+duplicate pool name (phase 4, `duplicate_name`, two DIFFERENT pool
+types under the same name, confirming the collision is on the pool's
+own name, not its target type). See `corpus/pools/MANIFEST.md` for the
+full table and the stage-4 coverage checklist. Surgically merged into
+the committed `golden_output.json` (structurally diffed first --
+exactly the 7 new fixtures added, 2 lines changed in `_meta`
+fixture-count bookkeeping, zero content differences to the existing 89
+-- same discipline as every other corpus update this project).
+
+**Real-toolchain export fixtures, wired into every driver suite's own
+`CASES` list, matching the exact `.gddl` + committed generated output +
+hand-written test + CASES-entry pattern `export_test_arrays.gddl`
+already established:**
+
+- **C++** (`export_cpp_test/`): `export_test_pools.gddl` (Vec2 + Enemy,
+  mixing scalar/array/string/nested-struct fields -- no field-type
+  restriction on this target), committed `generated_pools.h` (AoS) and
+  `generated_pools_soa.h` (SoA), and `test_generated_pools.cpp` /
+  `test_generated_pools_soa.cpp` -- real MSVC compile+run, writing into
+  pool slots at runtime (genuinely mutable `inline`, not `inline
+  constexpr`) and reading back, plus confirming both `Enemy_Registry`/
+  `Vec2_Registry` stay empty (section 22.2, against real compiled
+  output, not just the golden fixture). Added to `run_all_cpp_tests.py`'s
+  `CASES` (19 -> 21).
+- **6502** (`export_6502_test/`): `export_test_6502_pools.gddl` (u8/u16
+  scalar fields only, matching this target's real pool scope -- string
+  N/array-typed leaves rejected, non-power-of-two stride would need a
+  real multiply, 6502 has none). SoA only (AoS deliberately deferred).
+  A pool has no compiled-in values at all (uninitialized storage,
+  section 22.2), so unlike the arrays check -- which just reads
+  compiled-in bytes -- this WRITES synthetic bytes directly into the
+  pool's own memory via the real assembler-produced symbol addresses
+  (`ActiveEnemies_hp`/`ActiveEnemies_mp_Lo`/`ActiveEnemies_mp_Hi`) and
+  reads them back through the real `py65` emulator, confirming exact
+  layout (base addresses, u8 stride 1, u16 Lo/Hi split stride 1, no
+  overlap between columns) against real assembled output. All three
+  dialects. Added to `ACME_CASES`/`TASS64_CASES`/`KICKASS_CASES`
+  (12 -> 15); the hardcoded pass-count string updated to match (same
+  "real, small gap" this file's own stage-4 arrays entry already fixed
+  for the count itself, not converted to `len(...)`-computed, matching
+  that entry's own "smallest change" reasoning).
+- **Z80** (`export_z80_test/`): `export_test_z80_pools.gddl`, same
+  u8/u16-only scope and same write-then-read-back reasoning as 6502,
+  but a single contiguous `mp` array (no Lo/Hi split -- Z80's richer
+  registers make that unnecessary, confirmed directly in the real
+  generated output). Both assembly dialects. The z88dk-z80asm dialect
+  re-confirmed a real, already-known gap from this feature's own stage
+  3c work: its `-m` map-file output never includes `equ`-defined
+  constants (only real address labels) -- worked around the same way,
+  parsing the pool's own `equ` lines directly out of the generated
+  `.asm` text via a small dedicated regex helper, not
+  `load_symbols_z88dk_map`. Added to `SJASMPLUS_CASES`/`Z88DK_CASES`
+  (10 -> 12).
+- **68000** (`export_68000_test/`): `export_test_68000_pools.gddl` --
+  both AoS and SoA, the same rich Vec2+Enemy field mix as the C++
+  fixture (no field-type restriction on this target either, real
+  MULU/MULS, real linker). Includes exactly one named `Placeholder`
+  instance, deliberately -- a type with zero named instances trips a
+  real, pre-existing, already-honestly-recorded vbcc gap
+  (`Type_Instances[0] = {}` is an empty initializer, vbcc error 360)
+  found during this feature's own stage 3d work; this fixture works
+  around it the same way rather than re-triggering an already-known,
+  out-of-scope bug. Real `vc +aos68k` compile + real `vamos` execution,
+  confirming the named instance's own data is unaffected by the pool
+  declared alongside it, then the same write/read-back/independent-slot
+  checks as every other target. Added to `CASES` (6 -> 8); two new
+  compiled test binaries (`test_68000_pools`/`test_68000_pools_soa`)
+  added to `.gitignore` up front this time, matching the per-binary-name
+  convention arrays' own stage 4 entry established -- avoiding the
+  "caught after it already leaked" cleanup that entry had to do.
+- **Binary export** (`export_binary_test/`): a dedicated, SEPARATE
+  fixture and build (`export_test_binary_pools.gddl`,
+  `check_pool_readback` as a new numbered check, Check 5) rather than
+  touching the existing Item/Object or arrays coverage. Zero named
+  Enemy instances in this fixture, deliberately (unlike the 68000
+  fixture -- no vbcc-style empty-initializer gap on this target, it's a
+  pure binary writer/reader) -- directly demonstrates section 22.2
+  against real written bytes: the Enemy type-table entry itself still
+  exists with `record_count == 0`, while the separate pool-table entry
+  is what actually reserves the 8 slots. `read_pool_table` (already
+  built in stage 3e, confirmed genuinely independent -- no import of
+  `gather_pool_binary_ir`/`write_binary`) parses the format_version-2
+  pool table section directly; the check also confirms a pool's
+  schema_hash/record_size match its own type's type-table entry exactly
+  (both computed by the identical `compute_schema_hash`/
+  `compute_record_size` functions, section 22.4), and that the
+  manifest's own `"pools"` field list accounts for every byte of
+  `record_size`, same discipline `check_manifest_truthfulness` already
+  applies to `"types"`.
+
+**No real bugs found this stage** -- unlike the 6502-KickAssembler gap
+arrays' own stage 4 caught, every real-toolchain fixture here passed on
+its first real run against each toolchain. The one real, already-known
+gap re-confirmed (z88dk-z80asm's `-m` map omitting `equ` constants) was
+expected going in, from this feature's own stage 3c work, not a new
+finding.
+
+Full regression suite re-run clean, one final time, everything
+together: `export_golden.py` (96 fixtures, structurally diffed --
+exactly the 7 new pools fixtures, zero content differences to the other
+89), `pytest tests` (22 passing, unaffected), all four real-toolchain
+driver suites at their new real counts (21/15/12/8),
+`test_binary_export.py` (now with its own new Check 5), `test_68000_cli.py`,
+`test_ids_manifest.py`. `git status` confirmed clean beyond the
+intended additions -- no stray build artifacts leaked (the existing
+`.gitignore` wildcards for `*.obj`/`*.exe`/`*.bin`/`*.sym`/`*.prg`/`*.o`/
+`*.map`/`*_out` already covered every new toolchain output by pattern,
+with the two 68000 binary names added explicitly up front as noted
+above).
+
+**This completes the pools feature, all five stages**, matching
+flags/arrays' own five-stage precedent: parser (stage 1),
+registry/resolution (stage 2), export across all five targets (stage
+3a-3e), documentation (stage 5, done out of the usual order at the
+user's direct request), permanent corpus/regression fixtures (stage 4,
+this entry, done last). Honestly-recorded, still-open gaps, all
+already noted in earlier stage entries and unaffected by this one:
+6502/Z80 AoS pool export (needs a new pointer-table design), Z80's
+z88dk-C mode pool export (real, separate, unbuilt design), the
+68000 empty-initializer vbcc gap (pre-existing, unrelated to pools,
+worked around in test fixtures, not fixed in the exporter), and the
+z88dk-z80asm map-file equ-omission gap (pre-existing from this
+feature's own stage 3c, worked around in test scripts, not a bug in
+the exporter itself).
+
+Zero em-dashes (checked directly, this project's own hard rule).

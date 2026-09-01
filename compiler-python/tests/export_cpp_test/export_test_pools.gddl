@@ -1,0 +1,23 @@
+// Real MSVC compile/link/run validation for the pools feature on the C++
+// export target -- stage 4's "real compiled/run output" requirement, the
+// same role export_test_arrays.gddl plays for the arrays feature. See
+// corpus/pools/ (golden-locked there under normal discipline, phases 1-8
+// only) for the full design rationale; this file covers the export-side
+// half those fixtures can't capture on their own.
+//
+// Deliberately mixes scalar, array, string, and nested-struct fields in
+// the pooled type -- the C++ target has no field-type restriction on pool
+// contents (unlike 6502/Z80 SoA), so this fixture exercises the full
+// range in one pass.
+
+define Vec2
+	x = i32
+	y = i32
+
+define Enemy
+	hp = i32
+	damage_min_max = i32 : 2
+	name = string 16
+	position = Vec2
+
+pool Enemy ActiveEnemies : 8

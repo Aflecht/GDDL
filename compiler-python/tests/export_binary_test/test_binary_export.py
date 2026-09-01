@@ -43,6 +43,7 @@ import independent_reader as reader
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "export_test_binary_coverage.gddl")
 FIXTURE_ARRAYS = os.path.join(os.path.dirname(__file__), "export_test_binary_arrays.gddl")
+FIXTURE_POOLS = os.path.join(os.path.dirname(__file__), "export_test_binary_pools.gddl")
 
 # Ground truth, extracted directly from the reference implementation
 # (resolver.cache), not hand-derived -- see the session transcript for
@@ -355,6 +356,95 @@ def check_array_readback(build_dir):
     print("Check 4 PASSED.\n")
 
 
+def check_pool_readback(build_dir):
+    """Check 5: pools feature, stage 4's "real compiled/run output"
+    requirement for the standalone binary export target. A SEPARATE
+    fixture/build from checks 1-4 (Item/Object/arrays-Enemy have no
+    pools). Read back via independent_reader.py's own from-scratch
+    read_pool_table (a from-scratch parse of the format_version-2 pool
+    table section, sharing no code with export_binary.py's writer-side
+    gather_pool_binary_ir/write_binary), confirming: the pool table
+    entry's own name/type/count/schema_hash/record_size; that a pool's
+    schema_hash matches the SAME type's own type-table schema_hash
+    (computed by the identical compute_schema_hash function, section
+    22.4); that the Enemy type-table entry itself carries record_count
+    0 (zero named instances -- a pool contributes no records of its
+    own, section 22.2's "not identity-bearing" claim, confirmed against
+    real written bytes, not just the golden phase-1-8 fixture); and
+    that the manifest's own "pools" array field-layout accounts for
+    every byte of record_size, same discipline check_manifest_truthfulness
+    already applies to "types"."""
+    print("=== Check 5: pool table read-back (independent, separate fixture) ===")
+    prog = parse_file(FIXTURE_POOLS)
+    resolver = resolve_all(prog)
+    reg = resolver.reg
+
+    out_stem = os.path.join(build_dir, "test_pools")
+    export_binary(reg, resolver, ["Enemy"], out_stem)
+
+    with open(out_stem + ".gddldata.bin", "rb") as f:
+        data = f.read()
+    import json
+    with open(out_stem + ".gddlmeta.json") as f:
+        manifest = json.load(f)
+
+    version, entries, cursor, pool_count = reader.read_header_and_type_table(data)
+    assert pool_count == 1, f"expected 1 pool, got {pool_count}"
+
+    enemy_type_entry = next(e for e in entries if e.name == "Enemy")
+    assert enemy_type_entry.record_count == 0, \
+        f"Enemy type-table entry should carry 0 records (no named instances, " \
+        f"not identity-bearing) -- got {enemy_type_entry.record_count}"
+
+    pool_entries = reader.read_pool_table(data, cursor, pool_count)
+    assert len(pool_entries) == 1
+    pool_entry = pool_entries[0]
+    assert pool_entry.name == "ActiveEnemies", f"got {pool_entry.name!r}"
+    assert pool_entry.type_name == "Enemy", f"got {pool_entry.type_name!r}"
+    assert pool_entry.record_count == 8, f"got {pool_entry.record_count}"
+
+    # A pool of Enemy and Enemy's own type-table entry describe the same
+    # schema -- both computed via the identical compute_schema_hash/
+    # compute_record_size functions (section 22.4), so they must agree
+    # exactly, not just be independently plausible.
+    assert pool_entry.schema_hash == enemy_type_entry.schema_hash, \
+        f"pool schema_hash {pool_entry.schema_hash:016x} != " \
+        f"Enemy type-table schema_hash {enemy_type_entry.schema_hash:016x}"
+    assert pool_entry.record_size == enemy_type_entry.record_size, \
+        f"pool record_size {pool_entry.record_size} != " \
+        f"Enemy type-table record_size {enemy_type_entry.record_size}"
+
+    manifest_pool = manifest["pools"][0]
+    assert manifest_pool["name"] == "ActiveEnemies"
+    assert manifest_pool["type"] == "Enemy"
+    assert manifest_pool["schema_hash"] == f"{pool_entry.schema_hash:016x}"
+    assert manifest_pool["record_size"] == pool_entry.record_size
+    assert manifest_pool["count"] == 8
+
+    # Field byte_offset + byte_width must sum to exactly record_size --
+    # no gap, no overlap, no field hanging off the end. Same discipline
+    # check_manifest_truthfulness applies to "types", covering the
+    # string N and nested-struct (position_x/position_y flattening)
+    # fields a pool on 6502/Z80 could never hold.
+    fields = sorted(manifest_pool["fields"], key=lambda f: f["byte_offset"])
+    field_cursor = 0
+    for f in fields:
+        assert f["byte_offset"] == field_cursor, \
+            f"ActiveEnemies.{f['name']}: byte_offset {f['byte_offset']} " \
+            f"!= expected cursor {field_cursor} (gap or overlap)"
+        field_cursor += f["byte_width"]
+    assert field_cursor == manifest_pool["record_size"], \
+        f"ActiveEnemies: field widths sum to {field_cursor}, " \
+        f"manifest record_size is {manifest_pool['record_size']}"
+
+    print(f"  pool_count: {pool_count}  [OK]")
+    print(f"  Enemy type-table record_count: 0 (not identity-bearing)  [OK]")
+    print(f"  ActiveEnemies: type=Enemy count=8 record_size={pool_entry.record_size} "
+          f"schema_hash={pool_entry.schema_hash:016x} (matches Enemy's own)  [OK]")
+    print(f"  field layout accounts for every byte, incl. string N and nested-struct fields  [OK]")
+    print("Check 5 PASSED.\n")
+
+
 def main():
     build_dir = tempfile.mkdtemp(prefix="gddl_binary_test_")
     try:
@@ -375,6 +465,7 @@ def main():
         check_manifest_truthfulness(data, manifest)
         check_schema_discrimination(build_dir)
         check_array_readback(build_dir)
+        check_pool_readback(build_dir)
 
         print("ALL CHECKS PASSED.")
     finally:

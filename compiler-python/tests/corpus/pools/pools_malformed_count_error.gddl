@@ -1,0 +1,15 @@
+// Fixture: pools_malformed_count_error
+// Rule under test: pools design (SPEC.md section 22.1) -- the pool count
+// must be a plain non-negative integer literal. This is checked at parse
+// time (phase 3), before registration ever sees the declaration at all --
+// unlike the zero-count case (a well-formed integer that registration
+// separately rejects as too small), this is a count that doesn't even
+// parse as one.
+
+define Enemy
+	hp = i32
+
+pool Enemy ActiveEnemies : -1
+
+// Expected: real parse error (phase 3).
+//   pool count must be a plain non-negative integer literal, got '-1'.

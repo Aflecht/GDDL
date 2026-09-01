@@ -1,0 +1,18 @@
+// Fixture: pools_zero_count_error
+// Rule under test: pools design (SPEC.md section 22.3) -- a pool must
+// reserve at least one slot. The parser's own count regex already rejects
+// a negative or non-integer count at parse time (only plain digits ever
+// reach registration), so zero is the one remaining malformed case left
+// for registration to catch -- its own named rejection (check:
+// pool_zero_count), same "malformed and zero-valued dimensions rejected
+// at registration" precedent arrays' own field-type checks already
+// established.
+
+define Enemy
+	hp = i32
+
+pool Enemy ActiveEnemies : 0
+
+// Expected: real phase-4 error, check: pool_zero_count.
+//   pool 'ActiveEnemies' declares a count of 0 -- a pool must reserve at
+//   least one slot.

@@ -1,0 +1,16 @@
+// Fixture: pools_malformed_grammar_error
+// Rule under test: pools design (SPEC.md section 22.1) -- `pool TypeName
+// PoolName : N` is parsed as a single fixed shape (like flags' 'flags
+// Name WidthType' width check), not deferred to registry the way array
+// dimensions are. A statement with the wrong token count, or missing the
+// literal ':' in the fourth position, is rejected outright at parse time
+// (phase 3), before registration ever runs.
+
+define Enemy
+	hp = i32
+
+pool Enemy ActiveEnemies 8
+
+// Expected: real parse error (phase 3).
+//   expected 'pool TypeName PoolName : N' (a fixed-size pool of N
+//   uninitialized instances), got: 'pool Enemy ActiveEnemies 8'.

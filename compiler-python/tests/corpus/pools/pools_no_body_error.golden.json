@@ -1,0 +1,15 @@
+{
+  "fixture": "pools_no_body_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-09-01",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parse_error",
+    "error": {
+      "phase": 3,
+      "line": 12,
+      "message": "line 12: 'pool Enemy ActiveEnemies : 8' cannot have an indented body -- pool slots are always uninitialized, filled in by the game at runtime, never by the compiler"
+    }
+  }
+}

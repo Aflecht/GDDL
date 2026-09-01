@@ -1,0 +1,17 @@
+// Fixture: pools_unknown_type_error
+// Rule under test: pools design (SPEC.md section 22.3) -- a pool's
+// TypeName must name a real, existing `define`. Unlike an ordinary
+// instance's type_name (which might still surface a mismatch indirectly
+// through field_category() somewhere in phase 5/6), a pool has no body at
+// all to walk, so this is a dedicated registration-time (phase 4) check,
+// its own named rejection (check: pool_unknown_type), not a generic
+// "unsupported type" message.
+
+define Enemy
+	hp = i32
+
+pool Ghost ActiveGhosts : 8
+
+// Expected: real phase-4 error, check: pool_unknown_type.
+//   pool 'ActiveGhosts' references type 'Ghost', but no such define
+//   exists.

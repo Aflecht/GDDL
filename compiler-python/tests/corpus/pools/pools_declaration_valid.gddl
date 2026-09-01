@@ -1,0 +1,26 @@
+// Fixture: pools_declaration_valid
+// Rule under test: pools design (SPEC.md section 22) -- a `pool TypeName
+// PoolName : N` declaration parses and registers cleanly across a range of
+// field kinds (plain scalar, array, string, nested struct), and is NOT
+// identity-bearing (section 22.2): it contributes nothing to the instances
+// dict at all -- no instance name, no stable ID, nothing for phase 6/8 to
+// walk. Two separate pools of two different types side by side, to also
+// confirm each pool's own count/name namespace doesn't interfere with the
+// other.
+
+define Vec2
+	x = i32
+	y = i32
+
+define Enemy
+	hp = i32
+	damage_min_max = i32 : 2
+	name = string 16
+	position = Vec2
+
+pool Enemy ActiveEnemies : 8
+pool Vec2 Waypoints : 32
+
+// Expected: compiles cleanly, no error, no warning.
+//   duplicate_errors == []
+//   instances == {}   (pools declare no named instance -- section 22.2)

@@ -1,0 +1,13 @@
+{
+  "fixture": "pools_declaration_valid.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-09-01",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [],
+    "warnings": [],
+    "instances": {}
+  }
+}

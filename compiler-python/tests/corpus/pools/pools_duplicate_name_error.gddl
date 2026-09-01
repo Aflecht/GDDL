@@ -1,0 +1,22 @@
+// Fixture: pools_duplicate_name_error
+// Rule under test: pools design (SPEC.md section 22) -- pools are their
+// own namespace for duplicate-name purposes, same as identifier/flags/
+// define/instance names each are (registry.py's own module docstring:
+// "duplicate detection is WITHIN each namespace only"). First declaration
+// wins, the second is ignored, same precedent duplicate instance names
+// already established -- NOT checked against the shared hash-collision
+// table, since pools carry no logical/stable ID at all (section 22.2).
+
+define Enemy
+	hp = i32
+
+define Vec2
+	x = i32
+	y = i32
+
+pool Enemy ActiveEnemies : 8
+pool Vec2 ActiveEnemies : 4
+
+// Expected: real phase-4 error, check: duplicate_name.
+//   duplicate pool name 'ActiveEnemies' (first declaration wins, this one
+//   is ignored).

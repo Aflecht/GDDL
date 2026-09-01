@@ -1,0 +1,20 @@
+{
+  "fixture": "pools_duplicate_name_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-09-01",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [
+      {
+        "phase": 4,
+        "check": "duplicate_name",
+        "line": 18,
+        "message": "line 18: duplicate pool name 'ActiveEnemies' (first declaration wins, this one is ignored)"
+      }
+    ],
+    "warnings": [],
+    "instances": {}
+  }
+}

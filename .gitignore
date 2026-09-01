@@ -39,6 +39,8 @@ compiler-python/build/
 **/export_68000_test/test_68000_subset_request_bug
 **/export_68000_test/test_68000_arrays
 **/export_68000_test/test_68000_arrays_soa
+**/export_68000_test/test_68000_pools
+**/export_68000_test/test_68000_pools_soa
 **/export_68000_test/*.o
 **/export_z80_test/*.bin
 **/export_z80_test/*.sym

@@ -1,0 +1,15 @@
+{
+  "fixture": "pools_malformed_grammar_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-09-01",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parse_error",
+    "error": {
+      "phase": 3,
+      "line": 12,
+      "message": "line 12: expected 'pool TypeName PoolName : N' (a fixed-size pool of N uninitialized instances), got: 'pool Enemy ActiveEnemies 8'"
+    }
+  }
+}

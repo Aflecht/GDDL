@@ -1,0 +1,25 @@
+// Real .gddldata.bin/.gddlmeta.json validation for the pools feature --
+// stage 4's "real compiled/run output" requirement for the standalone
+// binary export target. See corpus/pools/ for the phase 1-8 golden-locked
+// coverage; this fixture covers the export-side half those fixtures
+// can't capture. Read back independently in test_binary_export.py's
+// check_pool_readback, sharing no code with the writer. No field-type
+// restriction on this target (unlike 6502/Z80 SoA) -- deliberately mixes
+// scalar, array, string, and nested-struct fields, matching the C++ and
+// 68000 targets' own pools fixtures. Zero named Enemy instances,
+// deliberately -- directly demonstrates section 22.2's "not identity-
+// bearing" claim: the type table still carries a real Enemy entry with
+// record_count 0, while the pool table entry is what actually reserves
+// storage.
+
+define Vec2
+	x = i32
+	y = i32
+
+define Enemy
+	hp = i32
+	damage_min_max = i32 : 2
+	name = string 16
+	position = Vec2
+
+pool Enemy ActiveEnemies : 8

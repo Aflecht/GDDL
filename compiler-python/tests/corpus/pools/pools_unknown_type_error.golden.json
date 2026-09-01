@@ -1,0 +1,20 @@
+{
+  "fixture": "pools_unknown_type_error.gddl",
+  "capture_status": "captured",
+  "blocked_reason": null,
+  "captured_at": "2026-09-01",
+  "compiler_core_version": null,
+  "output": {
+    "status": "parsed",
+    "duplicate_errors": [
+      {
+        "phase": 4,
+        "check": "pool_unknown_type",
+        "line": 13,
+        "message": "line 13: pool 'ActiveGhosts' references type 'Ghost', but no such define exists"
+      }
+    ],
+    "warnings": [],
+    "instances": {}
+  }
+}

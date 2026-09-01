@@ -53,6 +53,8 @@ CASES = [
     (["test_generated_flags.cpp"], "test_generated_flags"),
     (["test_generated_arrays.cpp"], "test_generated_arrays"),
     (["test_generated_arrays_soa.cpp"], "test_generated_arrays_soa"),
+    (["test_generated_pools.cpp"], "test_generated_pools"),
+    (["test_generated_pools_soa.cpp"], "test_generated_pools_soa"),
 ]
 
 

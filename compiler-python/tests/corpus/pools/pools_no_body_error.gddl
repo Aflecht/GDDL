@@ -1,0 +1,16 @@
+// Fixture: pools_no_body_error
+// Rule under test: pools design (SPEC.md section 22.1) -- a pool
+// declaration can NEVER have an indented body. There is nothing to
+// initialize (pool slots are always uninitialized, filled in by the game
+// at runtime, never by the compiler), so any indented content directly
+// under the `pool` line is a real parse error, not silently accepted or
+// silently dropped.
+
+define Enemy
+	hp = i32
+
+pool Enemy ActiveEnemies : 8
+	hp = 5
+
+// Expected: real parse error (phase 3), rejecting the indented body
+// outright.

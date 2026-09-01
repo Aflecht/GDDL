@@ -1,10 +1,10 @@
 {
   "_meta": {
-    "fixture_count": 89,
+    "fixture_count": 96,
     "batches": [
       {
         "name": "main_corpus",
-        "count": 89
+        "count": 96
       }
     ]
   },
@@ -2227,6 +2227,75 @@
           "check": null
         }
       }
+    },
+    "pools\\pools_declaration_valid.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [],
+      "warnings": [],
+      "instances": {}
+    },
+    "pools\\pools_duplicate_name_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "duplicate_name",
+          "line": 18,
+          "message": "line 18: duplicate pool name 'ActiveEnemies' (first declaration wins, this one is ignored)"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
+    "pools\\pools_malformed_count_error.gddl": {
+      "status": "parse_error",
+      "error": {
+        "phase": 3,
+        "line": 12,
+        "message": "line 12: pool count must be a plain non-negative integer literal, got '-1'"
+      }
+    },
+    "pools\\pools_malformed_grammar_error.gddl": {
+      "status": "parse_error",
+      "error": {
+        "phase": 3,
+        "line": 12,
+        "message": "line 12: expected 'pool TypeName PoolName : N' (a fixed-size pool of N uninitialized instances), got: 'pool Enemy ActiveEnemies 8'"
+      }
+    },
+    "pools\\pools_no_body_error.gddl": {
+      "status": "parse_error",
+      "error": {
+        "phase": 3,
+        "line": 12,
+        "message": "line 12: 'pool Enemy ActiveEnemies : 8' cannot have an indented body -- pool slots are always uninitialized, filled in by the game at runtime, never by the compiler"
+      }
+    },
+    "pools\\pools_unknown_type_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "pool_unknown_type",
+          "line": 13,
+          "message": "line 13: pool 'ActiveGhosts' references type 'Ghost', but no such define exists"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
+    },
+    "pools\\pools_zero_count_error.gddl": {
+      "status": "parsed",
+      "duplicate_errors": [
+        {
+          "phase": 4,
+          "check": "pool_zero_count",
+          "line": 14,
+          "message": "line 14: pool 'ActiveEnemies' declares a count of 0 -- a pool must reserve at least one slot"
+        }
+      ],
+      "warnings": [],
+      "instances": {}
     },
     "sequential_execution\\sequential_chained_ops_order_matters.gddl": {
       "status": "parsed",

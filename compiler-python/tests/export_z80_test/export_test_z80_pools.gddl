@@ -1,0 +1,15 @@
+// Real assemble/execute validation for the pools feature on the Z80
+// export target (both assembly dialects) -- stage 4's "real compiled/run
+// output" requirement. See corpus/pools/ for the phase 1-8 golden-locked
+// coverage; this fixture covers the export-side half those fixtures
+// can't capture. SoA only (Z80 pool AoS and z88dk-C mode are
+// deliberately deferred, see HANDOFF.md). u8/u16 scalar fields only,
+// matching this target's own real field-type scope for pools (string N/
+// array-typed leaf fields are rejected -- non-power-of-two stride
+// indexing would need a real multiply, same reasoning as 6502, §22.4).
+
+define Enemy
+	hp = u8
+	mp = u16
+
+pool Enemy ActiveEnemies : 4
